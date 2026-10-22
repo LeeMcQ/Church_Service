@@ -33,6 +33,12 @@ export const DEFAULTS = {
     allowWinControl: true, msgSec: 0, autoPlanTimer: true, preview: true,
     presets: [], timers: [], turnUrl: '', turnUser: '', turnPass: '', relays: '',
   },
+  // Live stream (OBS): lower thirds and the full-slide output, their look, and the OBS connection.
+  stream: {
+    autoBible: true, autoHymns: true, hymnMode: 'lines', autoOther: false, theme: 'classic', pos: 'left', size: 1, bug: false,
+    fullBg: 'stage', accent: '', lowerSec: 8, names: [],
+    obsUrl: 'ws://127.0.0.1:4455', obsPass: '', obsAuto: false, autoScene: false, camScene: '', presScene: 'SDA Sabbath · Presentation',
+  },
   // Presentation clicker: buttons taught in Clicker setup ({next:['key:F14'], prev:[…], black:[…], present:[…], clear:[…]}).
   clicker: { map: {} },
   // Background music for banners (Banners & Music → Music). auto: start when a banner or the pre-service
@@ -108,6 +114,7 @@ export function sanitizeImportedSettings(raw) {
   }
   const out = walk(DEFAULTS, raw, 0);
   if (out.ai) { delete out.ai.apiKey; delete out.ai.auto; }
+  if (out.stream) { delete out.stream.obsPass; if (out.stream.obsUrl && !/^wss?:\/\//i.test(out.stream.obsUrl)) delete out.stream.obsUrl; }
   if (out.church) for (const k of ['lat', 'lon']) if (out.church[k] != null && !(typeof out.church[k] === 'number' && Math.abs(out.church[k]) <= 180)) delete out.church[k];
   if (out.companion && out.companion.url && !/^(https?|wss?):\/\//i.test(out.companion.url)) out.companion.url = '';
   for (const c of ['fg', 'bg', 'accent']) if (out.display && out.display[c] != null && !/^#[0-9a-f]{3,8}$/i.test(out.display[c])) delete out.display[c];
@@ -118,6 +125,7 @@ export function sanitizeImportedSettings(raw) {
 export function exportableSettings(v) {
   const o = JSON.parse(JSON.stringify(v));
   if (o.ai) o.ai.apiKey = '';
+  if (o.stream) o.stream.obsPass = '';
   return o;
 }
 

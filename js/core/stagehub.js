@@ -40,8 +40,10 @@ export const hub = emitter({
 // Phones and TVs get pictures at most 1280 px wide (a 12-megapixel photo slide becomes ~150 KB);
 // videos and other large files never travel to the stage. Each picture is shrunk once.
 const MAX_W = 1280;
-const thumbs = new WeakMap();
-function thumb(blob) {
+const thumbCache = new Map(); // max width -> WeakMap(blob -> Promise<blob>)
+function thumb(blob, maxW = MAX_W) {
+  let thumbs = thumbCache.get(maxW);
+  if (!thumbs) { thumbs = new WeakMap(); thumbCache.set(maxW, thumbs); }
   let p = thumbs.get(blob);
   if (p) return p;
   p = (async () => {
@@ -50,7 +52,7 @@ function thumb(blob) {
     if (blob.size <= 160 * 1024 || /svg|gif/.test(t)) return blob;
     try {
       const bmp = await createImageBitmap(blob);
-      const sc = Math.min(1, MAX_W / bmp.width);
+      const sc = Math.min(1, maxW / bmp.width);
       const w = Math.max(1, Math.round(bmp.width * sc)), hh = Math.max(1, Math.round(bmp.height * sc));
       const c = document.createElement('canvas');
       c.width = w; c.height = hh;
@@ -64,30 +66,34 @@ function thumb(blob) {
   return p;
 }
 const isStream = (v) => typeof MediaStream !== 'undefined' && v instanceof MediaStream;
-const deckCopies = new WeakMap(); // a deck is copied once, however often it is sent
-function slim(v, depth = 0) {
+// Three sizes of copy: 'thumb' (stage screens, 1280 px), 'big' (OBS full slides, 1920 px) and 'text'
+// (OBS lower thirds: words only, no pictures except the logo).
+const SIZES = { thumb: { maxW: 1280 }, big: { maxW: 1920 }, text: { maxW: 512, keep: new Set(['logoBlob']) } };
+const deckCopies = { thumb: new WeakMap(), big: new WeakMap(), text: new WeakMap() }; // a deck is copied once
+function slim(v, size, depth = 0, key = '') {
   if (v == null) return v;
   if (typeof v === 'function') return undefined;
   if (typeof v !== 'object') return v;
-  if (isBlob(v)) return thumb(v);
+  const sz = SIZES[size];
+  if (isBlob(v)) return sz.keep && !sz.keep.has(key) ? null : thumb(v, sz.maxW);
   if (isStream(v) || depth > 14) return null;
-  if (Array.isArray(v)) return Promise.all(v.map((x) => slim(x, depth + 1)));
+  if (Array.isArray(v)) return Promise.all(v.map((x) => slim(x, size, depth + 1, key)));
   if (Array.isArray(v.frames)) {
-    let p = deckCopies.get(v);
-    if (!p) { p = slimObj(v, depth); deckCopies.set(v, p); }
+    let p = deckCopies[size].get(v);
+    if (!p) { p = slimObj(v, size, depth); deckCopies[size].set(v, p); }
     return p;
   }
-  return slimObj(v, depth);
+  return slimObj(v, size, depth);
 }
-async function slimObj(v, depth) {
+async function slimObj(v, size, depth) {
   const out = {};
   const keys = Object.keys(v);
-  const vals = await Promise.all(keys.map((k) => slim(v[k], depth + 1)));
+  const vals = await Promise.all(keys.map((k) => slim(v[k], size, depth + 1, k)));
   keys.forEach((k, i) => { if (vals[i] !== undefined) out[k] = vals[i]; });
   return out;
 }
-const slimmed = new WeakMap();
-const remoteCopy = (msg) => { let p = slimmed.get(msg); if (!p) { p = slim(msg); slimmed.set(msg, p); } return p; };
+const slimmed = { thumb: new WeakMap(), big: new WeakMap(), text: new WeakMap() };
+const remoteCopy = (msg, size = 'thumb') => { let p = slimmed[size].get(msg); if (!p) { p = slim(msg, size); slimmed[size].set(msg, p); } return p; };
 
 // ------------------------------------------------------------ outlets
 function addOutlet(o) {
@@ -108,7 +114,7 @@ function removeOutlet(id) {
 function sendTo(o, msg) {
   if (!o || !msg) return;
   if (o.remote) {
-    const p = remoteCopy(msg);
+    const p = remoteCopy(msg, o.size || 'thumb');
     o.q = o.q.then(() => p).then((m) => { if (hub.outlets.get(o.id) === o) o.send(m); }).catch((e) => console.warn('stage send', e));
   } else {
     try { o.send(msg); }
@@ -118,7 +124,9 @@ function sendTo(o, msg) {
 function broadcast(msg) { hub.outlets.forEach((o) => { if (o.ready) sendTo(o, msg); }); }
 hub.count = (pred) => { let n = 0; hub.outlets.forEach((o) => { if (o.ready && (!pred || pred(o))) n++; }); return n; };
 /** Stage screens people can see in the list (the preview inside the Stage tab is not one). */
-hub.screens = () => Array.from(hub.outlets.values()).filter((o) => o.ready && o.kind !== 'preview');
+hub.screens = () => Array.from(hub.outlets.values()).filter((o) => o.ready && o.kind !== 'preview' && o.role !== 'obs');
+/** OBS browser sources that are connected (lower third / presentation). */
+hub.obsOutputs = () => Array.from(hub.outlets.values()).filter((o) => o.ready && o.kind !== 'preview' && o.role === 'obs');
 
 // ------------------------------------------------------------ what the stage shows
 function deckFor(cue) {
@@ -170,8 +178,39 @@ function snapshot(o, full = true) {
   sendTo(o, timersMsg());
   sendTo(o, { t: 'msg', m: hub.msg });
   sendTo(o, { t: 'plan', plan: hub.plan });
+  sendTo(o, obsMsg());
   if (live.media) sendTo(o, mediaMsg(live.media));
 }
+
+// ------------------------------------------------------------ live stream (OBS) overlays
+// What the OBS browser sources show besides the slides: lower thirds (a name, an announcement, or —
+// automatically — the Bible verse or hymn words on screen), a scrolling ticker and the church logo.
+// Like stage messages, none of this goes to the projector.
+hub.lower = null;        // {id, title, text, kind, until}
+hub.ticker = null;       // {id, text}
+hub.overlaysOn = true;   // the "Hide all overlays" switch
+function streamCfg() {
+  const s = settings.v.stream;
+  return { autoBible: s.autoBible, autoHymns: s.autoHymns, hymnMode: s.hymnMode, autoOther: s.autoOther, theme: s.theme, pos: s.pos, size: s.size,
+    bug: s.bug, fullBg: s.fullBg, accent: s.accent || '', church: ((settings.v.church && settings.v.church.name) || '').trim() };
+}
+function obsMsg() { return { t: 'obs', cfg: streamCfg(), lower: hub.lower, ticker: hub.ticker, on: hub.overlaysOn, now: Date.now() }; }
+const pushObs = debounce(() => { broadcast(obsMsg()); hub.emit('overlay'); }, 40);
+settings.on('change:stream', (p) => { if (!/^stream\.(obs|names|autoScene|camScene|presScene)/.test(p)) pushObs(); });
+let lowerT = null;
+/** Show a lower third: {title, text, kind: 'name'|'text'}; sec 0 = until hidden. */
+hub.showLower = (item, sec) => {
+  clearTimeout(lowerT);
+  const title = String((item && item.title) || '').trim().slice(0, 120), text = String((item && item.text) || '').trim().slice(0, 400);
+  if (!title && !text) { hub.hideLower(); return; }
+  sec = sec != null ? +sec : +settings.v.stream.lowerSec || 0;
+  hub.lower = { id: uid(), title, text, kind: (item && item.kind) || 'name', until: sec > 0 ? Date.now() + sec * 1000 : 0 };
+  if (sec > 0) { const id = hub.lower.id; lowerT = setTimeout(() => { if (hub.lower && hub.lower.id === id) hub.hideLower(); }, sec * 1000); }
+  pushObs();
+};
+hub.hideLower = () => { clearTimeout(lowerT); hub.lower = null; pushObs(); };
+hub.setTicker = (text) => { text = String(text || '').trim().slice(0, 600); hub.ticker = text ? { id: uid(), text } : null; pushObs(); };
+hub.setOverlays = (on) => { hub.overlaysOn = !!on; pushObs(); };
 const mediaMsg = (m) => ({ t: 'media', time: m.time || 0, dur: m.dur || 0, paused: !!m.paused, now: Date.now() });
 
 live.on('live', () => { lastNextId = null; broadcast(liveMsg()); pushNext(); });
@@ -327,8 +366,11 @@ setInterval(() => {
 const ATTEMPTS = 5;
 function you(o, extra) { sendTo(o, Object.assign({ t: 'you', id: o.id, control: !!o.control, name: o.name || '' }, extra || {})); }
 function welcome(o, m) {
+  // OBS browser sources: larger pictures for the full-slide output, words only for the lower third.
+  if (m.kind === 'obs') { o.role = 'obs'; o.mode = m.mode === 'full' ? 'full' : 'lower'; if (o.remote) o.size = o.mode === 'full' ? 'big' : 'text'; }
+  else o.role = 'stage';
   o.dev = String(m.dev || '').slice(0, 60);
-  o.name = String(m.name || '').trim().slice(0, 40) || o.name || (o.kind === 'peer' || o.kind === 'lan' ? o.dev : '') || defaultName(o);
+  o.name = String(m.name || '').trim().slice(0, 40) || o.name || (o.role !== 'obs' && (o.kind === 'peer' || o.kind === 'lan') ? o.dev : '') || defaultName(o);
   if (o.kind === 'preview') o.control = true;
   else if (o.kind === 'window') o.control = settings.v.stage.allowWinControl !== false;
   else if (o.granted != null) o.control = o.granted;
@@ -340,7 +382,7 @@ function welcome(o, m) {
   hub.emit('outlets');
   if (o.kind !== 'preview') hub.emit('joined', o);
 }
-function defaultName(o) { return { window: 'Stage window', cast: 'Cast screen', lan: 'Church network screen', peer: 'Phone / laptop' }[o.kind] || 'Stage screen'; }
+function defaultName(o) { if (o.role === 'obs') return 'OBS · ' + (o.mode === 'full' ? 'presentation' : 'lower third'); return { window: 'Stage window', cast: 'Cast screen', lan: 'Church network screen', peer: 'Phone / laptop' }[o.kind] || 'Stage screen'; }
 
 function incoming(o, m) {
   if (!m || typeof m !== 'object' || !m.t) return;
@@ -413,7 +455,7 @@ window.addEventListener('message', (e) => {
   for (const x of hub.outlets.values()) if (x.w === e.source) { o = x; break; }
   if (!o) {
     if (m.t !== 'hello') return;
-    o = windowOutlet(e.source, m.kind === 'preview' ? 'preview' : 'window');
+    o = windowOutlet(e.source, m.kind === 'preview' || m.preview ? 'preview' : 'window');
     if (o.kind === 'window') stageWin = e.source;
   }
   incoming(o, m);
@@ -599,6 +641,24 @@ hub.joinUrl = (code) => {
   const u = new URL('stage.html', joinBase());
   const r = relaysFrom(settings.v.stage.relays);
   u.search = ''; u.hash = 'c=' + (code || settings.v.stage.code) + (r ? '&r=' + encodeURIComponent(r.join(',')) : '');
+  return u.href;
+};
+/**
+ * Address of an OBS browser source (mode 'lower' or 'full'). With the companion running, OBS loads it from the
+ * church PC (works without internet); otherwise it follows by room code like a phone does.
+ */
+hub.obsUrl = (mode, ctx) => {
+  const comp = ctx && ctx.companion;
+  if (comp) {
+    let obsHost = '';
+    try { obsHost = new URL(settings.v.stream.obsUrl.replace(/^ws/, 'http')).hostname; } catch (e) { /* */ }
+    const onThisPc = !obsHost || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(obsHost);
+    const base = onThisPc ? location.protocol + '//localhost:' + (location.port || '80') : ((comp.urls && comp.urls[0]) || location.origin);
+    return base + '/obs.html?via=lan&mode=' + mode;
+  }
+  const r = relaysFrom(settings.v.stage.relays);
+  const u = new URL('obs.html', joinBase());
+  u.search = ''; u.hash = 'c=' + hub.ensureCode() + '&mode=' + mode + (r ? '&r=' + encodeURIComponent(r.join(',')) : '');
   return u.href;
 };
 /** Short address to type: …/stage (the page asks for the code). */

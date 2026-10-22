@@ -14,7 +14,7 @@ import hashlib, json, os, re, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INCLUDE_DIRS = ['css', 'js', 'vendor', 'fonts', 'icons', 'data']
-INCLUDE_FILES = ['index.html', 'display.html', 'stage.html', 'manifest.webmanifest']
+INCLUDE_FILES = ['index.html', 'display.html', 'stage.html', 'obs.html', 'manifest.webmanifest']
 SKIP = re.compile(r'(\.map$|\.md$|LICENSE|\.txt$|\.DS_Store)')
 
 
@@ -66,7 +66,7 @@ def check_offline_safe(files):
                     bad.append(os.path.relpath(path, ROOT) + ' imports a missing file: ' + m.group(1))
                 elif rel not in listed:
                     bad.append(os.path.relpath(path, ROOT) + ' imports ' + rel + ', which is not in the offline list')
-    for page in ('index.html', 'display.html', 'stage.html'):
+    for page in ('index.html', 'display.html', 'stage.html', 'obs.html'):
         html = open(os.path.join(ROOT, page), encoding='utf-8').read()
         for m in _re.finditer(r"""<(?:script|link)[^>]+(?:src|href)=["'](https?:)?//""", html):
             bad.append(page + ' loads something from the internet: ' + m.group(0)[:80])

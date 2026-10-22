@@ -21,7 +21,6 @@ const COMMUNION = [
 
 export default function create(ctx) {
   const { live, toast: showToast } = ctx;
-  let overlayWin = null;
   let captionRec = null;
 
   const lowerText = h('input.field', { placeholder: 'Lower third text (e.g. John 3:16 or Hymn 73)', style: { width: '100%' } });
@@ -84,19 +83,6 @@ export default function create(ctx) {
     return b;
   }
 
-  function openOverlay() {
-    if (overlayWin && !overlayWin.closed) { overlayWin.focus(); return; }
-    overlayWin = window.open('', 'sda-overlay', 'width=1280,height=720,menubar=0,toolbar=0');
-    if (!overlayWin) { showToast('Pop-up blocked for overlay window.', 'err'); return; }
-    overlayWin.document.write(`<!doctype html><html><head><title>Lower Third Overlay</title>
-      <style>html,body{margin:0;height:100%;background:transparent;overflow:hidden}
-      #bar{position:fixed;left:0;right:0;bottom:0;padding:18px 32px;background:rgba(0,0,0,.72);
-      color:#fff;font:22px/1.3 system-ui,sans-serif;display:none;backdrop-filter:blur(4px)}
-      #bar.show{display:block} .kind{font-size:13px;opacity:.7;letter-spacing:.08em;text-transform:uppercase}</style></head>
-      <body><div id="bar"><div class="kind" id="k"></div><div id="txt"></div></div></body></html>`);
-    overlayWin.document.close();
-  }
-
   const KIND_LABEL = { scripture: 'Scripture', hymn: 'Hymn', speaker: 'Speaker', offering: 'Offering', custom: '' };
   /** Projector: the lower-third text as a slide on the Next screen. */
   function stageLower() {
@@ -104,20 +90,13 @@ export default function create(ctx) {
     if (!text) { showToast('Type the lower-third text first.', 'err'); return; }
     stage(textCue('tools:lower:' + text, text, 'Lower third', [{ title: KIND_LABEL[lowerKind.value] || '', text }]), false);
   }
-  /** Streaming: the bar in the separate overlay window (for OBS), not the projector. */
+  /** Streaming: the lower third on the OBS overlay (Stream tab), not the projector. */
   function showLowerOnStream() {
     const text = lowerText.value.trim();
     if (!text) { showToast('Type the lower-third text first.', 'err'); return; }
-    openOverlay();
-    if (overlayWin && !overlayWin.closed) {
-      const bar = overlayWin.document.getElementById('bar');
-      overlayWin.document.getElementById('k').textContent = KIND_LABEL[lowerKind.value] || '';
-      overlayWin.document.getElementById('txt').textContent = text;
-      bar.classList.add('show');
-      clearTimeout(showLowerOnStream.t);
-      showLowerOnStream.t = setTimeout(() => { if (overlayWin && !overlayWin.closed) bar.classList.remove('show'); }, 12000);
-      showToast('Shown on the stream overlay for 12 seconds.', 'ok');
-    }
+    const kind = lowerKind.value;
+    ctx.stage.showLower(kind === 'speaker' ? { title: text, text: '', kind: 'name' } : { title: KIND_LABEL[kind] || '', text, kind: 'text' });
+    showToast(ctx.stage.obsOutputs().length ? 'Shown on the stream.' : 'Shown on the stream overlay. Set up OBS in the Stream tab to see it there.', 'ok', 3500);
   }
 
   // Captions go on the display's caption line, over whatever is on screen (they never replace a slide).
@@ -179,8 +158,8 @@ export default function create(ctx) {
         h('div.row', { style: { gap: '8px', marginBottom: '8px' } }, lowerKind, lowerText),
         h('div.row.wrap', btn('next', 'Set as Next', stageLower, { label: true, cls: 'primary' }),
           btn('link', 'Show on stream overlay', showLowerOnStream, { label: true }),
-          btn('x', 'Clear overlay', () => { if (overlayWin && !overlayWin.closed) overlayWin.document.getElementById('bar')?.classList.remove('show'); }, { label: true })),
-        h('p.note', 'Set as Next puts the text on the green Next screen for the projector; Present (F5) shows it. The stream overlay is a separate window for OBS (browser source, transparent background).')),
+          btn('x', 'Hide on stream', () => ctx.stage.hideLower(), { label: true })),
+        h('p.note', 'Set as Next puts the text on the green Next screen for the projector; Present (F5) shows it. Show on stream puts it on the OBS lower third only (Stream tab).')),
       h('div.card', { style: { marginBottom: '12px', padding: '12px', border: '1px solid var(--line)', borderRadius: '10px' } },
         h('h3', { style: { margin: '0 0 8px' } }, 'Responsive readings'),
         h('p.note', { style: { marginBottom: '8px' } }, 'Click to put a reading on the green Next screen, then Present (F5). Double-click to show it at once.'),
@@ -196,9 +175,9 @@ export default function create(ctx) {
         h('p.note', 'Offering banners (with a verse and a QR code for online giving) are made in Banners.'),
         h('button.btn', { type: 'button', style: { marginTop: '8px' }, onclick: () => ctx.showTab('ai') }, icon('banner'), h('span', 'Open Banners'))),
       h('div.card', { style: { marginBottom: '12px', padding: '12px', border: '1px solid var(--line)', borderRadius: '10px' } },
-        h('h3', { style: { margin: '0 0 8px' } }, 'Streaming output'),
-        h('p.note', 'Open the overlay window above, then in OBS add a Browser Source pointing at this page (or the overlay window). Use a transparent background for lower thirds over camera. The main display.html remains the full projector output.'),
-        btn('link', 'Open streaming overlay window', openOverlay, { label: true })),
+        h('h3', { style: { margin: '0 0 8px' } }, 'Live stream (OBS)'),
+        h('p.note', 'Lower thirds with Bible verses and hymn words, names, a ticker, the slides for a presentation scene, and one-click OBS set-up are in the Stream tab.'),
+        btn('live', 'Stream tab', () => ctx.showTab('stream'), { label: true })),
       h('div.card', { style: { padding: '12px', border: '1px solid var(--line)', borderRadius: '10px' } },
         h('h3', { style: { margin: '0 0 8px' } }, 'Live captions (experimental)'),
         h('p.note', 'Uses the browser’s speech recognition (needs internet in Chrome/Edge). The words appear on the caption line at the bottom of the screen, over whatever is showing. Full multi-language translation remains planned.'),

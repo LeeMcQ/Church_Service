@@ -15,9 +15,10 @@ import { openPip, pipSupported } from './pip.js';
 import { clicker, actionFor, sigOfKey, sigOfMouse } from './core/clicker.js';
 import { openClickerSetup, builtinAction } from './clickerui.js';
 import { hub as stageHub, timerValue } from './core/stagehub.js';
+import { obs } from './core/obsctl.js';
 
 export const VERSION = '1.4.0';
-export const BUILD = '6758fd2';
+export const BUILD = 'ee6baa5';
 
 const TABS = [
   { id: 'bible', label: 'Bible', icon: 'bible', file: 'bible.js', load: () => import('./tabs/bible.js') },
@@ -29,6 +30,7 @@ const TABS = [
   { id: 'plan', label: 'Plan', icon: 'plan', file: 'plan.js', load: () => import('./tabs/plan.js') },
   { id: 'tools', label: 'Tools', icon: 'grid', file: 'tools.js', load: () => import('./tabs/tools.js') },
   { id: 'stage', label: 'Stage', icon: 'stage', file: 'stage.js', load: () => import('./tabs/stage.js') }, // second screen for the platform (confidence monitor)
+  { id: 'stream', label: 'Stream', icon: 'live', file: 'stream.js', load: () => import('./tabs/stream.js') }, // OBS: lower thirds, slides, scene switching
   null,
   { id: 'settings', label: 'Settings', icon: 'settings', file: 'settings.js', load: () => import('./tabs/settings.js') },
 ];
@@ -60,6 +62,7 @@ const ctx = {
   companion: null,
   installPrompt: null,
   stage: stageHub,
+  obs,
 };
 window.selah = ctx; // handy for debugging from the console (name kept for existing scripts)
 
@@ -142,7 +145,7 @@ async function showTab(id) {
 
 // ------------------------------------------------------------ rail
 // On phones only five buttons fit comfortably: Bible, Hymns, Banners, Slides, Plan and More (the rest).
-const MORE_TABS = ['video', 'web', 'tools', 'stage', 'settings'];
+const MORE_TABS = ['video', 'web', 'tools', 'stage', 'stream', 'settings'];
 const MORE_MENU = MORE_TABS; // Banners has its own button in the rail (never repeated in this menu)
 TABS.forEach((t, i) => {
   if (!t) { rail.appendChild(h('div.rail-gap')); return; }
@@ -424,6 +427,19 @@ function stageMenu(anchor) {
     { label: 'Stage tab (layout, timers, who is connected)', icon: 'stage', onclick: () => showTab('stage') },
   ]);
 }
+// OBS: a red LIVE / REC mark in the top bar while OBS streams or records (click: Stream tab).
+const obsPill = h('button.obs-pill', { type: 'button', hidden: true, title: 'OBS is live — open the Stream tab', onclick: () => showTab('stream') });
+stageBtn.after(obsPill);
+function paintObsPill() {
+  const on = obs.state === 'on' && (obs.streaming || obs.recording);
+  obsPill.hidden = !on;
+  if (!on) return;
+  const since = obs.streaming ? obs.streamSince : obs.recordSince;
+  const s = Math.max(0, Math.floor((Date.now() - since) / 1000));
+  obsPill.textContent = (obs.streaming ? '● LIVE ' : '● REC ') + Math.floor(s / 3600) + ':' + String(Math.floor(s / 60) % 60).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+}
+obs.on('change', paintObsPill); obs.on('state', paintObsPill);
+setInterval(paintObsPill, 1000);
 stageHub.on('blocked', () => ui.toast('The browser blocked the stage window. Allow pop-ups for this site, then try again.', 'err', 7000));
 stageHub.on('talk', (t) => ui.toast(h('span', h('b', t.from + ': '), t.text, ' ', h('button.btn.sm', { type: 'button', onclick: () => showTab('stage') }, 'Reply')), 'ok', 12000));
 stageHub.on('joined', (o) => { if (o.kind === 'peer' || o.kind === 'lan') ui.toast((o.name || 'A device') + ' is following on the stage screen.', '', 2600); });
@@ -875,6 +891,7 @@ if ('launchQueue' in window) {
 registerSW();
 detectCompanion();
 stageHub.start();
+obs.start();
 // Warm the Hymns tab in the background so "Go to 73" is instant.
 setTimeout(() => getTab('hymns').catch(() => {}), 1500);
 // The order of service also shows on the stage screens: load the Plan tab quietly too.
