@@ -365,11 +365,18 @@ shrunk to phone size (videos are never sent). A phone that loses the connection,
 reconnects by itself. **New code** disconnects everyone; on networks that block direct connections (rare) a TURN server
 can be set under *Connection settings…*.
 
+**Only the real media desk is followed.** The media desk has its own signing key; the QR code (and the OBS addresses)
+carry its fingerprint, and a phone or OBS source accepts slides only from the peer that proves that key. Someone who
+only has the room code cannot show fake slides or stream overlays. A phone that typed the code by hand trusts the first
+media desk that proves a key and remembers it. On the church network each screen sends a private key of its own, so no
+screen can act in another's name.
+
 **Control from the stage (optional):** stage screens only follow, until someone enters the **control PIN** shown in the
 Stage tab (⚙ → *Unlock controls*), or you switch on **Control** for that device in *Connected screens*. Then they get
 Previous / Next / Show Next / Black / Logo / Clear and the timer buttons, and the keys → ← Page Up/Down and B work there
-too (a presentation clicker plugged into the stage laptop works). Wrong PINs are limited to five tries a minute; **New
-PIN** takes control away again. The stage window on this PC may control by default (a touch screen on the platform).
+too (a presentation clicker plugged into the stage laptop works). Wrong PINs are limited to five tries a minute for
+the whole media desk (reloading or rejoining does not reset it). Switching **Control** off for a device sticks even if
+it reloads with a saved PIN; **New PIN** takes away control given by PIN (devices you allowed by hand keep it). The stage window on this PC may control by default (a touch screen on the platform).
 
 **Talk back:** every stage screen has **Talk to the media desk** — quick replies ("Ready", "Need 5 more minutes",
 "Microphone problem"…) or typed text. It appears as a notice in SDA Sabbath and in the Stage tab, with *Reply*.
@@ -392,11 +399,13 @@ The **Stream** tab (under More) feeds OBS Studio. Two Browser Sources follow SDA
 | **SDA Sabbath · Lower third** (transparent, over the camera) | **Automatically:** the reference and verse when a Bible passage goes on screen; the hymn words (or only the title) when a hymn is on screen; optionally other text slides. **By hand:** a name and title ("Pastor … — Guest speaker", saved names one click away), an announcement, a **scrolling ticker**, the **church logo** in the corner. A name shown by hand goes over the automatic words while it is up. **Show overlays on the stream** off hides everything at once. |
 | **SDA Sabbath · Slides** (full screen) | The slides exactly as on the projector, for a "Presentation" scene. **Text over the camera** makes the background see-through, so Bible and hymn text sits over the camera picture. Black, videos, web pages and screen sharing show nothing here (add a Window Capture of the display window for videos). |
 
-**Setting up OBS — one click:** in OBS (28 or newer) open **Tools → WebSocket Server Settings**, tick **Enable WebSocket
-server**, and copy the password (**Show Connect Info**). In SDA Sabbath → Stream, paste it and press **Connect & set up
-OBS**. SDA Sabbath adds the lower third on top of your camera scene and creates a **SDA Sabbath · Presentation** scene with
-the slides. Press it again any time to repair or update the sources. OBS on another computer: type its address
-(`ws://192.168.1.20:4455`).
+**Setting up OBS — two clicks:** in OBS (28 or newer) open **Tools → WebSocket Server Settings**, tick **Enable WebSocket
+server**, and copy the password (**Show Connect Info**). In SDA Sabbath → Stream: **1. Connect to OBS** (nothing in OBS
+changes yet), **2.** check the camera scene (the scene with your webcam / capture card is picked automatically) and press
+**Set up OBS**. SDA Sabbath adds the lower third on top of your camera scene and creates a **SDA Sabbath · Presentation**
+scene with the slides. Press it again any time to repair or update the sources (a size or CSS you set in OBS is kept;
+choosing another camera scene moves the lower third). OBS on another computer: open SDA Sabbath from the companion on
+that computer (an https page may only reach OBS on the same PC), or set it up by hand.
 
 **By hand:** Stream → *Set up OBS by hand* → **Copy address**, then in OBS: Sources → + → **Browser** → paste the URL,
 Width 1920, Height 1080. Or drag the **Drag into OBS** button onto the Sources list.
@@ -405,11 +414,18 @@ Width 1920, Height 1080. Or drag the **Drag into OBS** button onto the Sources l
 (`http://localhost:7777/obs.html?via=lan&mode=lower`) and needs no internet. Otherwise the sources follow over the internet
 with the same room code as the stage screens (turned on automatically), peer to peer and encrypted, like phones do.
 
-**OBS control** (when connected): the scene list (click to put a scene on air), **Start/Stop streaming** and
-**recording** (with a confirmation), and a red **● LIVE 0:42:10 / ● REC** mark in the top bar of SDA Sabbath.
+**OBS control** (when connected): the scene list (click to put a scene on air — in **Studio Mode** into Preview, and you
+press Transition), **Start/Stop streaming** with a pre-flight check (lower third and slides connected, scene on air,
+overlays on), **recording**, stream health while live (connection, dropped frames, reconnecting), and a red
+**● LIVE 0:42:10 / ● REC** mark in the top bar of SDA Sabbath. Names of the people leading today's plan parts are one
+click away under Lower thirds.
 **Follow the slides** switches OBS to the Presentation scene for slides, pictures and banners and back to the camera scene
-for Bible verses, hymns, black and clear (the lower third then carries the words). It only switches between those two
-scenes, so a scene you choose yourself in OBS (pre-service loop, closing card) is never taken off air.
+for Bible verses, hymns, black and clear (the lower third then carries the words — if automatic words are off, it
+stays on the slides). Videos and screen sharing go to the camera scene, the presentation scene or nowhere (your choice).
+It only switches between those two scenes, so a scene you choose yourself in OBS (pre-service loop, closing card) is
+never taken off air, and picking a scene in OBS pauses following until the next item. While the presentation scene is on
+air, the lower third leaves out the automatic words (the slide already shows them). Renamed scenes are followed.
+**Text over the camera** puts the camera scene underneath the slides in the presentation scene.
 
 **Look:** Classic (dark bar), Light or Minimal (text with shadow only), left or centred, four sizes, accent colour (or the
 projector's), all inside the broadcast-safe area. The tab has a live preview over a checkerboard (= see-through).

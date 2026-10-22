@@ -24,31 +24,43 @@ export default function create(ctx) {
   // ------------------------------------------------------------ 1. connect OBS
   const urlIn = h('input.field', { value: S().obsUrl || 'ws://127.0.0.1:4455', spellcheck: 'false', 'aria-label': 'OBS WebSocket address', style: { width: '220px' } });
   const passIn = h('input.field', { value: S().obsPass || '', type: 'password', autocomplete: 'off', placeholder: 'WebSocket password', 'aria-label': 'OBS WebSocket password', style: { width: '200px' } });
-  const camSel = h('select.field', { 'aria-label': 'Camera scene' });
+  let camPicked = false;
+  const camSel = h('select.field', { 'aria-label': 'Camera scene', onchange: () => { camPicked = true; } });
   const obsState = h('div.st-net');
-  const setupBtn = h('button.btn.primary', { type: 'button', onclick: () => connectAndSetup() }, icon('link'), h('span', 'Connect & set up OBS'));
+  const connBtn = h('button.btn.primary', { type: 'button', onclick: () => connectOnly() }, icon('link'), h('span', 'Connect to OBS'));
+  const setupBtn = h('button.btn.primary', { type: 'button', onclick: () => setupNow() }, icon('check'), h('span', 'Set up OBS'));
   const disBtn = h('button.btn.sm', { type: 'button', onclick: () => { obs.disconnect(); } }, icon('x'), h('span', 'Disconnect'));
-  const camRow = h('div.row.wrap', h('span.note', 'Camera scene'), camSel);
+  const camRow = h('div.st-step', h('div', h('b', '2. '), 'Which scene has your camera? The lower third goes on top of it.'), h('div.row.wrap', camSel, setupBtn));
   const autoCard = card('Connect OBS (automatic)',
     h('p.note', 'One click puts SDA Sabbath into OBS: a “', h('b', LOWER_NAME), '” overlay on your camera scene, and a “', h('b', S().presScene), '” scene with the slides full screen. Needs OBS 28 or newer: in OBS open ', h('b', 'Tools → WebSocket Server Settings'), ', tick ', h('b', 'Enable WebSocket server'), ', and copy the password from ', h('b', 'Show Connect Info'), '.'),
-    h('div.row.wrap', urlIn, passIn, setupBtn, disBtn),
+    h('div.st-step', h('div', h('b', '1. '), 'Connect'), h('div.row.wrap', urlIn, passIn, connBtn, disBtn)),
     camRow,
     obsState,
-    h('p.note', 'OBS on another computer: use its address (e.g. ws://192.168.1.20:4455), or set it up by hand below. If the browser asks to allow access to devices on your network, allow it.'));
+    h('p.note', 'OBS on another computer: open SDA Sabbath from the companion on that computer, or set OBS up by hand below. If the browser asks to allow access to devices on your network, allow it.'));
 
-  async function connectAndSetup() {
+  // Step 1 only connects (nothing in OBS changes); step 2 creates the sources once the camera scene is known.
+  let camGuess = '';
+  async function connectOnly() {
     settings.set('stream.obsUrl', urlIn.value.trim() || 'ws://127.0.0.1:4455');
     settings.set('stream.obsPass', passIn.value);
-    if (obs.state !== 'on') {
-      const ok = await obs.connect({ url: urlIn.value.trim(), pass: passIn.value });
-      if (!ok) { toast(obs.error || 'Could not connect to OBS.', 'err', 8000); return; }
-    }
+    connBtn.disabled = true;
+    const ok = await obs.connect({ url: urlIn.value.trim(), pass: passIn.value });
+    connBtn.disabled = false;
+    if (!ok) { toast(obs.error || 'Could not connect to OBS.', 'err', 9000); return; }
+    camGuess = S().camScene && obs.scenes.includes(S().camScene) ? S().camScene : (await obs.findCameraScene()) || '';
+    paintAll();
+    if (!S().camScene) toast('Connected to OBS. Check the camera scene, then press “Set up OBS”.', 'ok', 6000);
+  }
+  async function setupNow() {
+    if (obs.state !== 'on') { await connectOnly(); if (obs.state !== 'on') return; }
     await prepareLinks();
+    setupBtn.disabled = true;
     try {
       const u = urls();
       const r = await obs.setup({ lowerUrl: u.lower, fullUrl: u.full, camScene: camSel.value });
       toast('OBS is set up: lower third on “' + r.cam + '”, slides on “' + r.pres + '”.', 'ok', 6000);
-    } catch (e) { toast('OBS set-up failed: ' + e.message, 'err', 8000); }
+    } catch (e) { toast('OBS set-up failed: ' + e.message, 'err', 9000); }
+    setupBtn.disabled = false;
     paintAll();
   }
   /** The internet link must be on for OBS to follow by room code (not needed with the companion). */
@@ -89,13 +101,32 @@ export default function create(ctx) {
   const streamBtn = h('button.btn', { type: 'button', onclick: () => toggleOut('stream') });
   const recBtn = h('button.btn', { type: 'button', onclick: () => toggleOut('record') });
   const outState = h('div.row.wrap.st-out');
-  const autoSceneT = toggle('Follow the slides: switch to the presentation scene for slides, pictures and banners, back to the camera for Bible, hymns, black and clear', !!S().autoScene, (v) => settings.set('stream.autoScene', v));
-  const controlCard = card('OBS control', outState, h('div.row.wrap', streamBtn, recBtn), h('div.note', 'Scenes (click to put on air):'), sceneChips, autoSceneT,
+  const autoSceneT = toggle('Follow the slides: the presentation scene for slides, pictures and banners; the camera (with the words in the lower third) for Bible verses and hymns, black and clear', !!S().autoScene, (v) => { settings.set('stream.autoScene', v); if (v) obs.resumeAuto(); });
+  const mediaSel = select([['camera', 'the camera scene'], ['presentation', 'the presentation scene (with a Window Capture of the display)'], ['stay', 'no change']], S().mediaScene || 'camera', (v) => settings.set('stream.mediaScene', v));
+  const studioT = toggle('In Studio Mode, put scenes in Preview (you press Transition)', S().studioPreview !== false, (v) => settings.set('stream.studioPreview', v));
+  const pausedEl = h('div.st-showing', { hidden: true }, h('span.st-pill', 'Following paused'), h('span.grow', 'You chose a scene in OBS. Following starts again with the next item.'),
+    h('button.btn.sm', { type: 'button', onclick: () => obs.resumeAuto() }, icon('play'), h('span', 'Resume now')));
+  const healthEl = h('div.note.st-health');
+  const controlCard = card('OBS control', outState, healthEl, h('div.row.wrap', streamBtn, recBtn), h('div.note', 'Scenes (click to put on air):'), sceneChips, autoSceneT,
+    h('div.row.wrap', h('span.note', 'Videos and screen sharing switch to'), mediaSel), studioT, pausedEl,
     h('p.note', 'Scene switching only moves between the camera scene and the presentation scene, so a scene you pick yourself in OBS (pre-service loop, closing card) is never taken off air.'));
   async function toggleOut(which) {
     const on = which === 'stream' ? obs.streaming : obs.recording;
     if (on && !(await confirmBox(which === 'stream' ? 'Stop the live stream?' : 'Stop recording?', which === 'stream' ? 'Viewers will see the stream end.' : 'The recording file is closed.', which === 'stream' ? 'Stop streaming' : 'Stop recording', true))) return;
-    if (!on && which === 'stream' && !(await confirmBox('Start the live stream?', 'OBS starts streaming to the service set in OBS → Settings → Stream.', 'Go live'))) return;
+    if (!on && which === 'stream') {
+      // Pre-flight: what viewers will see when the stream starts.
+      const outs = hub.obsOutputs();
+      const checks = [
+        [outs.some((o) => o.mode === 'lower'), 'Lower third is connected in OBS'],
+        [outs.some((o) => o.mode === 'full'), 'Presentation (slides) is connected in OBS'],
+        [!!obs.program, 'On air now: ' + (obs.program || '—')],
+        [hub.overlaysOn, hub.overlaysOn ? 'Overlays are switched on' : 'Overlays are hidden (switch them on under Lower thirds)'],
+      ];
+      const body = h('div.col', h('p', 'OBS starts streaming to the service set in OBS → Settings → Stream.'),
+        h('ul.st-check', ...checks.map(([ok, t]) => h('li' + (ok ? '.ok' : '.no'), (ok ? '✓ ' : '! ') + t))));
+      const go = await new Promise((res) => { let d = false; modal({ title: 'Start the live stream?', body, onclose: () => { if (!d) res(false); }, actions: [{ label: 'Cancel', onclick: () => { d = true; res(false); } }, { label: 'Go live', primary: true, onclick: () => { d = true; res(true); } }] }); });
+      if (!go) return;
+    }
     try { await (which === 'stream' ? obs.toggleStream() : obs.toggleRecord()); } catch (e) { toast('OBS: ' + e.message, 'err', 6000); }
   }
 
@@ -135,6 +166,10 @@ export default function create(ctx) {
     h('div.row', tickIn, h('button.btn', { type: 'button', onclick: () => hub.setTicker(tickIn.value) }, h('span', 'Start')), h('button.btn', { type: 'button', onclick: () => hub.setTicker('') }, h('span', 'Stop'))));
   function paintNames() {
     clear(namesEl);
+    // Who leads the parts of today's plan, one click away.
+    const fromPlan = [];
+    ((hub.plan && hub.plan.items) || []).forEach((it) => { if (it.role && !fromPlan.some((x) => x.t === it.role)) fromPlan.push({ t: it.role, r: it.t }); });
+    fromPlan.slice(0, 12).forEach((x) => namesEl.append(h('button.chip.plan-chip', { type: 'button', title: 'From the service plan — show now', onclick: () => { nameIn.value = x.t; roleIn.value = x.r || ''; hub.showLower({ title: x.t, text: x.r || '', kind: 'name' }); } }, icon('plan'), x.t + (x.r ? ' · ' + x.r : ''))));
     (S().names || []).forEach((x, i) => {
       const chip = h('button.chip', { type: 'button', title: 'Show this name now (right-click to remove)', onclick: () => { nameIn.value = x.t; roleIn.value = x.r || ''; hub.showLower({ title: x.t, text: x.r || '', kind: 'name' }); },
         oncontextmenu: (e) => { e.preventDefault(); const list = (S().names || []).slice(); list.splice(i, 1); settings.set('stream.names', list); paintNames(); } },
@@ -170,6 +205,7 @@ export default function create(ctx) {
       h('label', 'Accent colour'), h('div.row', h('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(S().accent) ? S().accent : '#c9a44c', oninput: (e) => settings.set('stream.accent', e.target.value) }),
         h('button.btn.sm', { type: 'button', onclick: () => settings.set('stream.accent', '') }, 'Same as the projector')),
       h('label', 'Presentation'), seg([['stage', 'Same as projector'], ['transparent', 'Text over the camera']], S().fullBg, (v) => settings.set('stream.fullBg', v))),
+    h('p.note', 'Text over the camera: the slide background is left out and the camera scene is put underneath the slides in the presentation scene (when OBS is connected).'),
     toggle('Church logo in the corner of the stream (from Settings → Screen)', S().bug, (v) => settings.set('stream.bug', v)));
 
   // ------------------------------------------------------------ preview
@@ -189,19 +225,30 @@ export default function create(ctx) {
   function paintObs() {
     const st = obs.state;
     obsState.className = 'st-net ' + (st === 'on' ? 'on' : st === 'error' || st === 'auth' ? 'error' : '');
-    obsState.textContent = st === 'on' ? 'Connected to OBS' + (obs.version ? ' (WebSocket ' + obs.version + ')' : '') + ' · ' + hub.obsOutputs().length + ' SDA Sabbath source(s) following'
-      : st === 'connecting' ? (obs.error || 'Connecting to OBS…') : obs.error || 'Not connected';
-    setupBtn.querySelector('span').textContent = st === 'on' ? 'Set up OBS again' : 'Connect & set up OBS';
+    obsState.textContent = st === 'on' ? 'Connected to OBS' + (obs.version ? ' (WebSocket ' + obs.version + ')' : '') + (obs.studio ? ' · Studio Mode' : '') + ' · ' + hub.obsOutputs().length + ' SDA Sabbath source(s) following'
+      : st === 'connecting' ? (obs.error || 'Connecting to OBS…') : obs.error || obs.lastError || 'Not connected';
+    connBtn.hidden = st === 'on';
+    setupBtn.querySelector('span').textContent = S().camScene && obs.scenes.includes(S().presScene) ? 'Set up OBS again (repair)' : 'Set up OBS';
     disBtn.hidden = st === 'off';
     controlCard.hidden = st !== 'on';
     camRow.hidden = st !== 'on';
-    const cur = camSel.value || S().camScene;
+    const cur = camPicked ? camSel.value : (S().camScene && obs.scenes.includes(S().camScene) ? S().camScene : camGuess);
     clear(camSel);
-    obs.scenes.filter((x) => x !== S().presScene).forEach((x) => camSel.append(h('option', { value: x, selected: x === (S().camScene || obs.program) }, x)));
-    if (cur && obs.scenes.includes(cur)) camSel.value = cur;
+    const cams = obs.scenes.filter((x) => x !== S().presScene);
+    cams.forEach((x) => camSel.append(h('option', { value: x }, x + (x === camGuess && x !== S().camScene ? '  (has a camera)' : ''))));
+    camSel.value = cur && cams.includes(cur) ? cur : camGuess || obs.program || cams[0] || '';
+    pausedEl.hidden = !(obs.autoPaused && S().autoScene);
+    const hl = obs.health;
+    healthEl.hidden = !obs.streaming || !hl;
+    if (hl) {
+      const drop = hl.total ? (hl.skipped / hl.total) * 100 : 0;
+      healthEl.textContent = hl.reconnecting ? '⚠ Reconnecting to the streaming service…' : 'Connection ' + (hl.congestion > 0.5 ? '⚠ congested' : hl.congestion > 0.15 ? 'busy' : 'good') + ' · dropped frames ' + drop.toFixed(1) + ' %';
+      healthEl.classList.toggle('warn', hl.reconnecting || hl.congestion > 0.5 || drop > 2);
+    }
     clear(sceneChips);
-    obs.scenes.forEach((x) => sceneChips.append(h('button.chip' + (x === obs.program ? '.live-chip' : ''), { type: 'button', 'aria-pressed': String(x === obs.program), onclick: () => obs.setScene(x).catch((e) => toast('OBS: ' + e.message, 'err')) },
-      x === obs.program ? h('span.st-dot') : null, x)));
+    obs.scenes.forEach((x) => sceneChips.append(h('button.chip' + (x === obs.program ? '.live-chip' : ''), { type: 'button', 'aria-pressed': String(x === obs.program), title: obs.studio ? 'Click: Preview · the program changes when you press Transition in OBS' : 'Put this scene on air',
+      onclick: () => obs.setScene(x).catch((e) => toast('OBS: ' + e.message, 'err')) },
+      x === obs.program ? h('span.st-dot') : null, x, obs.studio && x === obs.preview ? h('span.faint', ' (preview)') : null)));
     streamBtn.replaceChildren(icon(obs.streaming ? 'x' : 'cast'), h('span', obs.streaming ? 'Stop streaming' : 'Start streaming'));
     streamBtn.classList.toggle('danger', obs.streaming);
     recBtn.replaceChildren(icon(obs.recording ? 'x' : 'video'), h('span', obs.recording ? 'Stop recording' : 'Start recording'));
@@ -238,6 +285,7 @@ export default function create(ctx) {
   obs.on('change', paintObs);
   hub.on('overlay', paintLower);
   hub.on('outlets', paintObs);
+  hub.on('plan', paintNames);
   settings.on('change:stage', (p) => { if (p === 'stage.code' || p === 'stage.relays') paintUrls(); });
   settings.on('change:stream', (p) => { if (p === 'stream.obsUrl') paintUrls(); });
   setInterval(() => { if (!el.hidden && (obs.streaming || obs.recording)) tickOut(); }, 1000);

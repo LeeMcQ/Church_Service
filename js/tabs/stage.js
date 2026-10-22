@@ -56,7 +56,7 @@ export default function create(ctx) {
     h('div.form.st-form',
       h('label', 'Layout'), layoutSeg,
       h('label', 'Text size'), sizeSel),
-    opts,
+    h('details.st-more', h('summary', 'Display options'), opts),
     h('p.note', 'Phones and laptops can choose their own layout; the stage window and cast screens use this one. Words: the words in very large type (singers). Slides: the pictures only. Timer: one big clock for the preacher.'));
 
   function paintScreens() {
@@ -84,6 +84,7 @@ export default function create(ctx) {
   const urlEl = h('code.st-url');
   const shortEl = h('div.note.st-short');
   const pinEl = h('b.st-pin');
+  const pinEl2 = h('b.st-pin');
   const joinBox = h('div.st-join',
     h('div.st-join-l',
       h('div.note', 'Room code'), codeEl,
@@ -92,7 +93,8 @@ export default function create(ctx) {
         h('button.btn.sm', { type: 'button', onclick: copyLink }, icon('copy'), h('span', 'Copy link')),
         navigator.share ? h('button.btn.sm', { type: 'button', onclick: shareLink }, icon('link'), h('span', 'Share…')) : null,
         h('button.btn.sm', { type: 'button', onclick: newCode }, icon('reload'), h('span', 'New code'))),
-      h('p.note', 'Anyone with the code can follow. Only devices that enter the control PIN (below) or that you allow can change slides and timers.')),
+      h('div.st-pinrow', h('span.note', 'Control PIN'), pinEl2),
+      h('p.note', 'Anyone with the code can follow. Only devices that enter the control PIN, or that you allow under Connected screens, can change slides and timers.')),
     qrBox);
   const advBtn = h('button.btn.sm', { type: 'button', onclick: advanced }, icon('settings'), h('span', 'Connection settings…'));
   const peersCard = card('Phones & laptops',
@@ -108,7 +110,7 @@ export default function create(ctx) {
     const st = hub.net.state;
     netState.className = 'st-net ' + st;
     netState.textContent = !on ? '' : { starting: 'Starting…', on: 'Ready · ' + hub.count((o) => o.kind === 'peer') + ' connected', error: 'Could not start: ' + hub.net.error, offline: 'No internet on this PC — use the church network or a stage window', off: '' }[st] || '';
-    pinEl.textContent = s.pin || '—';
+    pinEl.textContent = pinEl2.textContent = s.pin || '—';
     if (!on || !s.code) return;
     codeEl.textContent = fmtCode(s.code);
     const url = hub.joinUrl(s.code);
@@ -182,7 +184,7 @@ export default function create(ctx) {
   }
 
   // ------------------------------------------------------------ messages
-  const msgIn = h('input.field', { placeholder: 'Message for the stage, e.g. “5 minutes left”', maxlength: 400, 'data-free-text': '', style: { flex: '1' } });
+  const msgIn = h('input.field', { placeholder: 'Message for the stage, e.g. “5 minutes left”', 'aria-label': 'Message for the stage', maxlength: 400, 'data-free-text': '', style: { flex: '1' } });
   let flash = false;
   const flashT = toggle('Flash', false, (v) => { flash = v; }, 'Make the message blink for a few seconds to catch attention');
   const secSel = select([['0', 'Until cleared'], ['10', '10 seconds'], ['30', '30 seconds'], ['60', '1 minute'], ['120', '2 minutes']], String(S().msgSec || 0), (v) => settings.set('stage.msgSec', +v));
@@ -193,7 +195,7 @@ export default function create(ctx) {
   msgIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); send(msgIn.value); } });
   const msgCard = card('Message to the stage',
     h('div.row', msgIn, h('button.btn.primary', { type: 'button', onclick: () => send(msgIn.value) }, icon('send'), h('span', 'Send'))),
-    h('div.row.wrap', flashT, h('span.note', 'Shows'), secSel),
+    h('div.row.wrap', flashT, h('span.note', 'Show for'), secSel),
     showing,
     h('div.note', 'Quick messages (click to send):'),
     presetsEl,
@@ -243,7 +245,7 @@ export default function create(ctx) {
         { label: 'Count-down to a time (e.g. service ends at 12:00)', icon: 'clock', onclick: async () => { const r = await promptBox('Count down to', 'Time (24-hour, e.g. 12:00)', '12:00'); if (r && /^\d{1,2}:\d{2}$/.test(r.trim())) hub.addTimer('to', 'Ends at ' + r.trim(), { at: r.trim() }); } },
         '-', { label: 'Back to the default timers', icon: 'reload', onclick: () => hub.resetTimers() },
       ]) }, icon('plus'), h('span', 'Add timer')),
-      h('span.note', 'Amber from'), warnSel),
+      h('span.note', 'Turn amber at'), warnSel),
     toggle('Plan parts with a planned time start the featured count-down when they go on screen', S().autoPlanTimer !== false, (v) => settings.set('stage.autoPlanTimer', v), 'Plan tab → ⋯ on a part → Planned time'));
   const valEls = new Map();
   function paintTimers() {
@@ -255,7 +257,7 @@ export default function create(ctx) {
       const isFeat = t.id === feat || (!hub.timers().some((x) => x.id === feat) && hub.timers()[0] === t);
       const row = h('div.st-timer' + (isFeat ? '.feat' : ''),
         h('div.st-th',
-          h('label.st-feat', { title: 'Show this timer large on the stage' }, h('input', { type: 'radio', name: 'st-feat', checked: isFeat, onchange: () => { settings.set('stage.featured', t.id); paintTimers(); } }), h('span', 'Featured')),
+          h('label.st-feat', { title: 'Show this timer large on the stage' }, h('input', { type: 'radio', name: 'st-feat', checked: isFeat, onchange: () => { settings.set('stage.featured', t.id); paintTimers(); } }), h('span', isFeat ? 'Large on stage' : 'Show large')),
           h('b.grow.trunc', t.name + (t.label ? ' · ' + t.label : '')),
           btn('more', 'Timer options', (e) => menu(e.currentTarget, [
             { label: 'Rename…', icon: 'edit', onclick: async () => { const r = await promptBox('Timer name', 'Name', t.name); if (r) hub.timer(t.id, 'rename', r); } },
@@ -271,7 +273,7 @@ export default function create(ctx) {
           h('button.btn.sm', { type: 'button', title: 'One minute more', onclick: () => hub.timer(t.id, 'add', MIN) }, '+1'),
           h('button.btn.sm', { type: 'button', title: 'One minute less', onclick: () => hub.timer(t.id, 'add', -MIN) }, '−1'),
           t.mode === 'down' ? h('span.st-sep') : null,
-          ...(t.mode === 'down' ? [5, 10, 15, 20, 30, 40, 45].map((m) => h('button.btn.sm', { type: 'button', title: 'Count down from ' + m + ' minutes and start', onclick: () => hub.timer(t.id, 'set', { ms: m * MIN, start: true }) }, m + '′')) : [])));
+          ...(t.mode === 'down' ? [5, 10, 15, 20, 30, 40, 45].map((m) => h('button.btn.sm', { type: 'button', title: 'Count down from ' + m + ' minutes and start', onclick: () => hub.timer(t.id, 'set', { ms: m * MIN, start: true }) }, m + ' min')) : [])));
       timersEl.append(row);
     });
     tickTimers();
@@ -298,11 +300,15 @@ export default function create(ctx) {
   const pvToggle = toggle('Live preview', S().preview !== false && !settings.lowPower(), (v) => { settings.set('stage.preview', v); paintPreview(); }, 'Shows here exactly what the stage screens show');
   const pvCard = card('What the stage sees', pvToggle, pvHost);
   let pvFrame = null;
+  // The preview is drawn at TV size (1280 × 720) and scaled down, so it shows the TV layout, not the phone one.
+  const pvScale = () => { if (pvFrame) pvFrame.style.transform = 'scale(' + ((pvHost.clientWidth || 640) / 1280) + ')'; };
+  if (window.ResizeObserver) new ResizeObserver(pvScale).observe(pvHost);
   function paintPreview() {
-    const want = S().preview !== false && !el.hidden;
+    const want = S().preview !== false && !settings.lowPower() && !el.hidden;
     if (want && !pvFrame) {
-      pvFrame = h('iframe.st-pv-f', { src: 'stage.html?via=win&preview=1', title: 'Stage screen preview', loading: 'lazy' });
+      pvFrame = h('iframe.st-pv-f', { src: 'stage.html?via=win&preview=1', title: 'Stage screen preview', loading: 'lazy', tabindex: '-1' });
       pvHost.append(pvFrame);
+      pvScale();
     } else if (!want && pvFrame) { pvFrame.remove(); pvFrame = null; }
   }
 
@@ -313,7 +319,7 @@ export default function create(ctx) {
       h('button.btn.sm', { type: 'button', onclick: () => msgIn.focus() }, icon('msg'), h('span', 'Message'))),
     h('div.scroll.st-grid',
       h('div.st-col', msgCard, timersCard, talkCard, pvCard),
-      h('div.st-col', screensCard, peersCard, whoCard)));
+      h('div.st-col', peersCard, whoCard, screensCard)));
 
   hub.on('outlets', () => { paintWho(); paintScreens(); paintNet(); });
   hub.on('net', paintNet);

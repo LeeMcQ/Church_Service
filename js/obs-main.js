@@ -10,7 +10,7 @@
 import { h, clear, uid } from './core/util.js';
 import { createStage, fitBody, sanitizeSlideHtml } from './core/render.js';
 import { createEncoder, createDecoder } from './core/wire.js';
-import { normCode, fmtCode, joinStageRoom, relaysFrom } from './core/stagenet.js';
+import { normCode, joinStageRoom, relaysFrom, createFollower, canVerify } from './core/stagenet.js';
 
 const qs = new URLSearchParams(location.search);
 const hs = new URLSearchParams(location.hash.replace(/^#/, ''));
@@ -19,6 +19,7 @@ const MODE = get('mode') === 'full' ? 'full' : 'lower';
 const VIA = get('via');
 const PREVIEW = get('preview') === '1';
 const SID = uid();
+const LAN_KEY = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
 const W = 1920, H = 1080;
 
 const root = document.getElementById('obs');
@@ -34,7 +35,7 @@ function fit() {
 addEventListener('resize', fit);
 fit();
 
-const S = { style: null, live: null, index: 0, blank: null, cfg: {}, lower: null, ticker: null, on: true, offset: 0, conn: 'idle' };
+const S = { style: null, live: null, index: 0, blank: null, cfg: {}, lower: null, ticker: null, on: true, offset: 0, conn: 'idle', pres: false, obsScene: '' };
 
 // ------------------------------------------------------------ full slides
 let stage = null;
@@ -91,6 +92,8 @@ function lowerContent() {
   if (m && (!m.until || Date.now() + S.offset < m.until)) return { key: 'm' + m.id, kick: m.kind === 'text' ? '' : '', title: m.title, text: m.text, kind: m.kind || 'name' };
   const c = S.live, cfg = S.cfg;
   if (!c || S.blank) return null;
+  // The presentation scene is on air: the slide already shows the words (names and the ticker still show).
+  if (S.pres || (S.obsScene && cfg.presScene && S.obsScene === cfg.presScene)) return null;
   const f = frameOf(c, S.index);
   if (!f || f.kind !== 'text') return null;
   if (c.tab === 'bible' && cfg.autoBible) {
@@ -126,18 +129,25 @@ function paintLower() {
     lines.forEach((l, i) => { ltTextIn.append(l); if (i < lines.length - 1) ltTextIn.append(h('br')); });
     ltText.hidden = !want.text;
     lt.dataset.kind = want.kind;
-    lt.classList.remove('clamp');
-    if (want.text) {
-      // As large as fits in up to three lines; a very long passage is clamped rather than shrunk to nothing.
-      const fs = fitBody(ltText, 30, want.kind === 'lyrics' ? 52 : 46);
-      if (ltText.dataset.fits !== '1') { ltText.style.fontSize = fs + 'px'; lt.classList.add('clamp'); }
+    lt.classList.remove('clamp', 'four');
+    ltText.style.fontSize = ''; // measure from the CSS size, not from the previous verse
+    if (want.text && want.kind !== 'name') {
+      // As large as fits in three lines; a long passage gets a fourth line and a smaller size, and only
+      // then is it cut off with "…".
+      fitBody(ltText, 30, want.kind === 'lyrics' ? 52 : 46);
+      if (ltText.dataset.fits !== '1') {
+        lt.classList.add('four'); ltText.style.fontSize = '';
+        const fs = fitBody(ltText, 26, 34);
+        if (ltText.dataset.fits !== '1') { ltText.style.fontSize = fs + 'px'; lt.classList.add('clamp'); }
+      }
     }
     lt.classList.add('in');
   };
   // Same kind of lower third already up (the next verse): change the words in place; otherwise slide in.
-  if (wasShown && lt.classList.contains('in') && lt.dataset.kind === want.kind) { lt.classList.add('swap'); swapT = setTimeout(() => { fill(); lt.classList.remove('swap'); }, 180); }
-  else if (wasShown && lt.classList.contains('in')) { lt.classList.remove('in'); swapT = setTimeout(fill, 380); }
-  else fill();
+  const go = (f) => (document.fonts && document.fonts.status !== 'loaded' ? document.fonts.ready.then(f) : f()); // fit with the real font
+  if (wasShown && lt.classList.contains('in') && lt.dataset.kind === want.kind) { lt.classList.add('swap'); swapT = setTimeout(() => go(() => { fill(); lt.classList.remove('swap'); }), 180); }
+  else if (wasShown && lt.classList.contains('in')) { lt.classList.remove('in'); swapT = setTimeout(() => go(fill), 380); }
+  else go(fill);
 }
 
 let tickerKey = null;
@@ -148,20 +158,29 @@ function paintTicker() {
   tickerKey = key;
   root.classList.toggle('has-ticker', !!t);
   if (!t) { tk.classList.remove('in'); return; }
-  tkIn.textContent = t.text + '     •     ' + t.text + '     •     ';
+  // Seamless loop: enough copies to fill the strip twice; the animation moves by exactly one copy.
+  clear(tkIn);
+  const one = h('span.tk-one', t.text + '\u2003•\u2003');
+  tkIn.append(one);
   tk.classList.add('in');
   requestAnimationFrame(() => {
-    const w = tkIn.scrollWidth / 2;
+    const w = one.getBoundingClientRect().width / (canvas.getBoundingClientRect().width / W || 1);
+    const strip = tkIn.parentNode.clientWidth || 1800;
+    const n = Math.max(2, Math.ceil((strip * 2) / Math.max(1, w)));
+    for (let i = 1; i < n; i++) tkIn.append(one.cloneNode(true));
     tkIn.style.setProperty('--tk-w', w + 'px');
-    tkIn.style.animationDuration = Math.max(8, w / 110) + 's'; // ~110 px per second at 1080p
+    tkIn.style.animationDuration = Math.max(4, w / 110) + 's'; // ~110 px per second at 1080p
   });
 }
 
-let bugUrl = null;
+let bugUrl = null, bugFor;
 function paintBug() {
   const on = S.on && S.cfg.bug && MODE === 'lower';
   bug.classList.toggle('in', !!on);
   const blob = S.style && S.style.logoBlob;
+  const key = blob ? blob : 'n:' + (S.cfg.church || '');
+  if (key === bugFor) return; // unchanged: never rebuild (no blink on air)
+  bugFor = key;
   if (bugUrl) { URL.revokeObjectURL(bugUrl); bugUrl = null; }
   clear(bug);
   if (blob) { bugUrl = URL.createObjectURL(blob); bug.append(h('img', { src: bugUrl, alt: '' })); }
@@ -196,7 +215,8 @@ function onMsg(m) {
   if (m.to && m.to !== SID) return;
   if (S.conn !== 'on' && m.t !== 'kick') setConn('on');
   switch (m.t) {
-    case 'hi': case 'ping': if (typeof m.now === 'number') S.offset = m.now - Date.now(); break;
+    case 'hi': if (typeof m.now === 'number') S.offset = m.now - Date.now(); break;
+    case 'ping': if (typeof m.now === 'number') S.offset = m.now - Date.now(); try { tx.send({ t: 'pong' }); } catch (e) { /* */ } break;
     case 'host': hello(); break;
     case 'style':
       S.style = m.style || {};
@@ -209,7 +229,7 @@ function onMsg(m) {
     case 'blank': S.blank = m.mode || null; paintFull(); paintLower(); break;
     case 'obs':
       if (typeof m.now === 'number') S.offset = m.now - Date.now();
-      S.cfg = m.cfg || {}; S.lower = m.lower || null; S.ticker = m.ticker || null; S.on = m.on !== false;
+      S.cfg = m.cfg || {}; S.lower = m.lower || null; S.ticker = m.ticker || null; S.on = m.on !== false; S.pres = !!m.pres;
       paintCfg(); paintLower(); paintTicker();
       root.classList.toggle('overlays-off', !S.on);
       break;
@@ -223,15 +243,30 @@ const started = Date.now();
 function setConn(state, text) {
   S.conn = state;
   if (state === 'on') { pill.hidden = true; return; }
-  // Only shown while setting up (the first minute), so it never appears on a live stream later.
-  if (PREVIEW || Date.now() - started > 60000) { pill.hidden = true; return; }
+  // Only shown while setting up (the first minute), never while OBS is streaming or recording.
+  if (PREVIEW || Date.now() - started > 60000 || obsLive) { pill.hidden = true; return; }
   pill.hidden = false;
   pill.textContent = text || 'SDA Sabbath: connecting…';
 }
 setInterval(() => { if (S.conn !== 'on' && !pill.hidden && Date.now() - started > 60000) pill.hidden = true; }, 2000);
 
+// Inside OBS: know which scene is on air, and whether OBS is live (then nothing but the overlay is ever drawn).
+let obsLive = false;
+const ob = window.obsstudio;
+if (ob) {
+  try { if (ob.getStatus) ob.getStatus((st) => { obsLive = !!(st && (st.streaming || st.recording)); if (obsLive) pill.hidden = true; }); } catch (e) { /* not allowed */ }
+  try { if (ob.getCurrentScene) ob.getCurrentScene((sc) => { S.obsScene = (sc && sc.name) || ''; paintLower(); }); } catch (e) { /* */ }
+  window.addEventListener('obsSceneChanged', (e) => { S.obsScene = (e.detail && e.detail.name) || ''; paintLower(); });
+  ['obsStreamingStarted', 'obsRecordingStarted'].forEach((ev) => window.addEventListener(ev, () => { obsLive = true; pill.hidden = true; }));
+}
+
 let tx = { send: () => {} };
-function hello() { try { tx.send({ t: 'hello', sid: SID, v: 1, kind: 'obs', mode: MODE, preview: PREVIEW || undefined, name: get('name') || '' }); } catch (e) { /* */ } }
+function helloMsg(nonce) { return { t: 'hello', sid: SID, v: 1, kind: 'obs', mode: MODE, preview: PREVIEW || undefined, name: get('name') || '', nonce }; }
+let follower = null, room = null;
+function hello() {
+  if (follower) { const id = follower.hostId(); if (id) follower.join(id); return; }
+  try { tx.send(helloMsg()); } catch (e) { /* */ }
+}
 
 function viaWindow() {
   let host = null;
@@ -256,29 +291,33 @@ function viaLan() {
     ws.binaryType = 'arraybuffer';
     const dec = createDecoder(onMsg);
     let enc = null;
-    ws.onopen = () => { wait = 1000; enc = createEncoder((s) => ws.send(s), (b) => ws.send(b)); tx = { send: (m) => enc && enc(Object.assign({ from: SID }, m)) }; hello(); };
+    ws.onopen = () => { wait = 1000; enc = createEncoder((s) => ws.send(s), (b) => ws.send(b)); tx = { send: (m) => enc && enc(Object.assign({ from: SID, key: LAN_KEY }, m)) }; hello(); };
     ws.onmessage = (e) => (typeof e.data === 'string' ? dec.text(e.data) : dec.binary(e.data));
     ws.onclose = () => { enc = null; setTimeout(connect, wait); wait = Math.min(wait * 2, 10000); };
   };
   connect();
 }
 async function viaCode(code) {
-  setConn('connecting', 'SDA Sabbath: joining ' + fmtCode(code) + '…');
-  let hostId = null;
+  setConn('connecting', 'SDA Sabbath: connecting to the media desk…');
+  if (!canVerify()) { setConn('idle', 'SDA Sabbath: this address must start with https://'); return; }
+  // Only the media desk whose key matches the address (#h=…) is followed; anyone else with the room code is ignored.
+  follower = createFollower({
+    code, fp: get('h'),
+    hello: (peerId, nonce) => { if (room) room.send(peerId, helloMsg(nonce)); },
+    onMsg,
+    onLost: () => setConn('waiting', 'SDA Sabbath: waiting for the media desk…'),
+  });
   const go = async () => {
     try {
-      const r = await joinStageRoom(code, {
+      room = await joinStageRoom(code, {
         host: false,
         relays: relaysFrom(get('r')),
-        onMessage: (m, peerId) => {
-          if (m && (m.t === 'host' || m.t === 'hi') && hostId !== peerId) { hostId = peerId; if (m.t === 'host') hello(); }
-          if (peerId === hostId) onMsg(m);
-        },
-        onJoin: (peerId) => { hostId = peerId; hello(); },
-        onLeave: (peerId) => { if (peerId === hostId) { hostId = null; setConn('waiting', 'SDA Sabbath: waiting for the media desk (code ' + fmtCode(code) + ')'); } },
+        onMessage: (m, peerId) => follower.message(m, peerId),
+        onJoin: (peerId) => follower.join(peerId),
+        onLeave: (peerId) => follower.leave(peerId),
       });
-      tx = { send: (m) => { if (hostId) r.send(hostId, m); } };
-      setConn('waiting', 'SDA Sabbath: waiting for the media desk (code ' + fmtCode(code) + ')');
+      tx = { send: (m) => { const id = follower.hostId(); if (id) room.send(id, m); } };
+      setConn('waiting', 'SDA Sabbath: waiting for the media desk…');
     } catch (e) {
       setConn('idle', 'SDA Sabbath: could not connect (' + ((e && e.message) || e) + '). Retrying…');
       setTimeout(go, 5000);

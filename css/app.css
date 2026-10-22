@@ -1033,3 +1033,14 @@ button.se-sw[aria-pressed="true"] { outline: 2px solid var(--focus, #2f6fe0); ou
 .st-out { gap: 8px; }
 .stream-tab .st-pv { background: conic-gradient(#2a3140 25%, #1f2531 0 50%, #2a3140 0 75%, #1f2531 0) 0 0 / 20px 20px; }
 .st-showing { flex-wrap: wrap; } .st-showing .st-pill { white-space: nowrap; }
+.st-short b { word-break: normal; overflow-wrap: anywhere; }
+.st-more > summary { cursor: pointer; color: var(--muted); font-weight: 700; padding: 4px 0; }
+.st-more[open] > summary { margin-bottom: 6px; }
+.stage-tab .st-pv { position: relative; }
+.stage-tab .st-pv-f { width: 1280px; height: 720px; inset: 0 auto auto 0; transform-origin: 0 0; }
+.stage-btn .n::before { content: ""; }
+.st-step { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: var(--r); background: var(--sunk); }
+.st-health.warn { color: var(--warn); font-weight: 700; }
+.st-check { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.st-check .ok { color: var(--next); } .st-check .no { color: var(--warn); font-weight: 700; }
+.plan-chip svg.i { width: 14px; height: 14px; }

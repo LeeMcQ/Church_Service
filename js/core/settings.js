@@ -31,13 +31,14 @@ export const DEFAULTS = {
     code: '', pin: '', online: false, layout: 'full', featured: 'speaker', warnSec: 120, clock24: true,
     showNext: true, showPlan: true, showNotes: true, showLive: true, textSize: 1, mirror: false,
     allowWinControl: true, msgSec: 0, autoPlanTimer: true, preview: true,
-    presets: [], timers: [], turnUrl: '', turnUser: '', turnPass: '', relays: '',
+    presets: [], timers: [], turnUrl: '', turnUser: '', turnPass: '', relays: '', hostKey: null,
   },
   // Live stream (OBS): lower thirds and the full-slide output, their look, and the OBS connection.
   stream: {
     autoBible: true, autoHymns: true, hymnMode: 'lines', autoOther: false, theme: 'classic', pos: 'left', size: 1, bug: false,
     fullBg: 'stage', accent: '', lowerSec: 8, names: [],
     obsUrl: 'ws://127.0.0.1:4455', obsPass: '', obsAuto: false, autoScene: false, camScene: '', presScene: 'SDA Sabbath · Presentation',
+    mediaScene: 'camera', studioPreview: true,
   },
   // Presentation clicker: buttons taught in Clicker setup ({next:['key:F14'], prev:[…], black:[…], present:[…], clear:[…]}).
   clicker: { map: {} },
@@ -126,6 +127,7 @@ export function exportableSettings(v) {
   const o = JSON.parse(JSON.stringify(v));
   if (o.ai) o.ai.apiKey = '';
   if (o.stream) o.stream.obsPass = '';
+  if (o.stage) o.stage.hostKey = null;
   return o;
 }
 

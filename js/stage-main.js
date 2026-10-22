@@ -11,13 +11,16 @@ import { h, clear, pad2, uid } from './core/util.js';
 import { icon } from './core/icons.js';
 import { createStage, fitBody, sanitizeSlideHtml } from './core/render.js';
 import { createEncoder, createDecoder } from './core/wire.js';
-import { normCode, fmtCode, joinStageRoom, relaysFrom } from './core/stagenet.js';
+import { normCode, fmtCode, joinStageRoom, relaysFrom, createFollower, forgetHost, canVerify } from './core/stagenet.js';
 
 const params = new URLSearchParams(location.search);
 const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
 const VIA = params.get('via') || '';
 const PREVIEW = params.get('preview') === '1';
 const SID = uid();
+// A random secret for the church-network connection: only the media desk ever sees it, so no other screen
+// can send messages in this screen's name (stagehub.js).
+const LAN_KEY = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
 const root = document.getElementById('ss');
 if (PREVIEW) root.classList.add('preview');
 
@@ -28,7 +31,7 @@ try { local = JSON.parse(localStorage.getItem(LKEY) || '{}') || {}; } catch (e) 
 if (!local.pins || typeof local.pins !== 'object') local.pins = {};
 const saveLocal = () => { if (PREVIEW) return; try { localStorage.setItem(LKEY, JSON.stringify(local)); } catch (e) { /* private mode */ } };
 // The stage window and cast screen follow the media desk's choices; phones may make their own.
-const OWN = !PREVIEW && VIA !== 'cast';
+const OWN = !PREVIEW && VIA !== 'cast' && VIA !== 'win';
 const LOCAL_KEYS = ['layout', 'textSize', 'showNext', 'showPlan', 'showNotes', 'showLive', 'mirror', 'clock24'];
 const opt = (k) => (OWN && local[k] != null ? local[k] : S.cfg[k]);
 
@@ -44,7 +47,12 @@ const S = {
 const now = () => Date.now() + S.offset;
 
 // ------------------------------------------------------------ layout
-const btn = (ic, label, onclick, cls = '') => h('button.ss-btn' + (cls ? '.' + cls.split(' ').join('.') : ''), { type: 'button', title: label, 'aria-label': label, onclick }, icon(ic), h('span', label));
+// label|short: phones show the short label under the icon ("Previous|Back").
+const btn = (ic, label, onclick, cls = '') => {
+  const [full, short] = String(label).split('|');
+  return h('button.ss-btn' + (short ? '.has-s' : '') + (cls ? '.' + cls.split(' ').join('.') : ''), { type: 'button', title: full, 'aria-label': full, onclick },
+    icon(ic), h('span.l', full), short ? h('span.s', short) : null);
+};
 const dot = h('span.ss-dot');
 const statusTxt = h('span.ss-status-t', 'Connecting…');
 const churchEl = h('span.ss-church', '');
@@ -63,7 +71,8 @@ const msgEl = h('div.ss-msg', { role: 'alert', hidden: true }, icon('msg'), msgT
 const nowLabel = h('span.ss-lab-t', '');
 const nowPart = h('span.ss-lab-p', '');
 const nowHost = h('div.ss-scr-in');
-const nowScr = h('div.ss-scr.now', nowHost);
+const nowEmpty = h('div.ss-scr-empty', 'Nothing on screen');
+const nowScr = h('div.ss-scr.now', nowHost, nowEmpty);
 const nowWordsIn = h('div.ss-words-in');
 const nowWords = h('div.ss-words', nowWordsIn);
 const notesEl = h('div.ss-notes', { hidden: true });
@@ -73,7 +82,8 @@ const nowSec = h('section.ss-now', h('div.ss-lab', h('span.ss-tag.live', 'Now'),
 const nextLabel = h('span.ss-lab-t', '');
 const nextPart = h('span.ss-lab-p', '');
 const nextHost = h('div.ss-scr-in');
-const nextScr = h('div.ss-scr.next', nextHost);
+const nextEmpty = h('div.ss-scr-empty', 'Nothing picked yet');
+const nextScr = h('div.ss-scr.next', nextHost, nextEmpty);
 const nextWordsIn = h('div.ss-words-in');
 const nextWords = h('div.ss-words.small', nextWordsIn);
 const thenEl = h('div.ss-then', { hidden: true });
@@ -91,25 +101,27 @@ const bigSec = h('section.ss-big', bigName, bigTime, bigClock);
 const main = h('main.ss-main', nowSec, nextSec, planSec, bigSec);
 
 const ctrlTimerBtn = btn('play', 'Start timer', () => cmd('timer', { id: featuredId(), arg: 'toggle' }));
+let ctrlTimerGroup = null;
 const ctrl = h('footer.ss-ctrl', { hidden: true },
   h('div.ss-ctrl-g',
-    btn('prev', 'Previous', () => cmd('prev'), 'big'),
+    btn('prev', 'Previous|Back', () => cmd('prev'), 'big'),
     btn('next', 'Next', () => cmd('next'), 'big primary'),
-    btn('present', 'Show Next', () => cmd('present')),
+    btn('present', 'Show Next|Show', () => cmd('present')),
     btn('black', 'Black', () => cmd('black')),
     btn('logo', 'Logo', () => cmd('logo')),
     btn('clear', 'Clear', () => cmd('clear'))),
-  h('div.ss-ctrl-g',
+  ctrlTimerGroup = h('div.ss-ctrl-g',
     ctrlTimerBtn,
     btn('plus', '+1 min', () => cmd('timer', { id: featuredId(), arg: 'add', val: 60000 })),
     btn('minus', '−1 min', () => cmd('timer', { id: featuredId(), arg: 'add', val: -60000 })),
-    btn('reload', 'Reset timer', () => cmd('timer', { id: featuredId(), arg: 'reset' }))));
+    btn('reload', 'Reset timer|Reset', () => cmd('timer', { id: featuredId(), arg: 'reset' }))));
 
 const toastEl = h('div.ss-toast', { role: 'status', hidden: true });
 root.append(top, msgEl, main, ctrl, toastEl);
 
 let toastT = null;
 function toast(text, ms = 2600) {
+  root.style.setProperty('--ctrl-h', (ctrl.hidden ? 0 : ctrl.offsetHeight) + 'px');
   toastEl.textContent = text; toastEl.hidden = false;
   clearTimeout(toastT); toastT = setTimeout(() => { toastEl.hidden = true; }, ms);
 }
@@ -142,7 +154,8 @@ function htmlLines(html) {
   t.content.querySelectorAll('.ln').forEach((b) => b.append('\n'));
   t.content.querySelectorAll('.hn').forEach((b) => b.append(' '));
   t.content.querySelectorAll('.ha').forEach((b) => b.prepend('\n'));
-  t.content.querySelectorAll('sup').forEach((s) => s.replaceWith(' ' + s.textContent + ' '));
+  // Verse numbers (sup / .vn) keep a space before and a no-break space after: "16 For God …".
+  t.content.querySelectorAll('sup, .vn').forEach((s) => s.replaceWith(' ' + s.textContent.trim() + '\u00a0'));
   t.content.querySelectorAll('p,div,li,h1,h2,h3,h4').forEach((b) => b.append('\n'));
   return t.content.textContent.split('\n').map((l) => l.replace(/\s+/g, ' ').trim()).join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
@@ -199,9 +212,14 @@ function paintNow() {
   const f = frameOf(c, S.index);
   nowLabel.textContent = c ? c.title : 'Nothing on screen';
   const n = countOf(c);
-  const part = slideName(c, S.index);
+  let part = slideName(c, S.index);
+  if (part === String(S.index + 1)) part = ''; // picture slides are labelled by number only: "3 / 7" says it
   nowPart.textContent = c ? [part, n > 1 ? (S.index + 1) + ' / ' + n : '', S.blank === 'black' ? 'Black screen' : S.blank === 'logo' ? 'Logo showing' : ''].filter(Boolean).join(' · ') : (S.blank === 'logo' ? 'Logo showing' : '');
   nowSec.classList.toggle('blanked', !!S.blank);
+  nowEmpty.hidden = !!c || S.blank === 'logo';
+  nowEmpty.textContent = S.blank === 'black' ? 'Black screen' : 'Nothing on screen';
+  // A picture, PowerPoint, video or web page has no words to show large: the Words layout shows the picture.
+  root.classList.toggle('nontext', !!f && f.kind !== 'text' && f.kind !== 'banner');
   nowStage.setBlank(S.blank);
   nowStage.show(c ? f : null);
   const notes = f && f.notes ? String(f.notes) : '';
@@ -213,11 +231,10 @@ function paintNow() {
 
 function nextInfo() {
   const c = S.live;
+  // The operator picked a particular slide of the item on screen (e.g. the chorus again): that one.
+  if (c && S.nextSame && S.nextIndex !== S.index && S.nextIndex < countOf(c)) return { cue: c, i: S.nextIndex, slide: true };
   // More slides in the item on screen: the next slide of it.
-  if (c && S.index < countOf(c) - 1 && (S.nextSame || !S.next || S.next.id === c.id)) {
-    const i = S.nextSame ? Math.max(S.nextIndex, S.index + 1) : S.index + 1;
-    return { cue: c, i: Math.min(i, countOf(c) - 1), slide: true };
-  }
+  if (c && S.index < countOf(c) - 1 && (S.nextSame || !S.next || S.next.id === c.id)) return { cue: c, i: S.index + 1, slide: true };
   if (c && S.index < countOf(c) - 1) return { cue: c, i: S.index + 1, slide: true, then: S.next };
   if (S.nextSame || (S.next && c && S.next.id === c.id)) return null; // end of the item, nothing else picked yet
   if (S.next) return { cue: S.next, i: S.nextIndex || 0, slide: false };
@@ -225,6 +242,8 @@ function nextInfo() {
 }
 function paintNext() {
   const ni = nextInfo();
+  nextEmpty.hidden = !!ni;
+  nextEmpty.textContent = S.live ? 'End of this item' : 'Nothing picked yet';
   if (!ni) {
     nextLabel.textContent = S.live ? 'End of “' + S.live.title + '”' : 'Nothing picked yet';
     nextPart.textContent = '';
@@ -233,7 +252,8 @@ function paintNext() {
   } else {
     const f = frameOf(ni.cue, ni.i);
     nextLabel.textContent = ni.slide ? 'Next slide' : ni.cue.title;
-    const part = slideName(ni.cue, ni.i);
+    let part = slideName(ni.cue, ni.i);
+    if (part === String(ni.i + 1)) part = String(ni.i + 1) + ' / ' + countOf(ni.cue);
     nextPart.textContent = [part, !ni.slide && f && KIND_LABEL[f.kind] && f.kind !== 'text' ? KIND_LABEL[f.kind] : ''].filter(Boolean).join(' · ');
     nextStage.show(f);
     thenEl.hidden = !ni.then;
@@ -248,7 +268,8 @@ function paintWords() {
   let text = '', ref = '';
   if (!c) text = S.blank === 'logo' ? '' : '';
   else if (S.blank === 'black') text = '';
-  else { text = frameText(f); ref = frameRef(f); if (!text) text = f ? (f.title || KIND_LABEL[f.kind] || c.title) : c.title; }
+  else { text = frameText(f); ref = frameRef(f); if (!text && f && f.notes) text = String(f.notes); }
+  nowWords.classList.toggle('is-black', !!c && S.blank === 'black');
   const ts = Math.max(0.6, Math.min(2, +opt('textSize') || 1));
   const lay = opt('layout');
   fillWords(nowWords, nowWordsIn, text, ref, (lay === 'words' ? 200 : 64) * ts);
@@ -344,6 +365,9 @@ function tick() {
     if (!el) return;
     const f = fmtTimer(t, n);
     el.lastChild.textContent = f.text;
+    // Not by colour alone: the name also says LOW / OVER.
+    const nm = (t.label || t.name) + (f.state === 'warn' ? ' · low' : f.state === 'over' ? ' · over' : '');
+    if (el.firstChild.textContent !== nm) el.firstChild.textContent = nm;
     el.classList.toggle('warn', f.state === 'warn');
     el.classList.toggle('over', f.state === 'over');
     el.classList.toggle('stopped', !t.running && t.mode !== 'to');
@@ -351,12 +375,15 @@ function tick() {
   const ft = S.timers.find((t) => t.id === fid);
   if (ft) {
     const f = fmtTimer(ft, n);
-    bigName.textContent = ft.label || ft.name;
+    bigName.textContent = (ft.label || ft.name) + (f.state === 'warn' ? ' · little time left' : f.state === 'over' ? ' · over time' : '');
+    // An "ends at" clock cannot be started, paused or changed by a minute.
+    ctrlTimerGroup.hidden = ft.mode === 'to';
     bigTime.textContent = f.text;
     bigSec.classList.toggle('warn', f.state === 'warn');
     bigSec.classList.toggle('over', f.state === 'over');
     bigSec.classList.toggle('stopped', !ft.running && ft.mode !== 'to');
-    ctrlTimerBtn.replaceChildren(icon(ft.running ? 'pause' : 'play'), h('span', (ft.running ? 'Pause ' : 'Start ') + (ft.label || ft.name).toLowerCase()));
+    const tl = (ft.running ? 'Pause ' : 'Start ') + (ft.label || ft.name).toLowerCase();
+    if (ctrlTimerBtn.title !== tl) { ctrlTimerBtn.replaceChildren(icon(ft.running ? 'pause' : 'play'), h('span', ft.running ? 'Pause' : 'Start')); ctrlTimerBtn.title = tl; ctrlTimerBtn.setAttribute('aria-label', tl); }
   } else { bigName.textContent = ''; bigTime.textContent = ''; }
   if (S.msg && S.msg.until && n >= S.msg.until && !msgEl.hidden) paintMsg();
   paintMedia();
@@ -367,11 +394,13 @@ setInterval(tick, 250);
 function setConn(state, text) {
   S.conn = state;
   dot.className = 'ss-dot ' + state;
+  dot.setAttribute('role', 'img');
   statusTxt.textContent = text || {
-    idle: 'Not connected', connecting: 'Connecting…', waiting: 'Waiting for the media desk…', on: S.control ? 'Connected · you can control' : 'Connected',
+    idle: 'Not connected', connecting: 'Connecting…', waiting: 'Waiting for the media desk…', on: S.control ? 'Connected · controls on' : 'Connected',
     lost: 'Connection lost · reconnecting…', offline: 'No internet',
   }[state] || '';
   root.classList.toggle('is-on', state === 'on');
+  dot.title = statusTxt.textContent; dot.setAttribute('aria-label', statusTxt.textContent);
 }
 setInterval(() => {
   if (S.conn === 'on' && Date.now() - S.lastHeard > 25000) setConn('lost');
@@ -382,21 +411,22 @@ function syncClock(t) { if (typeof t === 'number' && isFinite(t)) { const off = 
 function onMsg(m) {
   if (!m || typeof m !== 'object' || !m.t) return;
   if (m.to && m.to !== SID) return;
+  if (left) return; // disconnected by the media desk: the join screen is up
   S.lastHeard = Date.now();
   if (S.conn !== 'on' && m.t !== 'kick') { setConn('on'); hideJoin(); }
   switch (m.t) {
     case 'hi': syncClock(m.now); break;
-    case 'ping': syncClock(m.now); break;
+    case 'ping': syncClock(m.now); if (VIA === 'lan') send({ t: 'alive' }); break;
     case 'host': hello(); break;
     case 'you': {
       const had = S.control;
       S.control = !!m.control;
       ctrl.hidden = !S.control || PREVIEW;
       root.classList.toggle('can-control', S.control && !PREVIEW);
-      if (m.denied === 'pin') toast('That PIN is not right.');
-      else if (m.denied === 'wait') toast('Too many tries. Wait a minute and try again.');
-      else if (m.denied === 'control') toast('This screen may only follow. Ask the media desk for control.');
-      if (S.control && !had && pendingPin && room) { local.pins[room.code] = pendingPin; saveLocal(); }
+      const why = m.denied === 'pin' ? 'That PIN is not right.' : m.denied === 'wait' ? 'Too many tries. Wait a minute and try again.' : m.denied === 'control' ? 'This screen may only follow. Ask the media desk for control.' : '';
+      if (why && pinErr && pinErr.isConnected) { pinErr.textContent = why; } else if (why) toast(why);
+      if (S.control && !had && pendingPin) { local.pins[pinKey()] = pendingPin; saveLocal(); }
+      if (S.control && !had && pinErr && pinErr.isConnected) closeSheet();
       if (S.control && !had && !PREVIEW && VIA !== 'win') toast('You can now change slides and timers from here.');
       if (!S.control && had && !m.denied) toast('Control was turned off by the media desk.');
       pendingPin = null;
@@ -418,8 +448,9 @@ function onMsg(m) {
     case 'msg': S.msg = m.m || null; paintMsg(); if (S.msg && !PREVIEW) beep(); break;
     case 'plan': S.plan = m.plan || null; paintPlan(); break;
     case 'media': syncClock(m.now); S.media = m; paintMedia(); break;
-    case 'talked': toast('Sent to the media desk ✓'); break;
+    case 'talked': toast(m.slow ? 'Please wait a moment before sending another message.' : 'Sent to the media desk ✓'); break;
     case 'kick': leave('The media desk disconnected this screen.'); break;
+    case 'note': if (m.text) toast(String(m.text).slice(0, 200), 5000); break;
     case 'bye': setConn('waiting', 'The media desk closed SDA Sabbath · waiting…'); break;
     default: break;
   }
@@ -445,15 +476,23 @@ document.addEventListener('pointerdown', () => { try { if (actx && actx.state ==
 
 // ------------------------------------------------------------ talking back
 let tx = { send: () => {} };
-let pendingPin = null;
+let pendingPin = null, pinErr = null, left = false;
+/** Where the accepted PIN is remembered: per room code, or per church-network address. */
+const pinKey = () => (room ? room.code : VIA + '@' + location.host);
 const kindName = () => (VIA === 'win' ? (PREVIEW ? 'preview' : 'window') : VIA === 'cast' ? 'cast' : VIA === 'lan' ? 'lan' : 'peer');
 function devName() {
   const ua = navigator.userAgent;
   return /iPad/.test(ua) ? 'iPad' : /iPhone/.test(ua) ? 'iPhone' : /Android/.test(ua) ? (/Mobile/.test(ua) ? 'Android phone' : 'Android tablet') : /Windows/.test(ua) ? 'Windows PC' : /Mac/.test(ua) ? 'Mac' : /Linux/.test(ua) ? 'Linux PC' : 'Device';
 }
+// A stable id for this device, so the media desk can keep control switched off for it after a reload.
+if (!local.did) { local.did = uid(); saveLocal(); }
+function helloMsg(nonce) {
+  const pin = local.pins[pinKey()];
+  return { t: 'hello', sid: SID, v: 1, kind: kindName(), name: PREVIEW ? 'Preview' : local.name || '', dev: devName(), did: local.did, pin: pin || undefined, nonce, w: innerWidth, h: innerHeight };
+}
 function hello() {
-  const pin = room && local.pins[room.code];
-  send({ t: 'hello', sid: SID, v: 1, kind: kindName(), name: PREVIEW ? 'Preview' : local.name || '', dev: devName(), pin: pin || undefined, w: innerWidth, h: innerHeight });
+  if (follower) { const id = follower.hostId(); if (id) follower.join(id); return; }
+  send(helloMsg());
 }
 function send(m) { try { tx.send(m); } catch (e) { /* not connected */ } }
 function cmd(op, extra) {
@@ -463,16 +502,36 @@ function cmd(op, extra) {
 
 // ------------------------------------------------------------ sheets (talk-back, options)
 let sheet = null;
-function closeSheet() { if (sheet) { sheet.remove(); sheet = null; } }
+let sheetReturn = null;
+function closeSheet() {
+  if (!sheet) return;
+  sheet.remove(); sheet = null;
+  root.classList.remove('sheet-open');
+  if (sheetReturn && sheetReturn.isConnected) { try { sheetReturn.focus({ preventScroll: true }); } catch (e) { /* */ } }
+  sheetReturn = null;
+}
 function openSheet(title, ...kids) {
   closeSheet();
-  sheet = h('div.ss-sheet-back', { onclick: (e) => { if (e.target === sheet) closeSheet(); } },
-    h('div.ss-sheet', { role: 'dialog', 'aria-label': title },
+  sheetReturn = document.activeElement;
+  root.classList.add('sheet-open');
+  sheet = h('div.ss-sheet-back', { onclick: (e) => { if (e.target === sheet) closeSheet(); },
+    // Tab stays inside the sheet; Esc closes it.
+    onkeydown: (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); closeSheet(); return; }
+      if (e.key !== 'Tab') return;
+      const f = Array.from(sheet.querySelectorAll('button,input,textarea,select,[tabindex]:not([tabindex="-1"])')).filter((x) => !x.disabled && x.offsetParent !== null);
+      if (!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    } },
+    h('div.ss-sheet', { role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
       h('div.ss-sheet-h', h('h2', title), h('button.ss-btn.ghost.icon-only', { type: 'button', 'aria-label': 'Close', onclick: closeSheet }, icon('x'))),
       ...kids));
   root.append(sheet);
   const f = sheet.querySelector('input,textarea');
-  if (f && !matchMedia('(pointer: coarse)').matches) setTimeout(() => f.focus(), 30);
+  const first = (f && !matchMedia('(pointer: coarse)').matches) ? f : sheet.querySelector('.ss-sheet-h button');
+  setTimeout(() => { if (first) first.focus(); }, 30);
 }
 function openTalk() {
   if (S.conn !== 'on') { toast('Not connected to the media desk yet.'); return; }
@@ -495,23 +554,28 @@ function sw(label, key) {
 }
 function openMenu() {
   const kids = [];
+  pinErr = null;
+  if (!S.control && VIA !== 'win' && VIA !== 'cast') {
+    const pin = h('input.ss-field', { inputmode: 'numeric', maxlength: 8, placeholder: 'PIN', autocomplete: 'off', style: 'max-width:140px' });
+    pinErr = h('p.ss-err', { role: 'alert' });
+    // The sheet stays open until the media desk answers: a wrong PIN is shown right here.
+    const go = () => { const p = pin.value.trim(); if (!p) { pin.focus(); return; } pendingPin = p; pinErr.textContent = 'Checking…'; send({ t: 'auth', pin: p }); };
+    pin.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+    kids.push(h('div.ss-fl.ss-unlock', h('span', 'Unlock controls (slides and timers)'), h('div.ss-row', pin, h('button.ss-btn.primary', { type: 'button', onclick: go }, icon('unlock'), h('span', 'Unlock'))), pinErr, h('p.ss-note', 'The control PIN is shown at the media desk, in the Stage tab.')));
+  }
   if (OWN) {
     kids.push(h('div.ss-fl', h('span', 'Layout'), seg([['full', 'Full'], ['words', 'Words'], ['slides', 'Slides'], ['timer', 'Timer']], opt('layout'), (v) => { local.layout = v; saveLocal(); paintLayout(); paintNow(); })));
+    const pct = h('span.ss-pct', Math.round((+opt('textSize') || 1) * 100) + ' %');
+    const size = (d) => { local.textSize = Math.round(Math.max(0.6, Math.min(2, (+opt('textSize') || 1) + d)) * 10) / 10; saveLocal(); paintLayout(); pct.textContent = Math.round(local.textSize * 100) + ' %'; };
     kids.push(h('div.ss-fl', h('span', 'Text size'), h('div.ss-row',
-      h('button.ss-btn', { type: 'button', onclick: () => { local.textSize = Math.max(0.6, +(opt('textSize') || 1) - 0.1); saveLocal(); paintLayout(); } }, 'A−'),
-      h('button.ss-btn', { type: 'button', onclick: () => { local.textSize = Math.min(2, +(opt('textSize') || 1) + 0.1); saveLocal(); paintLayout(); } }, 'A+'))));
+      h('button.ss-btn', { type: 'button', 'aria-label': 'Smaller text', onclick: () => size(-0.1) }, 'A−'), pct,
+      h('button.ss-btn', { type: 'button', 'aria-label': 'Larger text', onclick: () => size(0.1) }, 'A+'))));
     kids.push(h('div.ss-sws', sw('Show what comes next', 'showNext'), sw('Show the order of service', 'showPlan'), sw('Show speaker notes', 'showNotes'), sw('Show the slide picture', 'showLive'), sw('24-hour clock', 'clock24'), sw('Mirror (teleprompter glass)', 'mirror')));
     if (LOCAL_KEYS.some((k) => local[k] != null)) kids.push(h('button.ss-btn.ghost', { type: 'button', onclick: () => { LOCAL_KEYS.forEach((k) => delete local[k]); saveLocal(); paintLayout(); paintNow(); closeSheet(); } }, icon('reload'), h('span', 'Use the media desk’s layout')));
     const nm = h('input.ss-field', { value: local.name || '', maxlength: 40, placeholder: 'e.g. Pastor, Pulpit iPad, Choir' });
     kids.push(h('div.ss-fl', h('span', 'Name of this screen'), h('div.ss-row', nm, h('button.ss-btn', { type: 'button', onclick: () => { local.name = nm.value.trim(); saveLocal(); send({ t: 'name', name: local.name }); toast('Saved.'); } }, 'Save'))));
   } else {
     kids.push(h('p.ss-note', 'This screen follows the layout chosen at the media desk (Stage tab).'));
-  }
-  if (!S.control && VIA !== 'win' && VIA !== 'cast') {
-    const pin = h('input.ss-field', { inputmode: 'numeric', maxlength: 8, placeholder: 'PIN', autocomplete: 'off', style: 'max-width:140px' });
-    const go = () => { const p = pin.value.trim(); if (!p) return; pendingPin = p; send({ t: 'auth', pin: p }); closeSheet(); };
-    pin.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
-    kids.push(h('div.ss-fl', h('span', 'Unlock controls (slides and timers)'), h('div.ss-row', pin, h('button.ss-btn.primary', { type: 'button', onclick: go }, icon('unlock'), h('span', 'Unlock'))), h('p.ss-note', 'The control PIN is shown at the media desk, in the Stage tab.')));
   }
   if (room) kids.push(h('div.ss-row', h('span.ss-note', 'Room code ' + fmtCode(room.code)), h('button.ss-btn.ghost', { type: 'button', onclick: () => { closeSheet(); leave(); } }, icon('x'), h('span', 'Leave'))));
   kids.push(h('p.ss-note', 'Keys: → / Page Down next · ← / Page Up back · B black · F full screen · T message the media desk.'));
@@ -576,14 +640,17 @@ function showJoin(err, lanAvailable) {
       h('label.ss-l', 'Name'), name,
       errEl,
       h('button.ss-btn.primary.wide', { type: 'button', onclick: go }, icon('link'), h('span', 'Join')),
-      lanAvailable ? h('button.ss-btn.wide', { type: 'button', onclick: () => { hideJoin(); viaLan(); } }, icon('pc'), h('span', 'Use the church network instead')) : null,
+      lanAvailable || VIA === 'lan' ? h('button.ss-btn.wide', { type: 'button', onclick: () => { hideJoin(); left = false; viaLan(); } }, icon('pc'), h('span', 'Connect on the church network')) : null,
       h('p.ss-note', 'The code and a QR code are in SDA Sabbath at the media desk: Stage tab → Phones & laptops.')));
   root.append(joinEl);
   if (!matchMedia('(pointer: coarse)').matches) setTimeout(() => code.focus(), 50);
 }
 function leave(why) {
   const r = room; room = null;
-  if (r) { try { send({ t: 'bye' }); } catch (e) { /* */ } r.close(); }
+  left = true;
+  if (r) { try { send({ t: 'bye' }); } catch (e) { /* */ } r.close(); forgetHost(r.code); }
+  follower = null;
+  if (lanWs) { lanStop = true; try { lanWs.close(); } catch (e) { /* */ } lanWs = null; }
   tx = { send: () => {} };
   S.control = false; ctrl.hidden = true; root.classList.remove('can-control');
   local.code = ''; saveLocal();
@@ -606,6 +673,11 @@ function viaWindow() {
   });
   // The control page was reloaded: say hello again.
   try { const bc = new BroadcastChannel('selah-stage'); bc.onmessage = (e) => { if (e.data && e.data.t === 'who') hello(); }; } catch (e) { /* */ }
+  // SDA Sabbath itself was closed (not just reloaded): close this window too after a few seconds.
+  if (!PREVIEW && host === window.opener) {
+    let gone = 0;
+    setInterval(() => { let c = true; try { c = host.closed; } catch (e) { c = true; } gone = c ? gone + 1 : 0; if (gone >= 5) { try { window.close(); } catch (e) { /* */ } } }, 2000);
+  }
   setConn('connecting');
   let tries = 0;
   const ask = () => { if (S.conn === 'on' || tries++ > 60) return; hello(); setTimeout(ask, 700); };
@@ -638,54 +710,67 @@ function viaCast() {
 }
 
 // 3) The SDA Sabbath companion on the church network.
+let lanWs = null, lanStop = false;
 function viaLan() {
   let wait = 1000;
+  lanStop = false;
   setConn('connecting', 'Connecting on the church network…');
   const connect = () => {
+    if (lanStop) return;
     const ws = new WebSocket((location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws?role=display&room=stage');
+    lanWs = ws;
     ws.binaryType = 'arraybuffer';
     const dec = createDecoder(onMsg);
     let enc = null;
     ws.onopen = () => {
       wait = 1000;
       enc = createEncoder((s) => ws.send(s), (b) => ws.send(b));
-      tx = { send: (m) => enc && enc(Object.assign({ from: SID }, m)) };
+      tx = { send: (m) => enc && enc(Object.assign({ from: SID, key: LAN_KEY }, m)) };
       setConn('waiting');
       hello();
     };
     ws.onmessage = (e) => (typeof e.data === 'string' ? dec.text(e.data) : dec.binary(e.data));
-    ws.onclose = () => { enc = null; if (S.conn === 'on') setConn('lost'); setTimeout(connect, wait); wait = Math.min(wait * 2, 10000); };
+    ws.onclose = () => { enc = null; if (lanStop) return; if (S.conn === 'on') setConn('lost'); setTimeout(connect, wait); wait = Math.min(wait * 2, 10000); };
   };
   connect();
   return true;
 }
 
 // 4) Room code over the internet (peer to peer).
-let room = null;
+let room = null, follower = null;
 async function joinCode(code) {
   hideJoin();
+  left = false;
   if (room) { room.close(); room = null; }
   if (!navigator.onLine) { showJoin('This device has no internet. Connect to Wi-Fi or mobile data and try again.'); return; }
   setConn('connecting', 'Joining ' + fmtCode(code) + '…');
-  let hostId = null;
+  if (!canVerify()) { showJoin('This page must be opened over https (the address from the QR code) to join with a code.'); return; }
   const my = { code };
   room = my;
+  let r = null;
+  // Slides are accepted only from the media desk that proves its key (fingerprint from the QR code,
+  // or remembered from the first time this code was used).
+  const fp = hashParams.get('h') && normCode(hashParams.get('c') || '') === code ? hashParams.get('h') : '';
+  const fol = createFollower({
+    code, fp,
+    hello: (peerId, nonce) => { if (r) r.send(peerId, helloMsg(nonce)); },
+    onMsg,
+    onHost: () => {},
+    onLost: () => setConn('waiting', 'The media desk went away · waiting…'),
+  });
+  follower = fol;
   try {
-    const r = await joinStageRoom(code, {
+    r = await joinStageRoom(code, {
       host: false,
       relays: relaysFrom(hashParams.get('r') || local.relays || ''),
-      onMessage: (m, peerId) => {
-        if (m && (m.t === 'host' || m.t === 'hi')) { if (hostId !== peerId) { hostId = peerId; if (m.t === 'host') hello(); } }
-        if (peerId !== hostId) return;
-        onMsg(m);
-      },
-      onJoin: (peerId) => { hostId = peerId; hello(); },
-      onLeave: (peerId) => { if (peerId === hostId) { hostId = null; setConn('waiting', 'The media desk went away · waiting…'); } },
+      onMessage: (m, peerId) => fol.message(m, peerId),
+      onJoin: (peerId) => fol.join(peerId),
+      onLeave: (peerId) => fol.leave(peerId),
       onError: () => { if (S.conn !== 'on') setConn('waiting', 'Still looking for the media desk…'); },
     });
     if (room !== my) { r.close(); return; }
     Object.assign(my, r, { code, close: () => r.close() });
-    tx = { send: (m) => { if (hostId) r.send(hostId, m); } };
+    tx = { send: (m) => { const id = fol.hostId(); if (id) r.send(id, m); } };
     setConn('waiting');
     // No media desk after a while: say what to check.
     setTimeout(() => { if (room === my && S.conn !== 'on') setConn('waiting', 'Waiting for the media desk… Is “Phones & laptops” turned on in the Stage tab, and is the code ' + fmtCode(code) + '?'); }, 20000);

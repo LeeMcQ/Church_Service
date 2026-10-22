@@ -18,7 +18,7 @@ import { hub as stageHub, timerValue } from './core/stagehub.js';
 import { obs } from './core/obsctl.js';
 
 export const VERSION = '1.4.0';
-export const BUILD = 'ee6baa5';
+export const BUILD = '5febada';
 
 const TABS = [
   { id: 'bible', label: 'Bible', icon: 'bible', file: 'bible.js', load: () => import('./tabs/bible.js') },
@@ -387,7 +387,7 @@ dispBtn.addEventListener('click', () => displayMenu(dispBtn));
 // One button beside the display button: how many stage screens follow, the featured timer while it runs,
 // and a yellow dot while a stage message is showing. Its menu opens the stage window, casts it, sends a
 // message, and opens the Stage tab (phones & laptops, timers, layout).
-const stageBtn = h('button.stage-btn', { type: 'button', title: 'Stage screen for the platform (timers, messages, phones & laptops)', onclick: () => stageMenu(stageBtn) },
+const stageBtn = h('button.stage-btn', { type: 'button', 'aria-haspopup': 'menu', title: 'Stage screen for the platform (timers, messages, phones & laptops)', onclick: () => stageMenu(stageBtn) },
   icon('stage'), h('span.lbl', 'Stage'), h('span.n', { hidden: true }), h('span.tm', { hidden: true }), h('span.msg-dot', { hidden: true }));
 dispStop.after(stageBtn);
 function paintStageBtn() {
@@ -395,6 +395,8 @@ function paintStageBtn() {
   const nEl = stageBtn.querySelector('.n');
   nEl.hidden = !n; nEl.textContent = String(n);
   stageBtn.classList.toggle('on', n > 0);
+  const tmText = () => { const x = stageBtn.querySelector('.tm'); return x.hidden ? '' : ', timer ' + x.textContent; };
+  setTimeout(() => stageBtn.setAttribute('aria-label', 'Stage screen: ' + (n ? n + ' screen' + (n === 1 ? '' : 's') + ' following' : 'none connected') + tmText() + (stageHub.msg ? ', message showing' : '') + '. Open the stage menu'), 0);
   stageBtn.querySelector('.msg-dot').hidden = !stageHub.msg;
   const fid = settings.v.stage.featured;
   const t = stageHub.timers().find((x) => x.id === fid) || stageHub.timers()[0];

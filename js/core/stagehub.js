@@ -14,7 +14,7 @@ import { live } from './live.js';
 import { link } from './link.js';
 import { settings } from './settings.js';
 import { createEncoder, createDecoder } from './wire.js';
-import { joinStageRoom, newCode, newPin, turnFrom, relaysFrom } from './stagenet.js';
+import { joinStageRoom, newCode, newPin, turnFrom, relaysFrom, loadHostKey, signChallenge, canVerify } from './stagenet.js';
 
 export const PROTOCOL = 1;
 const MIN = 60000;
@@ -146,13 +146,14 @@ function liveMsg() {
 }
 // What comes next. When the staged item is the one on screen (Next follows Live), only its slide number
 // travels: the stage already has that item.
-let lastNextId = null;
+// (A rebuilt cue — the same hymn with other options — is a new object, so it is sent again.)
+let lastNextRef = null;
 function nextMsg(full) {
   const s = live.staged, c = live.cue;
-  if (!s) { lastNextId = null; return { t: 'next', cue: null }; }
-  if (c && s.id && s.id === c.id) { lastNextId = null; return { t: 'next', same: true, index: s.index || 0 }; }
-  if (!full && s.id && s.id === lastNextId) return { t: 'next', keep: true, index: s.index || 0 };
-  lastNextId = s.id || null;
+  if (!s) { lastNextRef = null; return { t: 'next', cue: null }; }
+  if (c && s.id && s.id === c.id) { lastNextRef = null; return { t: 'next', same: true, index: s.index || 0 }; }
+  if (!full && s === lastNextRef && s.deck === lastNextRef.deckRef) return { t: 'next', keep: true, index: s.index || 0 };
+  lastNextRef = s; s.deckRef = s.deck;
   return { t: 'next', cue: cueInfo(s), index: s.index || 0 };
 }
 function cfgMsg() {
@@ -168,7 +169,6 @@ function cfgMsg() {
 const timersMsg = () => ({ t: 'timers', list: timers.list, featured: settings.v.stage.featured, warnSec: settings.v.stage.warnSec, now: Date.now() });
 
 function snapshot(o, full = true) {
-  sendTo(o, { t: 'hi', v: PROTOCOL, now: Date.now() });
   sendTo(o, cfgMsg());
   const st = live.style;
   if (st) sendTo(o, { t: 'style', style: st });
@@ -192,11 +192,15 @@ hub.overlaysOn = true;   // the "Hide all overlays" switch
 function streamCfg() {
   const s = settings.v.stream;
   return { autoBible: s.autoBible, autoHymns: s.autoHymns, hymnMode: s.hymnMode, autoOther: s.autoOther, theme: s.theme, pos: s.pos, size: s.size,
-    bug: s.bug, fullBg: s.fullBg, accent: s.accent || '', church: ((settings.v.church && settings.v.church.name) || '').trim() };
+    bug: s.bug, fullBg: s.fullBg, accent: s.accent || '', presScene: s.presScene || '', church: ((settings.v.church && settings.v.church.name) || '').trim() };
 }
-function obsMsg() { return { t: 'obs', cfg: streamCfg(), lower: hub.lower, ticker: hub.ticker, on: hub.overlaysOn, now: Date.now() }; }
+function obsMsg() { return { t: 'obs', cfg: streamCfg(), lower: hub.lower, ticker: hub.ticker, on: hub.overlaysOn, pres: hub.obsOnPres, now: Date.now() }; }
+/** Set by obsctl.js: the scene on air in OBS. While the presentation scene is on air the lower third leaves out
+ *  the automatic words (the slide already shows them); names and the ticker stay. */
+hub.obsOnPres = false;
+hub.setObsProgram = (program, presScene) => { const on = !!program && program === presScene; if (on !== hub.obsOnPres) { hub.obsOnPres = on; pushObs(); } };
 const pushObs = debounce(() => { broadcast(obsMsg()); hub.emit('overlay'); }, 40);
-settings.on('change:stream', (p) => { if (!/^stream\.(obs|names|autoScene|camScene|presScene)/.test(p)) pushObs(); });
+settings.on('change:stream', (p) => { if (!/^stream\.(obs|names|autoScene|camScene|presScene|mediaScene|studioPreview)/.test(p)) pushObs(); });
 let lowerT = null;
 /** Show a lower third: {title, text, kind: 'name'|'text'}; sec 0 = until hidden. */
 hub.showLower = (item, sec) => {
@@ -213,21 +217,36 @@ hub.setTicker = (text) => { text = String(text || '').trim().slice(0, 600); hub.
 hub.setOverlays = (on) => { hub.overlaysOn = !!on; pushObs(); };
 const mediaMsg = (m) => ({ t: 'media', time: m.time || 0, dur: m.dur || 0, paused: !!m.paused, now: Date.now() });
 
-live.on('live', () => { lastNextId = null; broadcast(liveMsg()); pushNext(); });
+live.on('live', () => { lastNextRef = null; broadcast(liveMsg()); pushNext(); });
 live.on('go', (i) => { broadcast({ t: 'go', index: i }); pushNext(); });
 live.on('blank', (mode) => broadcast({ t: 'blank', mode }));
 live.on('style', (s) => broadcast({ t: 'style', style: s }));
 live.on('media', throttle((m) => broadcast(mediaMsg(m)), 1000));
 const pushNext = debounce(() => broadcast(nextMsg(false)), 60);
 live.on('staged', pushNext);
-settings.on('change:stage', (p) => { if (p !== 'stage.timers' && p !== 'stage.presets') pushCfg(); });
+settings.on('change:stage', (p) => {
+  if (p === 'stage.timers' || p === 'stage.presets' || p === 'stage.hostKey') return;
+  pushCfg();
+  // The featured timer and the amber warning are part of the timers message.
+  if (p === 'stage.featured' || p === 'stage.warnSec') broadcast(timersMsg());
+  // Control for the stage window changes at once (not only when it next connects).
+  if (p === 'stage.allowWinControl') hub.outlets.forEach((o) => { if (o.kind === 'window' && o.ready) { o.control = settings.v.stage.allowWinControl !== false; you(o); } });
+  if (p === 'stage.allowWinControl') hub.emit('outlets');
+});
 settings.on('change:church', () => pushCfg());
 settings.on('change:display', (p) => { if (p === 'display.aspect') pushCfg(); });
 link.on('hello', () => pushCfg());
 const pushCfg = debounce(() => broadcast(cfgMsg()), 120);
 
 // Keep-alive (also lets the stage notice a lost connection and keep its clock in step).
-setInterval(() => { if (hub.outlets.size) broadcast({ t: 'ping', now: Date.now() }); }, 10000);
+setInterval(() => {
+  if (!hub.outlets.size) return;
+  broadcast({ t: 'ping', now: Date.now() });
+  // Screens on the church network answer every ping; one that has been silent for 35 s is gone
+  // (the companion does not report closed connections).
+  const now = Date.now();
+  hub.outlets.forEach((o) => { if (o.kind === 'lan' && o.ready && now - (o.lastSeen || 0) > 35000) { o.close = null; removeOutlet(o.id); } });
+}, 10000);
 
 // ------------------------------------------------------------ messages to the stage
 let msgT = null;
@@ -258,6 +277,7 @@ hub.setPlan = (p) => {
   hub.planKey = key;
   hub.plan = p;
   pushPlan();
+  hub.emit('plan', p);
 };
 /** A plan part with a planned time went on screen: the featured timer counts down from it. */
 hub.planPartLive = (title, mins) => {
@@ -328,7 +348,7 @@ hub.timer = (id, op, arg) => {
     }
     case 'add': {
       const ms = +arg || 0;
-      if (t.mode === 'down') { if (t.running) t.endAt += ms; else t.left = val + ms; if (val + ms > 0) overNotified.delete(t.id); }
+      if (t.mode === 'down') { if (t.running) t.endAt += ms; else t.left = ms < 0 ? Math.max(Math.min(val, 0), val + ms) : val + ms; if (val + ms > 0) overNotified.delete(t.id); }
       else if (t.mode === 'up') { if (t.running) t.startAt -= ms; else t.elapsed = Math.max(0, val + ms); }
       break;
     }
@@ -363,20 +383,41 @@ setInterval(() => {
 }, 1000);
 
 // ------------------------------------------------------------ messages from stage screens
+// One lock for the whole hub: five wrong PINs (from any screen, in a hello or by Unlock) lock PIN entry for a
+// minute. Per screen it could be dodged by reloading or by joining again under a new name.
 const ATTEMPTS = 5;
+const pinLock = { fails: 0, until: 0 };
+function pinCheck(pin) {
+  if (pin == null || pin === '') return false;
+  if (Date.now() < pinLock.until) return 'wait';
+  if (settings.v.stage.pin && String(pin) === settings.v.stage.pin) { pinLock.fails = 0; return true; }
+  if (++pinLock.fails >= ATTEMPTS) { pinLock.fails = 0; pinLock.until = Date.now() + 60000; }
+  return false;
+}
+// Devices whose control the operator switched off: a saved PIN does not give it back (until New PIN).
+const revoked = new Set();
 function you(o, extra) { sendTo(o, Object.assign({ t: 'you', id: o.id, control: !!o.control, name: o.name || '' }, extra || {})); }
-function welcome(o, m) {
+async function welcome(o, m) {
   // OBS browser sources: larger pictures for the full-slide output, words only for the lower third.
   if (m.kind === 'obs') { o.role = 'obs'; o.mode = m.mode === 'full' ? 'full' : 'lower'; if (o.remote) o.size = o.mode === 'full' ? 'big' : 'text'; }
   else o.role = 'stage';
   o.dev = String(m.dev || '').slice(0, 60);
+  o.did = String(m.did || '').slice(0, 40);
   o.name = String(m.name || '').trim().slice(0, 40) || o.name || (o.role !== 'obs' && (o.kind === 'peer' || o.kind === 'lan') ? o.dev : '') || defaultName(o);
   if (o.kind === 'preview') o.control = true;
   else if (o.kind === 'window') o.control = settings.v.stage.allowWinControl !== false;
   else if (o.granted != null) o.control = o.granted;
-  else o.control = !!(m.pin && settings.v.stage.pin && String(m.pin) === settings.v.stage.pin);
+  else if (o.did && revoked.has(o.did)) o.control = false;
+  else { o.control = pinCheck(m.pin) === true; if (o.control) o.via = 'pin'; }
+  // Over the internet the screen checks that this really is the media desk: sign its challenge first.
+  let hi = { t: 'hi', v: PROTOCOL, now: Date.now() };
+  if (o.kind === 'peer' && m.nonce && hub.key) {
+    try { hi = Object.assign(hi, { pub: hub.key.pub, sig: await signChallenge(hub.key, String(m.nonce).slice(0, 64)) }); } catch (e) { /* */ }
+  }
+  if (!hub.outlets.has(o.id)) return; // left meanwhile
   o.ready = true;
   o.lastSeen = Date.now();
+  sendTo(o, hi);
   you(o);
   snapshot(o, true);
   hub.emit('outlets');
@@ -390,18 +431,20 @@ function incoming(o, m) {
   switch (m.t) {
     case 'hello': welcome(o, m); return;
     case 'auth': {
-      if (o.lockUntil && Date.now() < o.lockUntil) { you(o, { denied: 'wait' }); return; }
-      const ok = !!(settings.v.stage.pin && String(m.pin || '') === settings.v.stage.pin);
-      if (ok) { o.control = true; o.granted = true; o.fails = 0; }
-      else if (++o.fails >= ATTEMPTS) { o.lockUntil = Date.now() + 60000; o.fails = 0; }
-      you(o, ok ? null : { denied: 'pin' });
+      const r = pinCheck(m.pin);
+      if (r === true) { o.control = true; o.granted = null; o.via = 'pin'; if (o.did) revoked.delete(o.did); }
+      you(o, r === true ? null : { denied: r === 'wait' ? 'wait' : 'pin' });
       hub.emit('outlets');
       return;
     }
     case 'name': o.name = String(m.name || '').trim().slice(0, 40) || o.name; hub.emit('outlets'); return;
+    case 'pong': return;
     case 'talk': {
       const text = String(m.text || '').trim().slice(0, 300);
       if (!text) return;
+      // At most one message every 3 seconds per screen (nobody can flood the media desk).
+      if (o.lastTalk && Date.now() - o.lastTalk < 3000) { sendTo(o, { t: 'talked', id: m.id || '', slow: true }); return; }
+      o.lastTalk = Date.now();
       const item = { id: uid(), from: o.name || defaultName(o), text, at: Date.now() };
       hub.talk = [item].concat(hub.talk).slice(0, 30);
       hub.emit('talk', item);
@@ -425,7 +468,8 @@ function incoming(o, m) {
 hub.setControl = (id, on) => {
   const o = hub.outlets.get(id);
   if (!o) return;
-  o.control = !!on; o.granted = !!on;
+  o.control = !!on; o.granted = !!on; o.via = on ? 'hand' : null;
+  if (o.did) { if (on) revoked.delete(o.did); else revoked.add(o.did); }
   you(o);
   hub.emit('outlets');
 };
@@ -505,7 +549,8 @@ hub.openWindow = async () => {
 };
 hub.windowOpen = () => !!(stageWin && !stageWin.closed);
 hub.closeWindow = () => { for (const o of hub.outlets.values()) if (o.kind === 'window') removeOutlet(o.id); stageWin = null; };
-window.addEventListener('pagehide', () => { if (stageWin && !stageWin.closed) { try { stageWin.close(); } catch (e) { /* */ } } });
+// The stage window stays open when this page reloads (it finds the new page again); it closes itself if
+// the app is really closed (stage-main.js).
 
 // ------------------------------------------------------------ 2. Cast (Chromecast, Google TV …)
 hub.canCast = () => typeof window.PresentationRequest === 'function';
@@ -549,8 +594,16 @@ hub.connectLan = (base, pin) => {
       if (!m || !m.from) return;
       const id = 'lan:' + String(m.from).slice(0, 40);
       let o = hub.outlets.get(id);
+      // Every screen on the church network sends a secret key of its own with each message. The companion
+      // passes screens' messages only to the media desk, so no other screen can learn it — and no other
+      // screen can act in its name (for example use the control it was given).
+      const key = typeof m.key === 'string' ? m.key.slice(0, 64) : '';
+      if (o && (!key || key !== o.key)) return;
       if (m.t === 'hello') {
-        if (!o) o = addOutlet({ id, kind: 'lan', remote: true, label: 'Church network', send: (x) => { if (lanEnc) lanEnc(Object.assign({ to: m.from }, x)); }, close: null });
+        if (!o) {
+          if (!key || hub.count((x) => x.kind === 'lan') >= 60) return;
+          o = addOutlet({ id, kind: 'lan', remote: true, label: 'Church network', key, send: (x) => { if (lanEnc) lanEnc(Object.assign({ to: m.from }, x)); }, close: null });
+        }
         // The pictures are shared by every screen on this connection: a new screen needs them all again.
         if (lanEnc) lanEnc.reset();
       }
@@ -580,6 +633,12 @@ hub.disconnectLan = () => {
 let net = null, netToken = 0;
 function setNet(state, error) { hub.net = { state, error: error || '', since: Date.now() }; hub.emit('net', hub.net); }
 /** Make sure there is a room code and a control PIN. */
+/** The media desk's signing key (its fingerprint goes into the QR code and the OBS addresses). */
+hub.keyReady = (async () => {
+  if (!canVerify()) return null;
+  try { hub.key = await loadHostKey({ get: () => settings.v.stage.hostKey, set: (v) => settings.set('stage.hostKey', v) }); hub.emit('net', hub.net); return hub.key; }
+  catch (e) { console.warn('stage key', e); return null; }
+})();
 hub.ensureCode = () => {
   if (!settings.v.stage.code) settings.set('stage.code', newCode());
   if (!settings.v.stage.pin) settings.set('stage.pin', newPin());
@@ -593,6 +652,7 @@ hub.goOnline = async (on) => {
   const code = hub.ensureCode();
   if (!navigator.onLine) { setNet('offline'); return; }
   setNet('starting');
+  await hub.keyReady;
   try {
     const room = await joinStageRoom(code, {
       host: true,
@@ -628,8 +688,9 @@ hub.newCode = async () => {
 };
 hub.newPin = () => {
   settings.set('stage.pin', newPin());
-  // Devices that had control through the old PIN keep it only if the operator allowed them by hand.
-  hub.outlets.forEach((o) => { if (o.kind === 'peer' || o.kind === 'lan' || o.kind === 'cast') { if (o.control) { o.control = false; o.granted = false; you(o); } } });
+  // Only control that came from the old PIN ends; screens the operator allowed by hand keep it.
+  revoked.clear(); pinLock.fails = 0; pinLock.until = 0;
+  hub.outlets.forEach((o) => { if ((o.kind === 'peer' || o.kind === 'lan' || o.kind === 'cast') && o.control && o.via === 'pin') { o.control = false; o.granted = null; you(o); } });
   hub.emit('outlets');
 };
 // Phones need a secure (https) page for the encrypted link. When this app runs from the companion
@@ -640,7 +701,7 @@ const joinBase = () => (location.protocol === 'https:' ? location.href : PUBLIC_
 hub.joinUrl = (code) => {
   const u = new URL('stage.html', joinBase());
   const r = relaysFrom(settings.v.stage.relays);
-  u.search = ''; u.hash = 'c=' + (code || settings.v.stage.code) + (r ? '&r=' + encodeURIComponent(r.join(',')) : '');
+  u.search = ''; u.hash = 'c=' + (code || settings.v.stage.code) + (hub.key ? '&h=' + hub.key.fp : '') + (r ? '&r=' + encodeURIComponent(r.join(',')) : '');
   return u.href;
 };
 /**
@@ -658,7 +719,7 @@ hub.obsUrl = (mode, ctx) => {
   }
   const r = relaysFrom(settings.v.stage.relays);
   const u = new URL('obs.html', joinBase());
-  u.search = ''; u.hash = 'c=' + hub.ensureCode() + '&mode=' + mode + (r ? '&r=' + encodeURIComponent(r.join(',')) : '');
+  u.search = ''; u.hash = 'c=' + hub.ensureCode() + '&mode=' + mode + (hub.key ? '&h=' + hub.key.fp : '') + (r ? '&r=' + encodeURIComponent(r.join(',')) : '');
   return u.href;
 };
 /** Short address to type: …/stage (the page asks for the code). */

@@ -80,3 +80,10 @@ body.obs { font-family: "Hyperlegible", system-ui, -apple-system, "Segoe UI", Ro
   conic-gradient(#2a3140 25%, #1f2531 0 50%, #2a3140 0 75%, #1f2531 0) 0 0 / 40px 40px !important; }
 
 @media (prefers-reduced-motion: reduce) { .lt-box, .tk, .bug { transition: none; } .tk-in { animation-duration: 60s !important; } }
+
+/* Long passages: a fourth line at a smaller size before anything is cut off. */
+.lt.four .lt-text { height: calc(4 * 1.25em); max-height: calc(4 * 1.25 * 40px * var(--lt-size)); }
+.lt.four.clamp .lt-text-in { -webkit-line-clamp: 4; }
+/* Ticker: copies side by side; the strip moves by exactly one copy for a seamless loop. */
+.tk-in { display: flex; padding-left: 0; }
+.tk-one { flex: none; white-space: pre; padding-right: 0; }
