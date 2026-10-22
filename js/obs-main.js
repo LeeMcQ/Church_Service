@@ -2,7 +2,7 @@
 //   #mode=full    the slides exactly as on the projector (optionally with a transparent background, so
 //                 Bible and hymn text sit over the camera picture)
 //   #mode=lower   a transparent overlay with lower thirds: the Bible verse or hymn words on screen
-//                 (automatically), names and announcements sent from the Stream tab, a scrolling
+//                 (automatically), names and announcements sent from Tools → Stream, a scrolling
 //                 ticker and the church logo in the corner.
 // It follows the operator's SDA Sabbath like a stage screen does: by room code over the internet
 // (#c=CODE), on the church network through the companion (?via=lan), or as the preview in the app.
@@ -331,5 +331,5 @@ async function viaCode(code) {
   if (VIA === 'lan') { viaLan(); return; }
   const code = normCode(get('c'));
   if (code) { viaCode(code); return; }
-  setConn('idle', 'SDA Sabbath for OBS: this address needs a room code. Copy it from SDA Sabbath → Stream tab.');
+  setConn('idle', 'SDA Sabbath for OBS: this address needs a room code. Copy it from SDA Sabbath → Tools → Stream.');
 })();

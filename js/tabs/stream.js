@@ -1,4 +1,4 @@
-// Stream tab: everything for the live stream in OBS Studio.
+// Tools → Stream: everything for the live stream in OBS Studio.
 //   1. Connect OBS — one click (obs-websocket) creates the sources and a presentation scene; or copy /
 //      drag the two addresses into Browser Sources by hand.
 //   2. OBS control — switch scenes, follow the slides automatically, start/stop streaming and recording.

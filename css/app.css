@@ -1044,3 +1044,13 @@ button.se-sw[aria-pressed="true"] { outline: 2px solid var(--focus, #2f6fe0); ou
 .st-check { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
 .st-check .ok { color: var(--next); } .st-check .no { color: var(--warn); font-weight: 700; }
 .plan-chip svg.i { width: 14px; height: 14px; }
+
+/* ---------- Tools tab: Service / Stage / Stream parts ---------- */
+.tools { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.tools-parts { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.tools-part { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.tools-seg button { display: inline-flex; align-items: center; gap: 6px; }
+.tools-seg svg.i { width: 16px; height: 16px; }
+/* Inside Tools, Stage and Stream need no bar of their own: the part buttons name them, and their actions
+   (open the stage screen, message, hide the lower third) are in their cards. */
+.tools-part > .toolbar { display: none; }

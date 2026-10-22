@@ -1,4 +1,4 @@
-// Stage tab: the second screen for the people on the platform (confidence monitor).
+// Tools → Stage: the second screen for the people on the platform (confidence monitor).
 //   Screens   – a stage window on another screen of this PC, Cast, the church network (companion), and the
 //               layout every stage screen starts with.
 //   Phones & laptops – a room code + QR code anyone on the platform can open (internet, peer to peer),

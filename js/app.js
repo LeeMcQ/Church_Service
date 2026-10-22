@@ -18,7 +18,7 @@ import { hub as stageHub, timerValue } from './core/stagehub.js';
 import { obs } from './core/obsctl.js';
 
 export const VERSION = '1.4.0';
-export const BUILD = '5febada';
+export const BUILD = 'd74dfda';
 
 const TABS = [
   { id: 'bible', label: 'Bible', icon: 'bible', file: 'bible.js', load: () => import('./tabs/bible.js') },
@@ -29,8 +29,6 @@ const TABS = [
   { id: 'web', label: 'Web & PC', icon: 'web', file: 'webpc.js', load: () => import('./tabs/webpc.js') }, // the web page and PC screen parts in one tab
   { id: 'plan', label: 'Plan', icon: 'plan', file: 'plan.js', load: () => import('./tabs/plan.js') },
   { id: 'tools', label: 'Tools', icon: 'grid', file: 'tools.js', load: () => import('./tabs/tools.js') },
-  { id: 'stage', label: 'Stage', icon: 'stage', file: 'stage.js', load: () => import('./tabs/stage.js') }, // second screen for the platform (confidence monitor)
-  { id: 'stream', label: 'Stream', icon: 'live', file: 'stream.js', load: () => import('./tabs/stream.js') }, // OBS: lower thirds, slides, scene switching
   null,
   { id: 'settings', label: 'Settings', icon: 'settings', file: 'settings.js', load: () => import('./tabs/settings.js') },
 ];
@@ -67,9 +65,10 @@ const ctx = {
 window.selah = ctx; // handy for debugging from the console (name kept for existing scripts)
 
 // Old names still work (saved plans, links, the last tab used): PC view is now part of Web & PC.
-const ALIAS = { screen: 'web' };
+// Parts that live inside another tab: Web & PC (screen), Tools (stage, stream).
+const ALIAS = { screen: 'web', stage: 'tools', stream: 'tools' };
 async function getTab(id) {
-  if (ALIAS[id]) { const api = await getTab(ALIAS[id]); if (id === 'screen' && api.show) api.show('screen'); return api; }
+  if (ALIAS[id]) { const api = await getTab(ALIAS[id]); if (api.show) { const sub = api.show(id); if (sub && sub.el) return sub; } return api; }
   if (tabs.has(id)) return tabs.get(id);
   if (loading.has(id)) return loading.get(id);
   const def = TABS.find((t) => t && t.id === id);
@@ -109,7 +108,7 @@ function tabErrorPanel(id, err) {
 const errPanels = new Map();
 
 async function showTab(id) {
-  if (ALIAS[id]) { const api = await showTab(ALIAS[id]); if (id === 'screen' && api && api.show) api.show('screen'); return api; }
+  if (ALIAS[id]) { const api = await showTab(ALIAS[id]); if (api && api.show) { const sub = api.show(id); if (sub && sub.el) return sub; } return api; }
   // While the Plan tab opens an item in another tab, stay on the Plan.
   if (ctx.hold && id !== ctx.hold) return getTab(id);
   if (current === id && tabs.has(id)) return tabs.get(id);
@@ -145,7 +144,7 @@ async function showTab(id) {
 
 // ------------------------------------------------------------ rail
 // On phones only five buttons fit comfortably: Bible, Hymns, Banners, Slides, Plan and More (the rest).
-const MORE_TABS = ['video', 'web', 'tools', 'stage', 'stream', 'settings'];
+const MORE_TABS = ['video', 'web', 'tools', 'settings'];
 const MORE_MENU = MORE_TABS; // Banners has its own button in the rail (never repeated in this menu)
 TABS.forEach((t, i) => {
   if (!t) { rail.appendChild(h('div.rail-gap')); return; }
@@ -426,11 +425,11 @@ function stageMenu(anchor) {
     stageHub.msg ? { label: 'Clear the stage message', icon: 'x', onclick: () => stageHub.clearMessage() } : null,
     t && t.mode !== 'to' ? { label: (t.running ? 'Pause ' : 'Start ') + (t.label || t.name).toLowerCase() + ' timer', icon: t.running ? 'pause' : 'play', onclick: () => stageHub.timer(t.id, 'toggle') } : null,
     '-',
-    { label: 'Stage tab (layout, timers, who is connected)', icon: 'stage', onclick: () => showTab('stage') },
+    { label: 'Tools → Stage (layout, timers, who is connected)', icon: 'stage', onclick: () => showTab('stage') },
   ]);
 }
 // OBS: a red LIVE / REC mark in the top bar while OBS streams or records (click: Stream tab).
-const obsPill = h('button.obs-pill', { type: 'button', hidden: true, title: 'OBS is live — open the Stream tab', onclick: () => showTab('stream') });
+const obsPill = h('button.obs-pill', { type: 'button', hidden: true, title: 'OBS is live — open Tools → Stream', onclick: () => showTab('stream') });
 stageBtn.after(obsPill);
 function paintObsPill() {
   const on = obs.state === 'on' && (obs.streaming || obs.recording);

@@ -1,10 +1,12 @@
 // Service tools: lower thirds, responsive readings, communion sequence, streaming overlay, captions
-// (the stage screen, timers and stage messages are in the Stage tab).
+// The Stage and Stream parts (stage.js, stream.js) are shown in this tab too.
 // Like every other tab, slides from here go to the green Next screen first; Present shows them.
 // Children's story templates intentionally omitted.
 import { h, esc } from '../core/util.js';
 import { icon } from '../core/icons.js';
 import { btn } from '../core/ui.js';
+import createStage from './stage.js';
+import createStream from './stream.js';
 
 const RESPONSIVE = [
   { title: 'Call to Worship', text: 'Leader: O come, let us worship and bow down.\nPeople: Let us kneel before the Lord our maker.\nLeader: For he is our God.\nPeople: And we are the people of his pasture, and the sheep of his hand.' },
@@ -19,7 +21,7 @@ const COMMUNION = [
   { title: 'Closing', text: 'For as often as ye eat this bread, and drink this cup, ye do shew the Lord’s death till he come.\n\n1 Corinthians 11:26' },
 ];
 
-export default function create(ctx) {
+function createService(ctx) {
   const { live, toast: showToast } = ctx;
   let captionRec = null;
 
@@ -90,15 +92,6 @@ export default function create(ctx) {
     if (!text) { showToast('Type the lower-third text first.', 'err'); return; }
     stage(textCue('tools:lower:' + text, text, 'Lower third', [{ title: KIND_LABEL[lowerKind.value] || '', text }]), false);
   }
-  /** Streaming: the lower third on the OBS overlay (Stream tab), not the projector. */
-  function showLowerOnStream() {
-    const text = lowerText.value.trim();
-    if (!text) { showToast('Type the lower-third text first.', 'err'); return; }
-    const kind = lowerKind.value;
-    ctx.stage.showLower(kind === 'speaker' ? { title: text, text: '', kind: 'name' } : { title: KIND_LABEL[kind] || '', text, kind: 'text' });
-    showToast(ctx.stage.obsOutputs().length ? 'Shown on the stream.' : 'Shown on the stream overlay. Set up OBS in the Stream tab to see it there.', 'ok', 3500);
-  }
-
   // Captions go on the display's caption line, over whatever is on screen (they never replace a slide).
   // Starting them is the operator's explicit choice, so they show straight away.
   const capPreview = h('p.note', { style: { marginTop: '8px', minHeight: '1.4em' } }, '');
@@ -144,22 +137,13 @@ export default function create(ctx) {
   }
   paintCapBtn();
 
-  const el = h('section',
-    h('div.toolbar', h('h2', 'Service tools'), h('div.grow')),
+  const el = h('section.tools-service',
     h('div.scroll', { style: { flex: '1', padding: '8px 4px' } },
       h('div.card', { style: { marginBottom: '12px', padding: '12px', border: '1px solid var(--line)', borderRadius: '10px' } },
-        h('h3', { style: { margin: '0 0 8px' } }, 'Stage screen, timers and messages'),
-        h('p.note', 'The second screen for the people on the platform — the slide on screen and what comes next, speaker notes, the time, speaker timers and your messages — on a stage monitor, a cast TV, or their own phones and laptops (QR code). Everything is in the Stage tab.'),
-        h('div.row.wrap', { style: { marginTop: '8px' } },
-          btn('present', 'Open stage screen', () => ctx.stage && ctx.stage.openWindow(), { label: true, cls: 'primary' }),
-          btn('stage', 'Stage tab', () => ctx.showTab('stage'), { label: true }))),
-      h('div.card', { style: { marginBottom: '12px', padding: '12px', border: '1px solid var(--line)', borderRadius: '10px' } },
-        h('h3', { style: { margin: '0 0 8px' } }, 'Lower third / overlay'),
+        h('h3', { style: { margin: '0 0 8px' } }, 'Lower third on the projector'),
         h('div.row', { style: { gap: '8px', marginBottom: '8px' } }, lowerKind, lowerText),
-        h('div.row.wrap', btn('next', 'Set as Next', stageLower, { label: true, cls: 'primary' }),
-          btn('link', 'Show on stream overlay', showLowerOnStream, { label: true }),
-          btn('x', 'Hide on stream', () => ctx.stage.hideLower(), { label: true })),
-        h('p.note', 'Set as Next puts the text on the green Next screen for the projector; Present (F5) shows it. Show on stream puts it on the OBS lower third only (Stream tab).')),
+        h('div.row.wrap', btn('next', 'Set as Next', stageLower, { label: true, cls: 'primary' })),
+        h('p.note', 'Set as Next puts the text on the green Next screen for the projector; Present (F5) shows it. Names and announcements for the live stream are under Stream.')),
       h('div.card', { style: { marginBottom: '12px', padding: '12px', border: '1px solid var(--line)', borderRadius: '10px' } },
         h('h3', { style: { margin: '0 0 8px' } }, 'Responsive readings'),
         h('p.note', { style: { marginBottom: '8px' } }, 'Click to put a reading on the green Next screen, then Present (F5). Double-click to show it at once.'),
@@ -174,10 +158,6 @@ export default function create(ctx) {
         h('h3', { style: { margin: '0 0 8px' } }, 'Offering & tithe'),
         h('p.note', 'Offering banners (with a verse and a QR code for online giving) are made in Banners.'),
         h('button.btn', { type: 'button', style: { marginTop: '8px' }, onclick: () => ctx.showTab('ai') }, icon('banner'), h('span', 'Open Banners'))),
-      h('div.card', { style: { marginBottom: '12px', padding: '12px', border: '1px solid var(--line)', borderRadius: '10px' } },
-        h('h3', { style: { margin: '0 0 8px' } }, 'Live stream (OBS)'),
-        h('p.note', 'Lower thirds with Bible verses and hymn words, names, a ticker, the slides for a presentation scene, and one-click OBS set-up are in the Stream tab.'),
-        btn('live', 'Stream tab', () => ctx.showTab('stream'), { label: true })),
       h('div.card', { style: { padding: '12px', border: '1px solid var(--line)', borderRadius: '10px' } },
         h('h3', { style: { margin: '0 0 8px' } }, 'Live captions (experimental)'),
         h('p.note', 'Uses the browser’s speech recognition (needs internet in Chrome/Edge). The words appear on the caption line at the bottom of the screen, over whatever is showing. Full multi-language translation remains planned.'),
@@ -190,6 +170,66 @@ export default function create(ctx) {
 
   return {
     el,
+    open() { return null; },
+  };
+}
+
+// ------------------------------------------------------------ the Tools tab: three parts
+//   Service – readings, communion, the projector lower third, captions
+//   Stage   – the second screen for the platform: messages, timers, phones & laptops (stage.js)
+//   Stream  – OBS: lower thirds, presentation output, scene switching (stream.js)
+// Each part keeps its own content; only the part that is open is shown. Stage and Stream are built the first
+// time they are opened.
+const PARTS = [
+  ['service', 'grid', 'Service', 'Readings, communion, projector lower third, captions'],
+  ['stage', 'stage', 'Stage', 'Second screen for the platform: messages, timers, phones & laptops'],
+  ['stream', 'live', 'Stream', 'OBS live stream: lower thirds, slides, scene switching'],
+];
+export default function create(ctx) {
+  const makers = { service: createService, stage: createStage, stream: createStream };
+  const parts = {};
+  let part = PARTS.some((p) => p[0] === ctx.settings.v.app.toolsPart) ? ctx.settings.v.app.toolsPart : 'service';
+  const seg = h('div.seg.tools-seg', { role: 'group', 'aria-label': 'Tools' });
+  const host = h('div.tools-parts');
+  const el = h('section.tools',
+    h('div.toolbar.tools-bar', h('h2', 'Tools'), seg, h('div.grow'), h('span.note.hide-sm.tools-hint')),
+    host);
+  const hint = el.querySelector('.tools-hint');
+  function get(k) {
+    if (!parts[k]) {
+      const api = makers[k](ctx);
+      api.el.classList.add('tools-part', 'tools-part-' + k);
+      api.el.hidden = true;
+      host.append(api.el);
+      parts[k] = api;
+    }
+    return parts[k];
+  }
+  function paintSeg() {
+    seg.replaceChildren(...PARTS.map(([k, ic, label, title]) => h('button', { type: 'button', title, 'aria-pressed': String(k === part), onclick: () => show(k) }, icon(ic), h('span', label))));
+    const p = PARTS.find((x) => x[0] === part);
+    hint.textContent = p ? p[3] : '';
+  }
+  function show(k) {
+    if (!makers[k]) k = 'service';
+    const prev = parts[part];
+    if (prev && part !== k) { prev.el.hidden = true; if (prev.onHide) prev.onHide(); }
+    part = k;
+    ctx.settings.set('app.toolsPart', k);
+    const api = get(k);
+    api.el.hidden = false;
+    paintSeg();
+    if (visible && api.onShow) api.onShow();
+    return api;
+  }
+  let visible = false;
+  show(part);
+  return {
+    el,
+    /** Open one part (also used for the old tab names "stage" and "stream"); returns that part. */
+    show(k) { return show(k === 'tools' ? 'service' : k); },
+    onShow() { visible = true; const api = get(part); if (api.onShow) api.onShow(); },
+    onHide() { visible = false; const api = parts[part]; if (api && api.onHide) api.onHide(); },
     open() { return null; },
   };
 }

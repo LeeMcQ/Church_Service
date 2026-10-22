@@ -3,7 +3,7 @@
 // and the order of service. Nothing here is ever shown to the congregation.
 //
 // It connects to the operator's SDA Sabbath in one of four ways:
-//   ?via=win     a window opened by the app on another screen (or the preview inside the Stage tab)
+//   ?via=win     a window opened by the app on another screen (or the preview inside Tools → Stage)
 //   ?via=cast    a Chromecast / Google TV started from the app (Presentation API)
 //   ?via=lan     the SDA Sabbath companion on the church network (works without internet)
 //   #c=CODE      phones, tablets and laptops anywhere: the room code (or QR code) from the media desk
@@ -561,7 +561,7 @@ function openMenu() {
     // The sheet stays open until the media desk answers: a wrong PIN is shown right here.
     const go = () => { const p = pin.value.trim(); if (!p) { pin.focus(); return; } pendingPin = p; pinErr.textContent = 'Checking…'; send({ t: 'auth', pin: p }); };
     pin.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
-    kids.push(h('div.ss-fl.ss-unlock', h('span', 'Unlock controls (slides and timers)'), h('div.ss-row', pin, h('button.ss-btn.primary', { type: 'button', onclick: go }, icon('unlock'), h('span', 'Unlock'))), pinErr, h('p.ss-note', 'The control PIN is shown at the media desk, in the Stage tab.')));
+    kids.push(h('div.ss-fl.ss-unlock', h('span', 'Unlock controls (slides and timers)'), h('div.ss-row', pin, h('button.ss-btn.primary', { type: 'button', onclick: go }, icon('unlock'), h('span', 'Unlock'))), pinErr, h('p.ss-note', 'The control PIN is shown at the media desk, in Tools → Stage.')));
   }
   if (OWN) {
     kids.push(h('div.ss-fl', h('span', 'Layout'), seg([['full', 'Full'], ['words', 'Words'], ['slides', 'Slides'], ['timer', 'Timer']], opt('layout'), (v) => { local.layout = v; saveLocal(); paintLayout(); paintNow(); })));
@@ -575,7 +575,7 @@ function openMenu() {
     const nm = h('input.ss-field', { value: local.name || '', maxlength: 40, placeholder: 'e.g. Pastor, Pulpit iPad, Choir' });
     kids.push(h('div.ss-fl', h('span', 'Name of this screen'), h('div.ss-row', nm, h('button.ss-btn', { type: 'button', onclick: () => { local.name = nm.value.trim(); saveLocal(); send({ t: 'name', name: local.name }); toast('Saved.'); } }, 'Save'))));
   } else {
-    kids.push(h('p.ss-note', 'This screen follows the layout chosen at the media desk (Stage tab).'));
+    kids.push(h('p.ss-note', 'This screen follows the layout chosen at the media desk (Tools → Stage).'));
   }
   if (room) kids.push(h('div.ss-row', h('span.ss-note', 'Room code ' + fmtCode(room.code)), h('button.ss-btn.ghost', { type: 'button', onclick: () => { closeSheet(); leave(); } }, icon('x'), h('span', 'Leave'))));
   kids.push(h('p.ss-note', 'Keys: → / Page Down next · ← / Page Up back · B black · F full screen · T message the media desk.'));
@@ -641,7 +641,7 @@ function showJoin(err, lanAvailable) {
       errEl,
       h('button.ss-btn.primary.wide', { type: 'button', onclick: go }, icon('link'), h('span', 'Join')),
       lanAvailable || VIA === 'lan' ? h('button.ss-btn.wide', { type: 'button', onclick: () => { hideJoin(); left = false; viaLan(); } }, icon('pc'), h('span', 'Connect on the church network')) : null,
-      h('p.ss-note', 'The code and a QR code are in SDA Sabbath at the media desk: Stage tab → Phones & laptops.')));
+      h('p.ss-note', 'The code and a QR code are in SDA Sabbath at the media desk: Tools → Stage → Phones & laptops.')));
   root.append(joinEl);
   if (!matchMedia('(pointer: coarse)').matches) setTimeout(() => code.focus(), 50);
 }
@@ -773,7 +773,7 @@ async function joinCode(code) {
     tx = { send: (m) => { const id = fol.hostId(); if (id) r.send(id, m); } };
     setConn('waiting');
     // No media desk after a while: say what to check.
-    setTimeout(() => { if (room === my && S.conn !== 'on') setConn('waiting', 'Waiting for the media desk… Is “Phones & laptops” turned on in the Stage tab, and is the code ' + fmtCode(code) + '?'); }, 20000);
+    setTimeout(() => { if (room === my && S.conn !== 'on') setConn('waiting', 'Waiting for the media desk… Is “Phones & laptops” turned on in Tools → Stage, and is the code ' + fmtCode(code) + '?'); }, 20000);
   } catch (e) {
     if (room === my) room = null;
     showJoin('Could not join: ' + ((e && e.message) || e) + '. Check the internet connection and try again.');

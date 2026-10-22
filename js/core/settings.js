@@ -4,7 +4,7 @@ import { emitter, lowPowerDevice } from './util.js';
 const KEY = 'selah.settings.v1'; // kept from the app's first name: existing settings carry over
 
 export const DEFAULTS = {
-  app: { theme: 'dark', railSide: 'left', monitors: true, lowPower: null, lastTab: 'bible', clickerKeys: true, webPart: 'web' },
+  app: { theme: 'dark', railSide: 'left', monitors: true, lowPower: null, lastTab: 'bible', clickerKeys: true, webPart: 'web', toolsPart: 'service' },
   display: {
     font: 'sans', fg: '#ffffff', bg: '#000000', accent: '#f2cf7a', shadow: true, align: 'center',
     pad: 96, minFont: 58, maxFont: 150, fade: 250, transition: 'fade', aspect: 'auto',
