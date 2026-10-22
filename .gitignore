@@ -1,0 +1,16 @@
+# Licensed Bibles (NIV, Xhosa 1975, …) — never publish these
+licensed/*
+!licensed/README.md
+data/bibles-private/
+
+# Raw Bible source files used by tools/build_bibles.py
+sources/
+
+# Build output
+companion/target/
+companion/embed/
+node_modules/
+*.zip
+!data/music/*.zip
+.DS_Store
+__pycache__/

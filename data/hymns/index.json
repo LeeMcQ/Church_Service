@@ -1,0 +1,42 @@
+[
+  {
+    "id": "sda-online",
+    "name": "SDA Hymnal (full, offline)",
+    "short": "SDAH",
+    "lang": "en",
+    "file": "sda-online.json",
+    "note": "All 698 hymns with lyrics offline. Music links open the source page."
+  },
+  {
+    "id": "church-1941",
+    "name": "Church Hymnal 1941 (offline)",
+    "short": "CH41",
+    "lang": "en",
+    "file": "church-1941.json",
+    "note": "All 703 hymns of the 1941 SDA Church Hymnal with lyrics offline."
+  },
+  {
+    "id": "afrikaans-sda",
+    "name": "Advent Lofliedere (Afrikaans, offline)",
+    "short": "AL",
+    "lang": "af",
+    "file": "afrikaans.json",
+    "note": "All 481 Afrikaans hymns with lyrics offline. Play music opens the source page."
+  },
+  {
+    "id": "choruses",
+    "name": "Praise Choruses (offline)",
+    "short": "CHR",
+    "lang": "en",
+    "file": "choruses.json",
+    "note": "Short praise and worship choruses (not part of the main hymnals). Lyrics for offline use."
+  },
+  {
+    "id": "malmesbury",
+    "name": "Malmesbury Praise (offline)",
+    "short": "MP",
+    "lang": "en",
+    "file": "malmesbury.json",
+    "note": "Local hymns from the Malmesbury Praise hymnal (numbered 1–29 and additional 30–48). Lyrics for offline use."
+  }
+]

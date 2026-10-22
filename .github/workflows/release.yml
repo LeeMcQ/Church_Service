@@ -1,0 +1,80 @@
+# Builds the one-file Selah companion for Windows, Linux (PC + Raspberry Pi) and macOS and
+# attaches them to a GitHub Release. Push a tag like v1.0.0 to run it.
+name: Release companion
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, target: x86_64-pc-windows-msvc,    name: selah-windows-x64.exe }
+          - { os: ubuntu-latest,  target: x86_64-unknown-linux-gnu,  name: selah-linux-x64 }
+          - { os: ubuntu-latest,  target: aarch64-unknown-linux-gnu, name: selah-linux-arm64, linker: aarch64-linux-gnu-gcc, pkg: gcc-aarch64-linux-gnu }
+          - { os: ubuntu-latest,  target: armv7-unknown-linux-gnueabihf, name: selah-linux-armv7, linker: arm-linux-gnueabihf-gcc, pkg: gcc-arm-linux-gnueabihf }
+          - { os: macos-latest,   target: aarch64-apple-darwin,      name: selah-macos-arm64 }
+          - { os: macos-latest,   target: x86_64-apple-darwin,       name: selah-macos-x64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: python tools/build.py
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: '${{ matrix.target }}' }
+      - name: Cross linker
+        if: matrix.linker
+        run: |
+          sudo apt-get update && sudo apt-get install -y ${{ matrix.pkg }}
+          echo "CARGO_TARGET_$(echo ${{ matrix.target }} | tr 'a-z-' 'A-Z_')_LINKER=${{ matrix.linker }}" >> $GITHUB_ENV
+      - name: Build
+        working-directory: companion
+        run: cargo build --release --target ${{ matrix.target }}
+      - name: Test
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        working-directory: companion
+        run: cargo test --release
+      - name: Rename
+        shell: bash
+        run: |
+          src=companion/target/${{ matrix.target }}/release/selah
+          [ -f "$src.exe" ] && src="$src.exe"
+          cp "$src" "${{ matrix.name }}"
+      - uses: actions/upload-artifact@v4
+        with: { name: '${{ matrix.name }}', path: '${{ matrix.name }}' }
+
+  web-zip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: |
+          python tools/build.py
+          zip -qr selah-web-offline.zip index.html display.html manifest.webmanifest sw.js asset-manifest.json css js vendor fonts icons data
+      - uses: actions/upload-artifact@v4
+        with: { name: selah-web-offline.zip, path: selah-web-offline.zip }
+
+  release:
+    needs: [build, web-zip]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: dist, merge-multiple: true }
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          body: |
+            **Windows:** download `selah-windows-x64.exe`, double-click it, and Selah opens in your browser. Run it once with `--install` to add Start-menu and desktop shortcuts.
+            **Raspberry Pi / Linux:** `selah-linux-arm64` (Pi 4/5, 64-bit OS), `selah-linux-armv7` (older Pi), `selah-linux-x64` (PC). Make it executable with `chmod +x` and run it.
+            **Mac:** `selah-macos-arm64` (M1 and newer) or `selah-macos-x64` (Intel).
+            `selah-web-offline.zip` is the web app on its own, for hosting on any web server.

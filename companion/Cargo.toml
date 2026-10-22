@@ -1,0 +1,20 @@
+[package]
+name = "selah-companion"
+version = "1.0.0"
+edition = "2021"
+description = "Selah companion: serves the Selah church presenter on the local network, relays phone-remote commands, streams media from the PC and converts PowerPoint files."
+license = "MIT"
+
+# No third-party crates: a tiny, auditable binary that builds anywhere Rust does.
+[dependencies]
+
+[[bin]]
+name = "selah"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
