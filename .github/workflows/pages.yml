@@ -27,7 +27,7 @@ jobs:
       - name: Collect the web app
         run: |
           mkdir -p site
-          cp -r index.html display.html manifest.webmanifest sw.js asset-manifest.json css js vendor fonts icons data site/
+          cp -r index.html display.html stage.html manifest.webmanifest sw.js asset-manifest.json css js vendor fonts icons data site/
           touch site/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with: { path: site }

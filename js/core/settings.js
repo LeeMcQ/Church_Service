@@ -25,6 +25,14 @@ export const DEFAULTS = {
   video: { volume: 1, autoNext: true, repeat: 'off', fit: 'contain' },
   screen: { cursor: 'never', audio: false },
   companion: { url: '', pin: '' },
+  // Stage screen (confidence monitor) for the people on the platform: what they see by default, the room
+  // code and control PIN for phones/laptops that join, timers and quick messages.
+  stage: {
+    code: '', pin: '', online: false, layout: 'full', featured: 'speaker', warnSec: 120, clock24: true,
+    showNext: true, showPlan: true, showNotes: true, showLive: true, textSize: 1, mirror: false,
+    allowWinControl: true, msgSec: 0, autoPlanTimer: true, preview: true,
+    presets: [], timers: [], turnUrl: '', turnUser: '', turnPass: '', relays: '',
+  },
   // Presentation clicker: buttons taught in Clicker setup ({next:['key:F14'], prev:[…], black:[…], present:[…], clear:[…]}).
   clicker: { map: {} },
   // Background music for banners (Banners & Music → Music). auto: start when a banner or the pre-service

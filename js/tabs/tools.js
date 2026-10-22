@@ -1,5 +1,5 @@
-// Service tools: stage monitor, lower thirds, timer, responsive readings,
-// communion sequence, streaming overlay, basic captions.
+// Service tools: lower thirds, responsive readings, communion sequence, streaming overlay, captions
+// (the stage screen, timers and stage messages are in the Stage tab).
 // Like every other tab, slides from here go to the green Next screen first; Present shows them.
 // Children's story templates intentionally omitted.
 import { h, esc } from '../core/util.js';
@@ -21,16 +21,9 @@ const COMMUNION = [
 
 export default function create(ctx) {
   const { live, toast: showToast } = ctx;
-  let timerInterval = null;
-  let timerStart = 0;
-  let timerElapsed = 0;
-  let countdownTarget = 0;
-  let isCountdown = false;
-  let stageWin = null;
   let overlayWin = null;
   let captionRec = null;
 
-  const timerDisplay = h('div', { style: { fontSize: '2.2rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' } }, '00:00');
   const lowerText = h('input.field', { placeholder: 'Lower third text (e.g. John 3:16 or Hymn 73)', style: { width: '100%' } });
   const lowerKind = h('select.field', { 'aria-label': 'Lower third type', style: { width: '140px' } },
     h('option', { value: 'scripture' }, 'Scripture'),
@@ -91,33 +84,6 @@ export default function create(ctx) {
     return b;
   }
 
-  function openStage() {
-    if (stageWin && !stageWin.closed) { stageWin.focus(); return; }
-    stageWin = window.open('', 'sda-stage', 'width=420,height=720,menubar=0,toolbar=0');
-    if (!stageWin) { showToast('Pop-up blocked. Allow pop-ups for the stage monitor.', 'err'); return; }
-    stageWin.document.write(`<!doctype html><html><head><title>Stage Monitor</title>
-      <style>body{margin:0;background:#0d1117;color:#e6edf3;font:15px/1.45 system-ui,sans-serif;padding:16px}
-      h1{font-size:1.1rem;margin:0 0 12px;color:#8b949e} .big{font-size:1.6rem;font-weight:700;margin:8px 0}
-      .time{font-size:2.4rem;font-variant-numeric:tabular-nums;font-weight:700;color:#3fb950}
-      .next{opacity:.75;margin-top:18px}</style></head><body>
-      <h1>Stage / Confidence</h1><div class="time" id="t">--:--</div>
-      <div class="big" id="cur">Waiting…</div><div class="next" id="nxt">Next: —</div></body></html>`);
-    stageWin.document.close();
-    updateStage();
-  }
-
-  function updateStage() {
-    if (!stageWin || stageWin.closed) return;
-    const cur = live.cue;
-    const nxt = live.staged;
-    const tEl = stageWin.document.getElementById('t');
-    const cEl = stageWin.document.getElementById('cur');
-    const nEl = stageWin.document.getElementById('nxt');
-    if (tEl) tEl.textContent = timerDisplay.textContent;
-    if (cEl) cEl.textContent = cur ? (cur.title || 'Live') : '—';
-    if (nEl) nEl.textContent = nxt ? 'Next: ' + (nxt.title || '') : 'Next: —';
-  }
-
   function openOverlay() {
     if (overlayWin && !overlayWin.closed) { overlayWin.focus(); return; }
     overlayWin = window.open('', 'sda-overlay', 'width=1280,height=720,menubar=0,toolbar=0');
@@ -151,43 +117,6 @@ export default function create(ctx) {
       clearTimeout(showLowerOnStream.t);
       showLowerOnStream.t = setTimeout(() => { if (overlayWin && !overlayWin.closed) bar.classList.remove('show'); }, 12000);
       showToast('Shown on the stream overlay for 12 seconds.', 'ok');
-    }
-  }
-
-  function tick() {
-    if (isCountdown) {
-      const left = Math.max(0, countdownTarget - Date.now());
-      const s = Math.ceil(left / 1000);
-      const m = Math.floor(s / 60);
-      timerDisplay.textContent = String(m).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
-      if (left <= 0) { clearInterval(timerInterval); timerInterval = null; showToast('Timer finished.', 'ok'); }
-    } else {
-      const s = Math.floor((timerElapsed + (Date.now() - timerStart)) / 1000);
-      const m = Math.floor(s / 60);
-      timerDisplay.textContent = String(m).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
-    }
-    updateStage();
-  }
-
-  function startTimer(secs) {
-    clearInterval(timerInterval);
-    if (secs) {
-      isCountdown = true;
-      countdownTarget = Date.now() + secs * 1000;
-    } else {
-      isCountdown = false;
-      timerStart = Date.now();
-      timerElapsed = 0;
-    }
-    timerInterval = setInterval(tick, 250);
-    tick();
-  }
-
-  function stopTimer() {
-    if (timerInterval) {
-      if (!isCountdown) timerElapsed += Date.now() - timerStart;
-      clearInterval(timerInterval);
-      timerInterval = null;
     }
   }
 
@@ -240,9 +169,11 @@ export default function create(ctx) {
     h('div.toolbar', h('h2', 'Service tools'), h('div.grow')),
     h('div.scroll', { style: { flex: '1', padding: '8px 4px' } },
       h('div.card', { style: { marginBottom: '12px', padding: '12px', border: '1px solid var(--line)', borderRadius: '10px' } },
-        h('h3', { style: { margin: '0 0 8px' } }, 'Stage / confidence monitor'),
-        h('p.note', 'Opens a small window showing the current live item, next item, and service timer. Place it on a stage monitor or second laptop.'),
-        btn('present', 'Open stage monitor', openStage, { label: true })),
+        h('h3', { style: { margin: '0 0 8px' } }, 'Stage screen, timers and messages'),
+        h('p.note', 'The second screen for the people on the platform — the slide on screen and what comes next, speaker notes, the time, speaker timers and your messages — on a stage monitor, a cast TV, or their own phones and laptops (QR code). Everything is in the Stage tab.'),
+        h('div.row.wrap', { style: { marginTop: '8px' } },
+          btn('present', 'Open stage screen', () => ctx.stage && ctx.stage.openWindow(), { label: true, cls: 'primary' }),
+          btn('stage', 'Stage tab', () => ctx.showTab('stage'), { label: true }))),
       h('div.card', { style: { marginBottom: '12px', padding: '12px', border: '1px solid var(--line)', borderRadius: '10px' } },
         h('h3', { style: { margin: '0 0 8px' } }, 'Lower third / overlay'),
         h('div.row', { style: { gap: '8px', marginBottom: '8px' } }, lowerKind, lowerText),
@@ -250,16 +181,6 @@ export default function create(ctx) {
           btn('link', 'Show on stream overlay', showLowerOnStream, { label: true }),
           btn('x', 'Clear overlay', () => { if (overlayWin && !overlayWin.closed) overlayWin.document.getElementById('bar')?.classList.remove('show'); }, { label: true })),
         h('p.note', 'Set as Next puts the text on the green Next screen for the projector; Present (F5) shows it. The stream overlay is a separate window for OBS (browser source, transparent background).')),
-      h('div.card', { style: { marginBottom: '12px', padding: '12px', border: '1px solid var(--line)', borderRadius: '10px' } },
-        h('h3', { style: { margin: '0 0 8px' } }, 'Service timer'),
-        timerDisplay,
-        h('div.row', { style: { gap: '6px', marginTop: '8px', flexWrap: 'wrap' } },
-          btn('play', 'Start', () => startTimer(0), { label: true }),
-          btn('stop', 'Stop', stopTimer, { label: true }),
-          btn('reload', 'Reset', () => { stopTimer(); timerElapsed = 0; timerDisplay.textContent = '00:00'; updateStage(); }, { label: true }),
-          btn('clock', '5 min', () => startTimer(300), { label: true }),
-          btn('clock', '10 min', () => startTimer(600), { label: true }),
-          btn('clock', '20 min', () => startTimer(1200), { label: true }))),
       h('div.card', { style: { marginBottom: '12px', padding: '12px', border: '1px solid var(--line)', borderRadius: '10px' } },
         h('h3', { style: { margin: '0 0 8px' } }, 'Responsive readings'),
         h('p.note', { style: { marginBottom: '8px' } }, 'Click to put a reading on the green Next screen, then Present (F5). Double-click to show it at once.'),
@@ -284,8 +205,8 @@ export default function create(ctx) {
         capBtn, capPreview)
     ));
 
-  live.on('live', () => { updateStage(); markPicks(); });
-  live.on('staged', () => { updateStage(); markPicks(); });
+  live.on('live', markPicks);
+  live.on('staged', markPicks);
   live.on('go', markPicks);
 
   return {

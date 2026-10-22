@@ -372,11 +372,32 @@ export default function create(ctx) {
     if (!plan) return;
     // A part counts as shown once it is really on the screen (not when it was only put on Next).
     let changed = false;
-    plan.items.forEach((it) => { if (!it.done && onScreen(it)) { it.done = true; changed = true; } });
+    plan.items.forEach((it) => {
+      if (!it.done && onScreen(it)) {
+        it.done = true; changed = true;
+        // A part with a planned time starts the stage count-down when it first goes on screen.
+        if (it.mins > 0 && ctx.stage) ctx.stage.planPartLive(titleOf(it), it.mins);
+      }
+    });
     if (changed) save();
-    if (!el.hidden) render();
+    if (!el.hidden) render(); else publishStage();
   });
-  live.on('staged', () => { if (plan && !el.hidden) render(); });
+  live.on('staged', () => { if (plan && !el.hidden) render(); else publishStage(); });
+
+  /** The order of service as the stage screens show it (names, who leads, planned time, where we are). */
+  function publishStage() {
+    if (!ctx.stage) return;
+    if (!plan) { ctx.stage.setPlan(null); return; }
+    ctx.stage.setPlan({
+      name: plan.name,
+      items: plan.items.map((it, i) => {
+        const now = onScreen(it);
+        const next = !now && !it.heading && live.staged && shownCue.get(it.id) === live.staged.id;
+        return { t: titleOf(it), m: mediaLabel(it) || '', role: it.role || '', mins: it.mins > 0 ? it.mins : 0,
+          st: now ? 'now' : next || (i === cur && !it.done) ? 'next' : it.done ? 'done' : '' };
+      }),
+    });
+  }
 
   function summaryBar() {
     const real = plan.items.filter((x) => !x.heading);
@@ -451,6 +472,13 @@ export default function create(ctx) {
       it.heading ? null : { label: 'Remove the media (keep this part)', icon: 'x', onclick: () => detach(it) },
       { label: 'Rename this part…', icon: 'edit', onclick: () => renameItem(it) },
       { label: 'Who leads this part…', icon: 'edit', onclick: async () => { const r = await promptBox('Who leads this part?', 'Role or name (e.g. Elder, Deacon, Speaker)', it.role || ''); if (r != null) { it.role = r.trim(); save(); render(); } } },
+      { label: it.mins > 0 ? 'Planned time: ' + it.mins + ' min…' : 'Planned time…', icon: 'clock', onclick: async () => {
+        const r = await promptBox('Planned time for “' + titleOf(it) + '”', 'Minutes (empty for none). The stage count-down starts from this when the part goes on screen.', it.mins > 0 ? String(it.mins) : '');
+        if (r == null) return;
+        const m = Math.round(parseFloat(String(r).replace(',', '.')) * 10) / 10;
+        if (m > 0 && m <= 600) it.mins = m; else delete it.mins;
+        save(); render();
+      } },
       it.heading ? null : { label: it.done ? 'Mark as not shown yet' : 'Mark as shown', icon: 'check', onclick: () => { it.done = !it.done; save(); render(); } },
       '-',
       { label: 'Add media below this part…', icon: 'plus', onclick: () => openPicker({ after: it }) },
@@ -478,6 +506,7 @@ export default function create(ctx) {
 
   let dragFrom = -1;
   function render() {
+    publishStage();
     clear(listEl);
     // No plan yet: nothing to step through, so no Next / Previous item buttons.
     nextBtn.hidden = prevBtn.hidden = planSel.hidden = !plan;
@@ -518,7 +547,7 @@ export default function create(ctx) {
         it.heading
           ? h('div.pi-s', 'No media yet')
           : h('div.pi-s.trunc', kindText(it) + (media ? ' · ' + media : '')),
-        it.role ? h('div.pi-s.pi-role', it.role) : null),
+        it.role || it.mins > 0 ? h('div.pi-s.pi-role', [it.role, it.mins > 0 ? it.mins + ' min' : ''].filter(Boolean).join(' · ')) : null),
       h('div.row.pi-act', { onclick: (e) => e.stopPropagation(), ondblclick: (e) => e.stopPropagation() },
         it.heading
           ? h('button.btn.sm', { type: 'button', title: 'Attach a Bible passage, hymn, slides, video, web page or banner to this part', onclick: () => openPicker({ target: it }) }, icon('link'), h('span', 'Attach'))

@@ -14,9 +14,10 @@ import { createDisplay } from './display/display.js';
 import { openPip, pipSupported } from './pip.js';
 import { clicker, actionFor, sigOfKey, sigOfMouse } from './core/clicker.js';
 import { openClickerSetup, builtinAction } from './clickerui.js';
+import { hub as stageHub, timerValue } from './core/stagehub.js';
 
-export const VERSION = '1.3.0';
-export const BUILD = '3916123';
+export const VERSION = '1.4.0';
+export const BUILD = '6758fd2';
 
 const TABS = [
   { id: 'bible', label: 'Bible', icon: 'bible', file: 'bible.js', load: () => import('./tabs/bible.js') },
@@ -27,6 +28,7 @@ const TABS = [
   { id: 'web', label: 'Web & PC', icon: 'web', file: 'webpc.js', load: () => import('./tabs/webpc.js') }, // the web page and PC screen parts in one tab
   { id: 'plan', label: 'Plan', icon: 'plan', file: 'plan.js', load: () => import('./tabs/plan.js') },
   { id: 'tools', label: 'Tools', icon: 'grid', file: 'tools.js', load: () => import('./tabs/tools.js') },
+  { id: 'stage', label: 'Stage', icon: 'stage', file: 'stage.js', load: () => import('./tabs/stage.js') }, // second screen for the platform (confidence monitor)
   null,
   { id: 'settings', label: 'Settings', icon: 'settings', file: 'settings.js', load: () => import('./tabs/settings.js') },
 ];
@@ -57,6 +59,7 @@ const ctx = {
   stagedOf: (id) => stagedBy.get(id) || null,
   companion: null,
   installPrompt: null,
+  stage: stageHub,
 };
 window.selah = ctx; // handy for debugging from the console (name kept for existing scripts)
 
@@ -139,11 +142,11 @@ async function showTab(id) {
 
 // ------------------------------------------------------------ rail
 // On phones only five buttons fit comfortably: Bible, Hymns, Banners, Slides, Plan and More (the rest).
-const MORE_TABS = ['video', 'web', 'tools', 'settings'];
+const MORE_TABS = ['video', 'web', 'tools', 'stage', 'settings'];
 const MORE_MENU = MORE_TABS; // Banners has its own button in the rail (never repeated in this menu)
 TABS.forEach((t, i) => {
   if (!t) { rail.appendChild(h('div.rail-gap')); return; }
-  const b = h('button' + (MORE_TABS.includes(t.id) ? '.more-tab' : ''), { type: 'button', role: 'tab', 'aria-selected': 'false', 'data-tab': t.id, title: t.label + (i < 9 ? '  (Alt+' + (i + 1) + ')' : ''), onclick: () => showTab(t.id) },
+  const b = h('button' + (MORE_TABS.includes(t.id) ? '.more-tab' : ''), { type: 'button', role: 'tab', 'aria-selected': 'false', 'data-tab': t.id, title: t.label + (i < 9 ? '  (Alt+' + (i + 1) + ')' : t.id === 'settings' ? '  (Alt+0)' : ''), onclick: () => showTab(t.id) },
     icon(t.icon), t.short ? h('span.lbl', h('span.lbl-long', t.label), h('span.lbl-short', t.short)) : h('span', t.label), h('span.tally'));
   railBtns.set(t.id, b);
   rail.appendChild(b);
@@ -377,6 +380,67 @@ function displayMenu(anchor) {
 }
 dispBtn.addEventListener('click', () => displayMenu(dispBtn));
 
+// ------------------------------------------------------------ stage screen (second screen for the platform)
+// One button beside the display button: how many stage screens follow, the featured timer while it runs,
+// and a yellow dot while a stage message is showing. Its menu opens the stage window, casts it, sends a
+// message, and opens the Stage tab (phones & laptops, timers, layout).
+const stageBtn = h('button.stage-btn', { type: 'button', title: 'Stage screen for the platform (timers, messages, phones & laptops)', onclick: () => stageMenu(stageBtn) },
+  icon('stage'), h('span.lbl', 'Stage'), h('span.n', { hidden: true }), h('span.tm', { hidden: true }), h('span.msg-dot', { hidden: true }));
+dispStop.after(stageBtn);
+function paintStageBtn() {
+  const n = stageHub.screens().length;
+  const nEl = stageBtn.querySelector('.n');
+  nEl.hidden = !n; nEl.textContent = String(n);
+  stageBtn.classList.toggle('on', n > 0);
+  stageBtn.querySelector('.msg-dot').hidden = !stageHub.msg;
+  const fid = settings.v.stage.featured;
+  const t = stageHub.timers().find((x) => x.id === fid) || stageHub.timers()[0];
+  const tm = stageBtn.querySelector('.tm');
+  if (t && t.running && t.mode !== 'to') {
+    const v = timerValue(t);
+    const s = Math.abs(t.mode === 'down' && v > 0 ? Math.ceil(v / 1000) : Math.floor(v / 1000));
+    tm.textContent = (t.mode === 'down' && v <= 0 ? '+' : '') + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    tm.classList.toggle('over', t.mode === 'down' && v <= 0);
+    tm.classList.toggle('warn', t.mode === 'down' && v > 0 && v <= (settings.v.stage.warnSec || 120) * 1000);
+    tm.hidden = false;
+  } else tm.hidden = true;
+}
+setInterval(paintStageBtn, 1000);
+stageHub.on('outlets', paintStageBtn);
+stageHub.on('msg', paintStageBtn);
+stageHub.on('timers', paintStageBtn);
+function stageMenu(anchor) {
+  const fid = settings.v.stage.featured;
+  const t = stageHub.timers().find((x) => x.id === fid) || stageHub.timers()[0];
+  ui.menu(anchor, [
+    { label: stageHub.windowOpen() ? 'Stage window is open (bring to front)' : 'Open stage screen (second monitor)', icon: 'present', onclick: () => stageHub.openWindow() },
+    stageHub.canCast() ? { label: 'Cast the stage screen (Chromecast, Google TV)', icon: 'cast', onclick: () => stageHub.cast().catch((e) => { if (!e || (e.name !== 'AbortError' && e.name !== 'NotAllowedError')) ui.toast('Casting the stage failed: ' + ((e && e.message) || e), 'err'); }) } : null,
+    { label: 'Phones & laptops (QR code)…', icon: 'qr', onclick: () => { if (!settings.v.stage.online) stageHub.goOnline(true); showTab('stage'); } },
+    '-',
+    { label: 'Message to the stage…', icon: 'msg', onclick: async () => { const tab = await showTab('stage'); if (tab && tab.focusMessage) tab.focusMessage(); } },
+    stageHub.msg ? { label: 'Clear the stage message', icon: 'x', onclick: () => stageHub.clearMessage() } : null,
+    t && t.mode !== 'to' ? { label: (t.running ? 'Pause ' : 'Start ') + (t.label || t.name).toLowerCase() + ' timer', icon: t.running ? 'pause' : 'play', onclick: () => stageHub.timer(t.id, 'toggle') } : null,
+    '-',
+    { label: 'Stage tab (layout, timers, who is connected)', icon: 'stage', onclick: () => showTab('stage') },
+  ]);
+}
+stageHub.on('blocked', () => ui.toast('The browser blocked the stage window. Allow pop-ups for this site, then try again.', 'err', 7000));
+stageHub.on('talk', (t) => ui.toast(h('span', h('b', t.from + ': '), t.text, ' ', h('button.btn.sm', { type: 'button', onclick: () => showTab('stage') }, 'Reply')), 'ok', 12000));
+stageHub.on('joined', (o) => { if (o.kind === 'peer' || o.kind === 'lan') ui.toast((o.name || 'A device') + ' is following on the stage screen.', '', 2600); });
+stageHub.on('timer-over', (t) => ui.toast('Time is up: ' + (t.label || t.name) + ' timer.', 'err', 6000));
+// Commands from stage screens that may control (the PIN, or allowed in the Stage tab).
+stageHub.onCommand = (op, arg) => {
+  if (op === 'next') clickerNext();
+  else if (op === 'prev') live.prev();
+  else if (op === 'black') live.setBlank('black');
+  else if (op === 'logo') live.setBlank('logo');
+  else if (op === 'clear') live.clear();
+  else if (op === 'present') doPresent();
+  else if (op === 'first') live.go(0);
+  else if (op === 'last') live.go(live.count() - 1);
+  else if (op === 'go' && Number.isFinite(+arg)) live.go(+arg);
+};
+
 // ------------------------------------------------------------ sound output device (desktop)
 let audioSink = '';
 async function listAudioDevices() {
@@ -488,7 +552,7 @@ function showHelp() {
     ['←  ↑  Page Up', 'Previous'], ['Home  End', 'First / last'],
     ['B  or  .', 'Black screen (press again to return)'], ['L', 'Show logo'], ['C  or  Esc twice', 'Clear the screen'],
     ['Esc', 'Close a menu or dialog, leave a text box (the screen stays as it is)'], ['M', 'Hymn music: play / pause'],
-    ['/  or  Ctrl+K', 'Go to a Bible reference or hymn number (Enter selects it, Shift+Enter presents it now)'], ['Alt+1 … Alt+9', 'Switch tabs'],
+    ['/  or  Ctrl+K', 'Go to a Bible reference or hymn number (Enter selects it, Shift+Enter presents it now)'], ['Alt+1 … Alt+9, Alt+0', 'Switch tabs (Alt+0: Settings)'],
     ['1 … 9', 'Select that stanza (Hymns) or verse (Bible) as Next; type two digits quickly for verse 10 and up. Then F5 presents it'],
     ['Click  ·  Double-click  ·  Enter', 'On a verse or stanza: select it as Next  ·  present it now  ·  present it now'],
     ['Space (video live)', 'Play / pause'], ['F (on the display)', 'Toggle full screen'],
@@ -593,6 +657,7 @@ function handleKey(e, remote) {
   if (typing) { if (k === 'Escape' && t && t.blur && t !== quickInput && !e.defaultPrevented) t.blur(); return false; }
   if (quiet && t && t.blur) t.blur();
   if (e.altKey && /^[1-9]$/.test(k)) { const tb = TABS.filter(Boolean)[+k - 1]; if (tb) showTab(tb.id); return true; }
+  if (e.altKey && k === '0') { showTab('settings'); return true; }
   if (ctrl || e.altKey) return false;
   // 1–9: stage that stanza (Hymns) or verse (Bible) as Next; F5 then presents it. Two digits quickly = verse 10+.
   if (!remote && /^[0-9]$/.test(k) && numberKey(k)) return true;
@@ -748,6 +813,9 @@ async function detectCompanion() {
     if (info.app !== 'selah-companion') return;
     ctx.companion = info;
     const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+    // Stage screens on the church network (no internet needed) follow this app through the companion.
+    // Only the PC running the companion hosts them (a phone used as a remote must not answer as well).
+    if (local) stageHub.connectLan(location.origin, settings.v.companion.pin);
     const params = new URLSearchParams(location.search);
     if (!local || params.get('remote') === '1') {
       // Opened from a phone on the church network: become a remote for the display there.
@@ -806,5 +874,8 @@ if ('launchQueue' in window) {
 }
 registerSW();
 detectCompanion();
+stageHub.start();
 // Warm the Hymns tab in the background so "Go to 73" is instant.
 setTimeout(() => getTab('hymns').catch(() => {}), 1500);
+// The order of service also shows on the stage screens: load the Plan tab quietly too.
+setTimeout(() => getTab('plan').catch(() => {}), 2500);

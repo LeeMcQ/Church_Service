@@ -1,6 +1,6 @@
 // SDA Sabbath service worker: installs the whole app (Bibles, hymns, fonts, pdf.js) in one go
 // so it runs with no internet. VERSION is rewritten by tools/build.py on every build.
-const VERSION = '0e38fa532d16';
+const VERSION = 'fcce92b7fea2';
 const CACHE = 'selah-' + VERSION; // prefix kept from the first name so old caches are found and removed
 const NETWORK_ONLY = /\/(api|media|ws)(\/|$)/;
 
@@ -151,7 +151,10 @@ self.addEventListener('fetch', (event) => {
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
     const isPage = req.mode === 'navigate' || /\.html$/.test(url.pathname);
+    // The short address for phones (…/stage) is the stage screen page.
+    const isStage = /\/stage$/.test(url.pathname) || /\/stage\.html$/.test(url.pathname);
     let hit = await cache.match(req, { ignoreSearch: isPage });
+    if (!hit && isStage) hit = await cache.match('stage.html', { ignoreSearch: true });
     if (!hit && isPage) hit = await cache.match(req, { ignoreSearch: true });
     if (!hit && /[?&](v|r)=/.test(url.search)) hit = await cache.match(req, { ignoreSearch: true }); // cache-busting retries
     if (hit) return hit;
@@ -168,7 +171,7 @@ self.addEventListener('fetch', (event) => {
       const old = await fromAnyCache(req, CACHE);
       if (old) return old;
       if (isPage) {
-        const page = await cache.match(/display\.html/.test(url.pathname) ? 'display.html' : 'index.html', { ignoreSearch: true }) || await fromAnyCache('index.html', CACHE);
+        const page = await cache.match(/display\.html/.test(url.pathname) ? 'display.html' : isStage ? 'stage.html' : 'index.html', { ignoreSearch: true }) || await fromAnyCache('index.html', CACHE);
         if (page) return page;
       }
       return new Response('Offline and not stored on this device: ' + url.pathname, { status: 503, headers: { 'Content-Type': 'text/plain' } });
