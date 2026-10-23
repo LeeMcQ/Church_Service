@@ -116,18 +116,22 @@ export default function create(ctx) {
     const comp = ctx.companion;
     if (!comp) {
       lanBody.append(
-        h('p', 'To link OBS on another PC over your Wi-Fi or cable, without internet: run the ', h('b', 'SDA Sabbath companion'), ' on this PC and open SDA Sabbath from it (the address it shows, like http://192.168.1.20:7777). This box then shows the two addresses for OBS.'),
+        h('p', { style: { color: 'var(--warn, #f0b429)', fontWeight: '700' } }, 'OBS says “waiting for the media desk” when this page is not the one feeding it.'),
+        h('p', 'To link OBS on another PC over your Wi-Fi or cable, without internet: run the ', h('b', 'SDA Sabbath companion'), ' on the PC that runs the service and open SDA Sabbath from it (at http://localhost:7777, on that PC). This box then shows the two addresses for OBS.'),
         h('p.note', 'Without the companion, the “Set up OBS by hand” addresses below also work on another PC, as long as both PCs have internet.'));
       return;
     }
     const base = lanBase();
+    const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+    if (!isLocal) lanBody.append(h('p', { style: { color: 'var(--warn, #f0b429)', fontWeight: '700' } },
+      'OBS will say “waiting for the media desk” until you open SDA Sabbath on the companion PC itself at http://localhost:' + (location.port || '7777') + ' (not this network address, not the website). Only that page feeds OBS.'));
     if (!base) { lanBody.append(h('p.note', 'The companion has not found this PC’s network address. Check that Wi-Fi or the cable is connected, then reload.')); return; }
     const lower = base + '/obs.html?via=lan&mode=lower', full = base + '/obs.html?via=lan&mode=full';
     const row = (title, note, u, which) => h('div.st-src', h('div', h('b', title), h('span.note', ' — ' + note)), h('code.st-url', u),
       h('div.row.wrap', h('button.btn.sm.primary', { type: 'button', onclick: () => copyText(u, 'Copied. In OBS: Sources → + → Browser → paste into URL, Width 1920, Height 1080 → OK.') }, icon('copy'), h('span', 'Copy ' + which))));
     lanBody.append(
       h('ol.st-steps', { style: { margin: '0', paddingLeft: '20px', display: 'grid', gap: '4px' } },
-        h('li', 'On the OBS computer, connect to the same Wi-Fi or network as this PC.'),
+        h('li', 'On the OBS computer, connect to the same Wi-Fi or network as this PC. Keep SDA Sabbath open here (at localhost) while you stream.'),
         h('li', 'In OBS press ', h('b', 'Sources → + → Browser'), ', name it “SDA Sabbath lower third”, and paste the first address below as the URL.'),
         h('li', 'Set ', h('b', 'Width 1920'), ' and ', h('b', 'Height 1080'), ', press OK. Put it above your camera in the scene.'),
         h('li', 'Optional: do the same with the Presentation address for a full-screen slides scene.'),

@@ -1,6 +1,6 @@
 {
-"version": "257e19f1c628",
-"bytes": 37569172,
+"version": "8ca7d8704cfd",
+"bytes": 37569829,
 "files": [
 "index.html",
 "display.html",
@@ -331,7 +331,7 @@
 "css/obs.css": "6609a39f8005470b",
 "css/stage.css": "35f7e1d869c23da6",
 "css/stagescreen.css": "df8918eb3986dbb0",
-"js/app.js": "ff294a8d77105a8c",
+"js/app.js": "febde279004afb71",
 "js/boot-guard.js": "93fc9bad50db53ff",
 "js/clickerui.js": "ceb58c892b9c95ba",
 "js/controlbar.js": "015fc21aea219e5d",
@@ -390,7 +390,7 @@
 "js/tabs/slide-editor.js": "c0cd3d54f8ec3e73",
 "js/tabs/slides.js": "844a653d9f162b66",
 "js/tabs/stage.js": "6d8f6e08ed3ca737",
-"js/tabs/stream.js": "43db943cae37b9e9",
+"js/tabs/stream.js": "94bae684f0aa3174",
 "js/tabs/tools.js": "3bc62cad1aebbbfb",
 "js/tabs/video.js": "9b2e3f35429f42c6",
 "js/tabs/web.js": "fef74db5abeb9678",
