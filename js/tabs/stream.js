@@ -7,7 +7,7 @@
 // Nothing on this tab changes the projector.
 import { h, clear } from '../core/util.js';
 import { icon } from '../core/icons.js';
-import { btn, seg, toggle, select, modal, confirmBox, promptBox } from '../core/ui.js';
+import { btn, seg, toggle, select, modal, closeModal, confirmBox, promptBox } from '../core/ui.js';
 import { hub } from '../core/stagehub.js';
 import { obs, LOWER_NAME, FULL_NAME } from '../core/obsctl.js';
 import { fmtCode } from '../core/stagenet.js';
@@ -142,6 +142,57 @@ export default function create(ctx) {
       h('p.note', 'Step-by-step help and the companion download for another PC: ', h('a', { href: 'companion.html', target: '_blank', rel: 'noopener' }, 'companion page'), '.'),
       h('p.note', 'Windows may ask to allow the companion on the private network the first time: choose Allow. If OBS shows nothing, open the address in a browser on the OBS PC to check the link. Scene switching and Start/Stop streaming need OBS’s WebSocket; showing the overlays does not.'));
   }
+
+  // ------------------------------------------------------------ OBS through an HDMI cable (capture card)
+  // A PC's HDMI port only sends a picture. With a USB HDMI capture card on the OBS PC, this PC's spare HDMI
+  // output carries the stream picture: the lower third on green (OBS keys the green out) or the slides.
+  const hdmiBody = h('div.col', { style: { gap: '8px' } });
+  const hdmiCard = card('OBS through an HDMI cable', hdmiBody);
+  const HDMI_BG = [['green', 'Green (Chroma Key)'], ['black', 'Black']];
+  async function openHdmi(mode) {
+    const bg = mode === 'full' ? 'black' : (settings.v.stream.hdmiBg || 'green');
+    const r = await hub.listScreens();
+    if (!r || r.screens.length < 2) {
+      await hub.openHdmi(mode, bg, null);
+      toast(r ? 'Only one screen is connected. Plug the HDMI cable in (Windows: Win+P → Extend), then try again — or drag the window onto that screen and double-click it for full screen.'
+        : 'Drag the new window onto the HDMI screen, then double-click it (or press F) for full screen.', '', 9000);
+      setTimeout(paintHdmi, 600);
+      return;
+    }
+    const proj = settings.v.display.screenLabel;
+    const pick = (s) => { closeModal(); settings.set('stream.hdmiScreen', s.label || ''); hub.openHdmi(mode, bg, s).then(() => setTimeout(paintHdmi, 600)); };
+    const want = settings.v.stream.hdmiScreen;
+    const list = h('div.list');
+    r.screens.forEach((s, i) => list.appendChild(h('button', { type: 'button', 'aria-pressed': String(!!want && s.label === want), onclick: () => pick(s) },
+      icon('pc'), h('span.grow', (s.label || 'Screen ' + (i + 1)) + (s === r.current ? '  (this screen)' : '') + (proj && s.label === proj ? '  · projector' : '')),
+      h('span.faint', s.width + ' × ' + s.height))));
+    modal({ title: 'Which screen goes to the OBS computer?', body: h('div.col', { style: { gap: '8px' } },
+      h('p.note', 'Choose the HDMI output whose cable goes into the capture card on the OBS computer. It must not be the projector.'), list) });
+  }
+  function paintHdmi() {
+    clear(hdmiBody);
+    const bgSeg = seg(HDMI_BG, settings.v.stream.hdmiBg || 'green', (v) => settings.set('stream.hdmiBg', v));
+    const row = (mode, label, sub) => h('div.st-src',
+      h('div', h('b', label), h('span.note', ' — ' + sub)),
+      h('div.row.wrap',
+        h('button.btn.sm' + (hub.hdmiOpen(mode) ? '' : '.primary'), { type: 'button', onclick: () => openHdmi(mode) }, icon('present'), h('span', hub.hdmiOpen(mode) ? 'Open again on…' : 'Show on a screen…')),
+        hub.hdmiOpen(mode) ? h('button.btn.sm', { type: 'button', onclick: () => { hub.closeHdmi(mode); setTimeout(paintHdmi, 300); } }, icon('x'), h('span', 'Close')) : null,
+        hub.hdmiOpen(mode) ? h('span.note', '● showing') : null));
+    hdmiBody.append(
+      h('p.note', 'For a second PC with OBS and no network link: a PC’s HDMI port only sends a picture, so the OBS PC needs a ', h('b', 'USB HDMI capture card'),
+        ' (any “HDMI to USB 3.0 capture” works). Run an HDMI cable from a spare output of this PC into the capture card.'),
+      row('lower', 'Lower third', 'verses, hymn words, names, ticker'),
+      h('div.row.wrap', h('span.note', 'Background behind the lower third:'), bgSeg),
+      row('full', 'Slides', 'full screen, as on the projector'),
+      h('ol.st-steps', { style: { margin: '0', paddingLeft: '20px', display: 'grid', gap: '4px' } },
+        h('li', 'Windows on this PC: press ', h('b', 'Win + P → Extend'), ' so the HDMI output is its own screen.'),
+        h('li', 'Press ', h('b', 'Show on a screen…'), ' and choose that HDMI screen. The window fills it (double-click it, or press F, if it does not).'),
+        h('li', 'On the OBS PC: ', h('b', 'Sources → + → Video Capture Device'), ' → choose the capture card. Set the card to 1920 × 1080 if it asks.'),
+        h('li', 'For the lower third: right-click that source → ', h('b', 'Filters → + → Chroma Key'), ' (Key Color Type: Green). Put it above the camera. For the slides use the source as it is, in its own scene.'),
+        h('li', 'Show a Bible verse here: the words appear in OBS.')),
+      h('p.note', 'Only one picture fits through one cable: use one HDMI output (and capture card) for the lower third and another for the slides if you need both. Keep SDA Sabbath open here while you stream.'));
+  }
+  settings.on('change:stream', (p) => { if (p === 'stream.hdmiBg') paintHdmi(); });
 
   // ------------------------------------------------------------ 2. OBS control
   const sceneChips = h('div.row.wrap.st-scenes');
@@ -328,16 +379,17 @@ export default function create(ctx) {
   }
   const linkNote = h('p.note');
   manualCard.append(linkNote);
-  function paintAll() { paintObs(); paintUrls(); paintLower(); paintNames(); paintLan(); }
+  function paintAll() { paintObs(); paintUrls(); paintLower(); paintNames(); paintLan(); paintHdmi(); }
 
   const el = h('section.stage-tab.stream-tab',
     h('div.toolbar', h('h2', 'Stream'), h('span.note.hide-sm', 'OBS Studio: lower thirds and the slides for the live stream'), h('div.grow'),
       h('button.btn.sm', { type: 'button', onclick: () => hub.hideLower() }, icon('x'), h('span', 'Hide lower third'))),
     h('div.scroll.st-grid',
       h('div.st-col', lowerCard, autoLowerCard, pvCard),
-      h('div.st-col', lanCard, controlCard, autoCard, manualCard, lookCard)));
+      h('div.st-col', lanCard, hdmiCard, controlCard, autoCard, manualCard, lookCard)));
 
   obs.on('state', paintAll);
+  hub.on('outlets', paintHdmi);
   obs.on('change', paintObs);
   hub.on('overlay', paintLower);
   hub.on('outlets', paintObs);

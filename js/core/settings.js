@@ -39,7 +39,7 @@ export const DEFAULTS = {
     autoBible: true, autoHymns: true, hymnMode: 'lines', autoOther: false, theme: 'classic', pos: 'left', size: 1, bug: false,
     fullBg: 'stage', accent: '', lowerSec: 8, names: [],
     obsUrl: 'ws://127.0.0.1:4455', obsPass: '', obsAuto: false, autoScene: false, camScene: '', presScene: 'SDA Sabbath · Presentation',
-    mediaScene: 'camera', studioPreview: true,
+    mediaScene: 'camera', studioPreview: true, hdmiBg: 'green', hdmiScreen: '',
   },
   // Presentation clicker: buttons taught in Clicker setup ({next:['key:F14'], prev:[…], black:[…], present:[…], clear:[…]}).
   clicker: { map: {} },

@@ -486,10 +486,10 @@ let stageWin = null;
 function windowOutlet(w, kind) {
   for (const o of hub.outlets.values()) if (o.w === w) return o;
   return addOutlet({
-    id: kind === 'preview' ? 'preview:' + uid() : 'win', kind, remote: false, w,
-    label: kind === 'preview' ? 'Preview' : 'Stage window',
+    id: kind === 'preview' ? 'preview:' + uid() : kind === 'hdmi' ? 'hdmi:' + uid() : 'win', kind, remote: false, w,
+    label: kind === 'preview' ? 'Preview' : kind === 'hdmi' ? 'HDMI output' : 'Stage window',
     send: (m) => { if (w.closed) throw new Error('closed'); w.postMessage(m, location.origin); },
-    close: () => { if (kind === 'window' && !w.closed) { try { w.close(); } catch (e) { /* */ } } },
+    close: () => { if ((kind === 'window' || kind === 'hdmi') && !w.closed) { try { w.close(); } catch (e) { /* */ } } },
   });
 }
 window.addEventListener('message', (e) => {
@@ -499,7 +499,7 @@ window.addEventListener('message', (e) => {
   for (const x of hub.outlets.values()) if (x.w === e.source) { o = x; break; }
   if (!o) {
     if (m.t !== 'hello') return;
-    o = windowOutlet(e.source, m.kind === 'preview' || m.preview ? 'preview' : 'window');
+    o = windowOutlet(e.source, m.kind === 'preview' || m.preview ? 'preview' : m.kind === 'obs' ? 'hdmi' : 'window');
     if (o.kind === 'window') stageWin = e.source;
   }
   incoming(o, m);
@@ -548,6 +548,28 @@ hub.openWindow = async () => {
   return true;
 };
 hub.windowOpen = () => !!(stageWin && !stageWin.closed);
+
+// ------------------------------------------------------------ 1b. stream picture on a screen (HDMI into OBS)
+// For OBS on another PC with a USB HDMI capture card: the lower third (on green, for OBS's Chroma Key) or the
+// slides, full screen on the screen whose cable goes to that capture card.
+const hdmiWins = {};
+hub.openHdmi = async (mode, bg, screen) => {
+  mode = mode === 'full' ? 'full' : 'lower';
+  const name = 'selah-hdmi-' + mode + ':' + APP_SCOPE;
+  const url = new URL('obs.html?via=win&mode=' + mode + '&bg=' + encodeURIComponent(bg || (mode === 'full' ? 'black' : 'green')), location.href).href;
+  let features = 'popup=yes';
+  if (screen) features += ',left=' + screen.availLeft + ',top=' + screen.availTop + ',width=' + screen.availWidth + ',height=' + screen.availHeight + ',fullscreen';
+  else features += ',width=960,height=540';
+  const old = hdmiWins[mode];
+  if (old && !old.closed) { try { old.close(); } catch (e) { /* */ } }
+  const w = window.open(url, name, features);
+  if (!w) { hub.emit('blocked'); return false; }
+  hdmiWins[mode] = w;
+  setTimeout(() => { try { if (!w.closed) w.postMessage({ stage: 1, t: 'fullscreen' }, { targetOrigin: location.origin, delegate: 'fullscreen' }); } catch (e) { try { w.postMessage({ stage: 1, t: 'fullscreen' }, location.origin); } catch (er) { /* */ } } }, 800);
+  return true;
+};
+hub.hdmiOpen = (mode) => !!(hdmiWins[mode] && !hdmiWins[mode].closed);
+hub.closeHdmi = (mode) => { const w = hdmiWins[mode]; if (w && !w.closed) { try { w.close(); } catch (e) { /* */ } } hdmiWins[mode] = null; hub.emit('outlets'); };
 hub.closeWindow = () => { for (const o of hub.outlets.values()) if (o.kind === 'window') removeOutlet(o.id); stageWin = null; };
 // The stage window stays open when this page reloads (it finds the new page again); it closes itself if
 // the app is really closed (stage-main.js).

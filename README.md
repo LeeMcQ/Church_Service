@@ -410,6 +410,8 @@ that computer (an https page may only reach OBS on the same PC), or set it up by
 
 **OBS on another computer (no WebSocket, any OBS version):** run the companion on the SDA Sabbath PC and open SDA Sabbath from it. In **Tools → Stream → OBS on another computer** press **Copy lower third address**, then in OBS on the other PC add a Browser Source with that address (1920 × 1080). It works over Wi-Fi or cable without internet.
 
+**OBS on another PC through an HDMI cable:** a PC's HDMI port only sends a picture, so the OBS PC needs a USB HDMI capture card. Connect a spare HDMI output of the SDA Sabbath PC to it (Windows: Win+P → Extend), then **Tools → Stream → OBS through an HDMI cable → Show on a screen…** and choose that output. The lower third is shown on green: in OBS add **Video Capture Device** (the card) and a **Chroma Key** filter. The slides can go out the same way (on black) through a second output and card.
+
 **By hand:** Tools → Stream → *Set up OBS by hand* → **Copy address**, then in OBS: Sources → + → **Browser** → paste the URL,
 Width 1920, Height 1080. Or drag the **Drag into OBS** button onto the Sources list.
 

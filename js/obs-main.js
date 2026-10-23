@@ -7,7 +7,7 @@
 // It follows the operator's SDA Sabbath like a stage screen does: by room code over the internet
 // (#c=CODE), on the church network through the companion (?via=lan), or as the preview in the app.
 // Nothing about the connection is ever drawn on the stream once it is connected.
-import { h, clear, uid } from './core/util.js';
+import { h, clear, uid, APP_SCOPE } from './core/util.js';
 import { createStage, fitBody, sanitizeSlideHtml } from './core/render.js';
 import { createEncoder, createDecoder } from './core/wire.js';
 import { normCode, joinStageRoom, relaysFrom, createFollower, canVerify } from './core/stagenet.js';
@@ -24,6 +24,21 @@ const W = 1920, H = 1080;
 
 const root = document.getElementById('obs');
 root.classList.add('mode-' + MODE);
+// On a screen whose HDMI cable goes to a capture card: a solid background instead of see-through
+// (green for OBS's Chroma Key filter, or black), full screen, no mouse pointer.
+const BGS = { green: '#00b140', blue: '#0047bb', black: '#000000', magenta: '#ff00ff' };
+const BG = BGS[get('bg')] || '';
+if (BG) {
+  root.classList.add('hdmi');
+  document.documentElement.style.setProperty('background', BG, 'important');
+  document.body.style.setProperty('background', BG, 'important');
+  document.body.style.cursor = 'none';
+  document.title = 'SDA Sabbath · ' + (MODE === 'full' ? 'slides' : 'lower third') + ' (HDMI)';
+  const goFull = () => { const el = document.documentElement; if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen().catch(() => {}); };
+  addEventListener('dblclick', () => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else goFull(); });
+  addEventListener('keydown', (e) => { if (e.key === 'f' || e.key === 'F' || e.key === 'F11') { e.preventDefault(); goFull(); } });
+  addEventListener('message', (e) => { if (e.origin === location.origin && e.data && e.data.stage === 1 && e.data.t === 'fullscreen') goFull(); });
+}
 if (PREVIEW) root.classList.add('preview');
 // Everything is laid out on a 1920 × 1080 canvas and scaled to the source size OBS gives the page.
 const canvas = h('div.obs-canvas');
@@ -281,6 +296,8 @@ function viaWindow() {
   let tries = 0;
   const ask = () => { if (S.conn === 'on' || tries++ > 60) return; hello(); setTimeout(ask, 700); };
   ask();
+  // The app was reloaded: it asks open windows to say hello again.
+  try { const bc = new BroadcastChannel('selah-stage:' + APP_SCOPE); bc.onmessage = (e) => { if (e.data && e.data.t === 'who') hello(); }; } catch (e) { /* */ }
   return true;
 }
 function viaLan() {
