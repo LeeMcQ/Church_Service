@@ -358,7 +358,9 @@ export default function create(ctx) {
     groupSel.value = cur.group && groups.some((g) => g.id === cur.group) ? cur.group : '';
   }
   const formatScroll = h('div.scroll.pad.bn-format');
-  const strip = h('div.bn-strip', { role: 'listbox', 'aria-label': 'Slides of this banner' });
+  // The slides are a list box; the "+ Slide" button sits next to it (a list box may only hold its options).
+  const stripList = h('div.bn-strip-list', { role: 'listbox', 'aria-label': 'Slides of this banner' });
+  const strip = h('div.bn-strip', stripList);
   const wideBtn = h('button.btn.sm', { type: 'button', title: 'Bigger slide: make the editing area wider', 'aria-pressed': 'false', onclick: () => setWide(!wide) }, icon('wide'), h('span.hide-sm', 'Wide'));
   let wide = false;
   try { wide = localStorage.getItem('selah-bn-wide') === '1'; } catch (e) { /* */ }
@@ -366,7 +368,7 @@ export default function create(ctx) {
   let side = 'slide';
   function renderSideSeg() {
     clear(sideSeg);
-    [['slide', 'Slide'], ['format', 'Format options']].forEach(([k, l]) => sideSeg.appendChild(h('button', { type: 'button', role: 'tab', 'aria-pressed': String(side === k), 'aria-selected': String(side === k), onclick: () => setSide(k) }, l)));
+    [['slide', 'Slide'], ['format', 'Format options']].forEach(([k, l]) => sideSeg.appendChild(h('button', { type: 'button', role: 'tab', 'aria-selected': String(side === k), onclick: () => setSide(k) }, l)));
   }
   function setSide(k) {
     side = k; renderSideSeg();
@@ -548,7 +550,8 @@ export default function create(ctx) {
   function renderStrip() {
     stripReady = true;
     stripMinis.forEach((s) => s.destroy()); stripMinis = [];
-    clear(strip);
+    clear(stripList);
+    Array.from(strip.children).forEach((c) => { if (c !== stripList) c.remove(); });
     const slides = slidesOf(cur);
     slides.forEach((x, i) => {
       const hostM = h('div.stage-host');
@@ -562,7 +565,7 @@ export default function create(ctx) {
         ondrop: (ev) => { it.classList.remove('drop'); const from = +ev.dataTransfer.getData('text/x-slide'); if (isFinite(from)) movePage(from, i); } },
         h('div.bn-strip-th', hostM), h('span.bn-strip-n', String(i + 1)));
       if (slides.length > 1) it.appendChild(h('button.bn-strip-more', { type: 'button', title: 'Slide options', 'aria-label': 'Slide ' + (i + 1) + ' options', onclick: (ev) => { ev.stopPropagation(); pageMenu(ev.currentTarget, i); } }, icon('more')));
-      strip.appendChild(it);
+      stripList.appendChild(it);
       requestAnimationFrame(async () => {
         const st = createStage(hostM, { placeholderOnly: true, aspect: link.aspect ? link.aspect() : 16 / 9 });
         hostM._stage = st; stripMinis.push(st);

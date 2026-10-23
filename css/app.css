@@ -1037,7 +1037,9 @@ button.se-sw[aria-pressed="true"] { outline: 2px solid var(--focus, #2f6fe0); ou
 .st-more > summary { cursor: pointer; color: var(--muted); font-weight: 700; padding: 4px 0; }
 .st-more[open] > summary { margin-bottom: 6px; }
 .stage-tab .st-pv { position: relative; }
-.stage-tab .st-pv-f { width: 1280px; height: 720px; inset: 0 auto auto 0; transform-origin: 0 0; }
+/* Only the Stage preview is drawn at TV size and scaled down; the stream preview (obs.html) scales itself. */
+.st-pv-tv { width: 1280px !important; height: 720px !important; inset: 0 auto auto 0; transform-origin: 0 0; }
+.st-pv { contain: layout paint; }
 .stage-btn .n::before { content: ""; }
 .st-step { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: var(--r); background: var(--sunk); }
 .st-health.warn { color: var(--warn); font-weight: 700; }
@@ -1054,3 +1056,22 @@ button.se-sw[aria-pressed="true"] { outline: 2px solid var(--focus, #2f6fe0); ou
 /* Inside Tools, Stage and Stream need no bar of their own: the part buttons name them, and their actions
    (open the stage screen, message, hide the lower third) are in their cards. */
 .tools-part > .toolbar { display: none; }
+
+/* Phones: the Present button keeps its room in the top bar (the logo is left out; the Stage button is an icon). */
+@media (max-width: 760px) {
+  .church-logo { display: none; }
+  .present { flex: 1 0 104px; min-width: 104px; }
+  .stage-btn { padding: 0 8px; gap: 4px; }
+  .stage-btn .tm { display: none; }
+  .obs-pill { padding: 0 8px; }
+}
+@media (max-width: 380px) {
+  .stage-btn .n { display: none; }
+  .disp-btn { max-width: 112px; }
+}
+/* Accessibility: the banner slide list box holds only its slides; tabs use aria-selected. */
+.bn-strip-list { display: contents; }
+.seg button[aria-selected="true"] { background: var(--raised); color: var(--text); box-shadow: inset 0 -2px 0 var(--next); }
+.mu-rules > h3 { font-size: var(--fs-md); display: flex; align-items: center; gap: 6px; margin: 0 0 8px; }
+.ver-box { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; padding: 10px 12px; margin-bottom: 10px; border-radius: var(--r); background: var(--sunk); border: 1px solid var(--line); }
+.mono { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }

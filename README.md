@@ -131,6 +131,11 @@ What it adds:
 | **Videos from the PC** | Files in `Videos\Selah` appear in the Video tab on every device, and stream with seeking. |
 | **Exact PowerPoint** | If LibreOffice is installed, .pptx files are converted to PDF so they look exactly as designed. Without it SDA Sabbath uses its built-in renderer (text, pictures, shapes, backgrounds). |
 
+**Safe on the church PC:** only the companion's own pages (opened from its address) may use it without the PIN. A website
+open in a browser on the same PC cannot control the screen or read the PIN, and requests that use an outside domain name
+for this PC are refused (protection against DNS rebinding). Slides that reach a TV or second PC through the companion
+(or Cast) are cleaned before they are drawn.
+
 Options: `--port`, `--media <folder>`, `--pin <NNNN>`, `--no-browser`, `--install`. The PIN and folder
 are remembered in `%APPDATA%\Selah\companion.txt`. Windows asks once to allow network access — allow
 it for private networks.

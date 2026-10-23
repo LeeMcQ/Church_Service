@@ -17,8 +17,8 @@ import { openClickerSetup, builtinAction } from './clickerui.js';
 import { hub as stageHub, timerValue } from './core/stagehub.js';
 import { obs } from './core/obsctl.js';
 
-export const VERSION = '1.4.0';
-export const BUILD = 'd74dfda';
+export const VERSION = '1.5.0';
+export const BUILD = '3ea2888';
 
 const TABS = [
   { id: 'bible', label: 'Bible', icon: 'bible', file: 'bible.js', load: () => import('./tabs/bible.js') },

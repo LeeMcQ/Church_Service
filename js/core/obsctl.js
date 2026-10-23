@@ -37,6 +37,18 @@ async function sha256b64(str) {
   return btoa(s);
 }
 const isLoopback = (host) => /^(localhost|127\.\d+\.\d+\.\d+|\[::1\])$/i.test(host);
+// Chrome (142+ for fetch, 147+ also for WebSockets) asks before a website may reach programs on this computer
+// ("Local network access", called "Apps on device" from Chrome 145). If that was blocked or not answered, the
+// connection fails exactly like OBS being closed — so ask the browser, and say the right thing.
+async function lnaState() {
+  if (location.protocol !== 'https:' || !navigator.permissions || !navigator.permissions.query) return null;
+  for (const name of ['loopback-network', 'local-network-access']) {
+    try { return (await navigator.permissions.query({ name })).state; } catch (e) { /* this browser does not know the name */ }
+  }
+  return null;
+}
+const LNA_BLOCKED = 'Chrome is blocking SDA Sabbath from reaching OBS on this computer. Click the site icon left of the address bar → Site settings → “Local network access” (in newer Chrome “Apps on device”) → Allow. Then press Connect again.';
+const LNA_PROMPT = 'Chrome asks whether SDA Sabbath may reach programs on this computer: press Allow in the box under the address bar, then press Connect again. (Missed it? Click the site icon left of the address bar → Site settings → “Local network access” / “Apps on device” → Allow.)';
 
 /** Send one request; resolves with responseData, rejects with OBS's own explanation. */
 obs.call = (requestType, requestData) => new Promise((resolve, reject) => {
@@ -48,7 +60,7 @@ obs.call = (requestType, requestData) => new Promise((resolve, reject) => {
 });
 
 /** Connect (url like ws://127.0.0.1:4455). opts.quiet: an automatic reconnect that should not report errors. */
-obs.connect = (opts = {}) => new Promise((resolve) => {
+obs.connect = (opts = {}) => new Promise(async (resolve) => { // eslint-disable-line no-async-promise-executor
   obs.disconnect(true);
   const url = String(opts.url || settings.v.stream.obsUrl || 'ws://127.0.0.1:4455').trim();
   const pass = opts.pass != null ? opts.pass : settings.v.stream.obsPass || '';
@@ -61,6 +73,8 @@ obs.connect = (opts = {}) => new Promise((resolve) => {
     resolve(false); return;
   }
   want = true; quiet = !!opts.quiet;
+  const lnaBefore = isLoopback(host) || /^(10|192\.168|172\.(1[6-9]|2\d|3[01]))\./.test(host) ? await lnaState() : null;
+  if (lnaBefore === 'denied') { want = false; setState('error', LNA_BLOCKED); resolve(false); return; }
   if (!opts.quiet) obs.tries = 0;
   setState('connecting', obs.tries ? obs.lastError + ' (trying again, ' + obs.tries + ')' : '');
   let sock;
@@ -125,7 +139,8 @@ obs.connect = (opts = {}) => new Promise((resolve) => {
     if (e.code === 4010) { want = false; setState('error', 'This OBS WebSocket version is not supported (needs OBS 28 or newer).'); finish(false); return; }
     if (e.code === 4011) { want = false; setState('error', 'OBS disconnected SDA Sabbath (kicked in OBS → WebSocket Server Settings). Connect again when ready.'); finish(false); return; }
     if (!want) { setState(obs.state === 'error' || obs.state === 'auth' ? obs.state : 'off', obs.error); finish(false); return; }
-    const why = opened ? 'Connection to OBS lost.' : 'OBS did not answer at ' + url + '. Is OBS open, and is “Enable WebSocket server” ticked (OBS → Tools → WebSocket Server Settings)?';
+    let why = opened ? 'Connection to OBS lost.' : 'OBS did not answer at ' + url + '. Is OBS open, and is “Enable WebSocket server” ticked (OBS → Tools → WebSocket Server Settings)?';
+    if (!opened && lnaBefore && lnaBefore !== 'granted') why = lnaBefore === 'denied' ? LNA_BLOCKED : LNA_PROMPT;
     obs.lastError = why;
     if (!quiet && !opened) { setState('error', why); want = false; finish(false); return; }
     obs.tries++;
@@ -139,7 +154,7 @@ obs.disconnect = (keepWanted) => {
   clearTimeout(retryT); clearTimeout(helloT);
   const s = ws; ws = null;
   if (s) { try { s.close(); } catch (e) { /* */ } }
-  if (!keepWanted) setState('off');
+  if (!keepWanted) { obs.lastError = ''; obs.tries = 0; setState('off'); }
 };
 
 obs.refresh = async () => {

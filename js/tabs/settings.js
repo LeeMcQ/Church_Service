@@ -270,6 +270,17 @@ export default function create(ctx) {
   });
 
   section('about', 'About', (box) => {
+    // Version, build and the offline copy in use: what to quote when reporting a problem.
+    const offline = h('span.mono', '…');
+    fetch('asset-manifest.json', { cache: 'no-store' }).then((r) => r.json()).catch(() => null)
+      .then((m) => { offline.textContent = m && m.version ? m.version : (ctx.offlineHealth && ctx.offlineHealth.version) || '—'; });
+    box.append(h('div.ver-box',
+      h('div', h('b', 'SDA Sabbath ' + ctx.VERSION)),
+      h('div.note', 'Build ', h('span.mono', ctx.BUILD || '—'), ' · Offline copy ', offline),
+      h('button.btn.sm', { type: 'button', title: 'Copy the version details, e.g. for a problem report', onclick: () => {
+        const t = 'SDA Sabbath ' + ctx.VERSION + ' · build ' + (ctx.BUILD || '—') + ' · offline ' + offline.textContent + ' · ' + location.host + location.pathname + ' · ' + navigator.userAgent;
+        if (navigator.clipboard) navigator.clipboard.writeText(t).then(() => toast('Version details copied.', 'ok'), () => {});
+      } }, icon('copy'), h('span', 'Copy version details'))));
     box.append(h('p', 'SDA Sabbath — a free, offline church presenter made for Seventh-day Adventist media teams.'),
       h('p.note', { style: { marginTop: '8px' } }, 'Bibles: KJV (public domain), World English Bible (public domain), Afrikaanse Bybel 1933/53. Fonts: Atkinson Hyperlegible Next and Source Serif 4 (SIL Open Font License). PDF rendering: pdf.js (Apache 2.0). ZIP reading: fflate (MIT). QR codes: qrcode-generator (MIT). Stage link: Trystero and noble-secp256k1 (MIT). Sample hymn words are in the public domain.'),
       h('p.note', { style: { marginTop: '8px' } }, 'Hymn music: the church\'s own MIDI recordings, played by SpessaSynth (Apache 2.0) with the GeneralUser GS 2.0.3 SoundFont by S. Christian Collins (free to use; schristiancollins.com), using the reverb and chorus levels the author recommends.'));

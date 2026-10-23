@@ -306,7 +306,7 @@ export default function create(ctx) {
   function paintPreview() {
     const want = S().preview !== false && !settings.lowPower() && !el.hidden;
     if (want && !pvFrame) {
-      pvFrame = h('iframe.st-pv-f', { src: 'stage.html?via=win&preview=1', title: 'Stage screen preview', loading: 'lazy', tabindex: '-1' });
+      pvFrame = h('iframe.st-pv-f.st-pv-tv', { src: 'stage.html?via=win&preview=1', title: 'Stage screen preview', loading: 'lazy', tabindex: '-1' });
       pvHost.append(pvFrame);
       pvScale();
     } else if (!want && pvFrame) { pvFrame.remove(); pvFrame = null; }

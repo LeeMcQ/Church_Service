@@ -4,6 +4,23 @@
 //   3. the SDA Sabbath companion on the LAN (WebSocket), e.g. a smart-TV browser or second PC
 import { createDisplay } from './display/display.js';
 import { createDecoder, createEncoder } from './core/wire.js';
+import { sanitizeSlideHtml } from './core/render.js';
+
+// Slides that arrive over a network link (the companion on the church network, or Cast) are cleaned before
+// they are drawn: only plain formatting survives, never scripts, frames, event handlers or odd links. The
+// window opened by SDA Sabbath on this PC is the app itself and needs no cleaning.
+function cleanFrame(f) {
+  if (!f || typeof f !== 'object') return;
+  if (typeof f.html === 'string') f.html = sanitizeSlideHtml(f.html);
+  if (Array.isArray(f.cols)) f.cols.forEach((c) => { if (c && typeof c.html === 'string') c.html = sanitizeSlideHtml(c.html); });
+}
+function clean(m) {
+  if (m && m.t === 'deck' && m.deck && typeof m.deck === 'object') {
+    if (Array.isArray(m.deck.frames)) m.deck.frames.forEach(cleanFrame);
+    cleanFrame(m.deck.frame);
+  }
+  return m;
+}
 
 const params = new URLSearchParams(location.search);
 const root = document.getElementById('root');
@@ -40,7 +57,7 @@ if (navigator.presentation && navigator.presentation.receiver) {
   navigator.presentation.receiver.connectionList.then((list) => {
     const setup = (conn) => {
       conn.binaryType = 'arraybuffer';
-      const dec = createDecoder((m) => disp.handle(m));
+      const dec = createDecoder((m) => disp.handle(clean(m)));
       const enc = createEncoder((s) => conn.send(s), (b) => conn.send(b));
       outs.add(enc);
       conn.onmessage = (e) => (typeof e.data === 'string' ? dec.text(e.data) : dec.binary(e.data));
@@ -70,7 +87,7 @@ if (params.get('via') === 'ws') {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     ws = new WebSocket(proto + '//' + location.host + '/ws?role=display&room=' + encodeURIComponent(params.get('room') || 'main') + '&pin=' + encodeURIComponent(params.get('pin') || ''));
     ws.binaryType = 'arraybuffer';
-    const dec = createDecoder((m) => disp.handle(m));
+    const dec = createDecoder((m) => disp.handle(clean(m)));
     ws.onopen = () => {
       wait = 1000;
       enc = createEncoder((s) => ws.send(s), (b) => ws.send(b));

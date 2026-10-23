@@ -73,7 +73,7 @@ export function createMusicView(ctx, root) {
   const fadeSel = h('select.field', { 'aria-label': 'Fade time', style: { width: 'auto', height: '34px' }, onchange: () => settings.set('bannerMusic.fadeSec', +fadeSel.value) },
     [1, 2, 3, 5, 8].map((s) => h('option', { value: s, selected: (S().fadeSec || 3) === s }, s + ' s')));
   const rulesCard = h('div.card.mu-rules',
-    h('h4', icon('banner'), ' Play with the banners'),
+    h('h3', icon('banner'), ' Play with the banners'),
     chk('auto', 'Start the music when a banner or the pre-service loop goes on screen', 'It fades in softly and plays the list below, then starts again.'),
     chk('fade', 'Fade out when something else goes on screen', 'A hymn, Bible verse, slide or video takes over; the music fades away.'),
     h('div.row', { style: { gap: '8px', alignItems: 'center' } }, h('span.note', 'Fade time'), fadeSel));

@@ -71,7 +71,7 @@ export function createSlideEditor(opts) {
   let keepRatio = false;
   let savedRange = null;
   let drag = null;
-  const ov = h('div.se-ov', { tabindex: '0', 'aria-label': 'Slide canvas. Click an item to select it, double-click text to edit it.' });
+  const ov = h('div.se-ov', { tabindex: '0', role: 'group', 'aria-roledescription': 'slide canvas', 'aria-label': 'Slide canvas. Click an item to select it, double-click text to edit it.' });
   const guides = h('div.se-guides');
   ov.appendChild(guides);
   screen.appendChild(ov);

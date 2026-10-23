@@ -219,6 +219,46 @@ fn read_request<R: BufRead>(r: &mut R) -> io::Result<Option<Request>> {
     Ok(Some(Request { method, path: path_decode(&path), query, raw_query: qs, headers }))
 }
 
+// ------------------------------------------------------------------ who may do what
+// Any website open in a browser on this PC can make the browser talk to http://localhost:7777 (pages may open
+// WebSockets anywhere, and a DNS-rebinding site can even read the answers). So "this PC" alone is not enough
+// to skip the PIN: only the companion's own pages count — requests whose Origin is this companion — and the
+// Host header must name this machine (a rebinding site's own domain name is refused).
+
+/// The host name without the port ("192.168.1.5:7777" → "192.168.1.5", "[::1]:7777" → "::1").
+fn host_name(host: &str) -> String {
+    let h = host.trim().to_ascii_lowercase();
+    if let Some(rest) = h.strip_prefix('[') { return rest.split(']').next().unwrap_or("").to_string(); }
+    h.rsplit_once(':').map(|(a, p)| if p.chars().all(|c| c.is_ascii_digit()) { a.to_string() } else { h.clone() }).unwrap_or(h)
+}
+fn machine_name() -> String {
+    env::var("COMPUTERNAME").or_else(|_| env::var("HOSTNAME")).ok()
+        .or_else(|| fs::read_to_string("/etc/hostname").ok())
+        .unwrap_or_default().trim().to_ascii_lowercase()
+}
+/// The Host header names this machine: an IP address, localhost, the computer's name, or a local-network name
+/// (.local / .lan / .home / .internal, or a single word). A public domain name (DNS rebinding) is refused.
+fn host_ok(req: &Request) -> bool {
+    let Some(h) = req.headers.get("host") else { return true }; // HTTP/1.0 tools
+    let n = host_name(h);
+    if n.is_empty() { return false; }
+    if n.parse::<std::net::IpAddr>().is_ok() || n == "localhost" || n.ends_with(".localhost") { return true; }
+    let me = machine_name();
+    if !me.is_empty() && (n == me || n == format!("{}.local", me)) { return true; }
+    !n.contains('.') || n.ends_with(".local") || n.ends_with(".lan") || n.ends_with(".home") || n.ends_with(".internal") || n.ends_with(".home.arpa")
+}
+/// The request comes from one of the companion's own pages (or from a program, which sends no Origin).
+fn same_origin(req: &Request) -> bool {
+    match req.headers.get("origin") {
+        None => true,
+        Some(o) => {
+            let o = o.trim().to_ascii_lowercase();
+            let host = req.headers.get("host").map(|h| h.trim().to_ascii_lowercase()).unwrap_or_default();
+            !host.is_empty() && (o == format!("http://{}", host) || o == format!("https://{}", host))
+        }
+    }
+}
+
 fn send(w: &mut TcpStream, status: &str, ctype: &str, extra: &[(&str, String)], body: &[u8], head: bool) -> io::Result<()> {
     let mut h = format!("HTTP/1.1 {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: keep-alive\r\nX-Content-Type-Options: nosniff\r\n", status, ctype, body.len());
     for (k, v) in extra { h.push_str(&format!("{}: {}\r\n", k, v)); }
@@ -408,8 +448,10 @@ fn handle_ws(st: Arc<State>, mut stream: TcpStream, mut reader: BufReader<TcpStr
     let room = req.query.get("room").cloned().unwrap_or_else(|| "main".into());
     let resp = format!("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {}\r\n\r\n", ws::accept_key(key));
     if stream.write_all(resp.as_bytes()).is_err() { return; }
-    // Controllers on other devices need the PIN; displays only receive what is shown publicly.
-    if role == Role::Control && !st.pin_ok(&req, local) {
+    // Controllers on other devices need the PIN; displays only receive what is shown publicly. A page from
+    // another website (its Origin is not this companion) always needs the PIN, whatever it asks to be.
+    let foreign = !same_origin(&req);
+    if (role == Role::Control || foreign) && !st.pin_ok(&req, local) {
         let mut p = vec![0x0F, 0xA1];
         p.extend_from_slice(b"wrong pin");
         let _ = ws::write_frame(&mut stream, 0x8, &p);
@@ -449,7 +491,7 @@ fn relay(st: &State, from: &Client, op: u8, data: &[u8]) {
 
 // ------------------------------------------------------------------ connection loop
 fn handle_conn(st: Arc<State>, stream: TcpStream) {
-    let local = stream.peer_addr().map(|a| a.ip().is_loopback()).unwrap_or(false);
+    let from_this_pc = stream.peer_addr().map(|a| a.ip().is_loopback()).unwrap_or(false);
     let _ = stream.set_read_timeout(Some(Duration::from_secs(60)));
     let _ = stream.set_nodelay(true);
     let Ok(rs) = stream.try_clone() else { return };
@@ -457,6 +499,9 @@ fn handle_conn(st: Arc<State>, stream: TcpStream) {
     let mut w = stream;
     loop {
         let req = match read_request(&mut reader) { Ok(Some(r)) => r, _ => return };
+        if !host_ok(&req) { let _ = text(&mut w, "421 Misdirected Request", "Unknown host name"); return; }
+        // No PIN only for the companion's own pages on this PC (see same_origin).
+        let local = from_this_pc && same_origin(&req);
         let upgrade = req.headers.get("upgrade").map(|u| u.eq_ignore_ascii_case("websocket")).unwrap_or(false);
         if upgrade && req.path == "/ws" { handle_ws(st, w, reader, req, local); return; }
         let res = match (req.method.as_str(), req.path.as_str()) {
