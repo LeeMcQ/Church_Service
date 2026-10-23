@@ -18,7 +18,7 @@ import { hub as stageHub, timerValue } from './core/stagehub.js';
 import { obs } from './core/obsctl.js';
 
 export const VERSION = '1.5.0';
-export const BUILD = '3ea2888';
+export const BUILD = 'b5a2935';
 
 const TABS = [
   { id: 'bible', label: 'Bible', icon: 'bible', file: 'bible.js', load: () => import('./tabs/bible.js') },
@@ -243,7 +243,10 @@ link.on('hello', updateDispBtn);
 live.on('live', updateDispBtn);
 link.on('blocked', () => ui.toast('The browser blocked the display window. Allow pop-ups for this site, then press Present again.', 'err', 7000));
 link.on('pin-wrong', () => ui.toast('Wrong PIN for the SDA Sabbath companion.', 'err'));
-link.on('found', () => { if (!link.kind) ui.toast('A display window is already open. Press Present to reconnect to it.'); });
+// After a reload the open projector window is taken over by itself (link.js); only if that did not happen (for
+// example a new tab) does the operator need to press Present.
+link.on('found', () => { setTimeout(() => { if (!link.kind) ui.toast('A display window is already open. Press Present to reconnect to it.'); }, 1500); });
+link.on('reattached', () => ui.toast('Reconnected to the projector — it kept showing during the reload.', 'ok', 4000));
 
 async function chooseScreen() {
   const r = await listScreens();

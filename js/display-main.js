@@ -48,9 +48,26 @@ try { addWin(window.opener); } catch (e) { /* */ }
 // Lets a reloaded control tab find this window again.
 try {
   const bc = new BroadcastChannel('selah-display');
-  bc.onmessage = (e) => { if (e.data && e.data.t === 'who') bc.postMessage({ t: 'here' }); };
+  bc.onmessage = (e) => {
+    if (!e.data || e.data.t !== 'who') return;
+    bc.postMessage({ t: 'here' });
+    // The control page that opened this window was reloaded: tell it directly, so it takes this window over.
+    try { if (window.opener && !window.opener.closed) window.opener.postMessage({ t: 'here-win' }, location.origin); } catch (er) { /* */ }
+  };
   bc.postMessage({ t: 'here' });
 } catch (e) { /* old browser */ }
+
+// The app that opened this window was closed for good (not just reloaded): close this window too after a
+// few seconds, so no old slide is left on the projector with no one able to change it.
+if (!params.get('via') && window.opener) {
+  let gone = 0;
+  setInterval(() => {
+    let closed = true;
+    try { closed = !window.opener || window.opener.closed; } catch (e) { closed = true; }
+    gone = closed ? gone + 1 : 0;
+    if (gone >= 4) { try { window.close(); } catch (e) { /* */ } }
+  }, 1500);
+}
 
 // 2) Presentation API receiver (Cast / wireless display)
 if (navigator.presentation && navigator.presentation.receiver) {
@@ -66,14 +83,17 @@ if (navigator.presentation && navigator.presentation.receiver) {
       live++; clearTimeout(endT);
       disp.sayHello();
     };
-    // The controlling app was closed (or lost): clear the screen and end the cast, so the TV does not keep
-    // showing the last slide. A short wait lets a dropped Wi-Fi connection come back first.
+    // The controlling app went away. It may only be reloading (an accidental F5) and come back in a moment, so
+    // the slide stays up for 20 s; if nobody takes the cast over by then, the TV goes black and the cast ends.
     let live = 0, endT = null;
     const endSoon = () => {
       clearTimeout(endT);
       if (live > 0) return;
-      try { disp.handle({ t: 'clear', mode: 'black' }); } catch (e) { /* */ }
-      endT = setTimeout(() => { if (live <= 0) { try { window.close(); } catch (e) { /* */ } } }, 8000);
+      endT = setTimeout(() => {
+        if (live > 0) return;
+        try { disp.handle({ t: 'clear', mode: 'black' }); } catch (e) { /* */ }
+        endT = setTimeout(() => { if (live <= 0) { try { window.close(); } catch (e) { /* */ } } }, 5000);
+      }, 20000);
     };
     list.connections.forEach(setup);
     list.onconnectionavailable = (e) => setup(e.connection);

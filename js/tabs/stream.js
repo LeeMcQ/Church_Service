@@ -29,7 +29,10 @@ export default function create(ctx) {
   const obsState = h('div.st-net');
   const connBtn = h('button.btn.primary', { type: 'button', onclick: () => connectOnly() }, icon('link'), h('span', 'Connect to OBS'));
   const setupBtn = h('button.btn.primary', { type: 'button', onclick: () => setupNow() }, icon('check'), h('span', 'Set up OBS'));
-  const disBtn = h('button.btn.sm', { type: 'button', onclick: () => { obs.disconnect(); } }, icon('x'), h('span', 'Disconnect'));
+  // Error notices from connecting are taken away again when you press Disconnect (no old error left on screen).
+  let errToast = null;
+  const dropErr = () => { if (errToast && errToast.isConnected) errToast.remove(); errToast = null; };
+  const disBtn = h('button.btn.sm', { type: 'button', onclick: () => { dropErr(); obs.disconnect(); toast('Disconnected from OBS.', '', 2000); } }, icon('x'), h('span', 'Disconnect'));
   const camRow = h('div.st-step', h('div', h('b', '2. '), 'Which scene has your camera? The lower third goes on top of it.'), h('div.row.wrap', camSel, setupBtn));
   const autoCard = card('Connect OBS (automatic)',
     h('p.note', 'One click puts SDA Sabbath into OBS: a “', h('b', LOWER_NAME), '” overlay on your camera scene, and a “', h('b', S().presScene), '” scene with the slides full screen. Needs OBS 28 or newer: in OBS open ', h('b', 'Tools → WebSocket Server Settings'), ', tick ', h('b', 'Enable WebSocket server'), ', and copy the password from ', h('b', 'Show Connect Info'), '.'),
@@ -44,9 +47,10 @@ export default function create(ctx) {
     settings.set('stream.obsUrl', urlIn.value.trim() || 'ws://127.0.0.1:4455');
     settings.set('stream.obsPass', passIn.value);
     connBtn.disabled = true;
+    dropErr();
     const ok = await obs.connect({ url: urlIn.value.trim(), pass: passIn.value });
     connBtn.disabled = false;
-    if (!ok) { toast(obs.error || 'Could not connect to OBS.', 'err', 9000); return; }
+    if (!ok) { dropErr(); errToast = toast(obs.error || 'Could not connect to OBS.', 'err', 9000); return; }
     camGuess = S().camScene && obs.scenes.includes(S().camScene) ? S().camScene : (await obs.findCameraScene()) || '';
     paintAll();
     if (!S().camScene) toast('Connected to OBS. Check the camera scene, then press “Set up OBS”.', 'ok', 6000);
@@ -101,13 +105,21 @@ export default function create(ctx) {
   const streamBtn = h('button.btn', { type: 'button', onclick: () => toggleOut('stream') });
   const recBtn = h('button.btn', { type: 'button', onclick: () => toggleOut('record') });
   const outState = h('div.row.wrap.st-out');
-  const autoSceneT = toggle('Follow the slides: the presentation scene for slides, pictures and banners; the camera (with the words in the lower third) for Bible verses and hymns, black and clear', !!S().autoScene, (v) => { settings.set('stream.autoScene', v); if (v) obs.resumeAuto(); });
+  const autoSceneT = toggle('Follow the slides: the presentation scene for slides, pictures and banners; the camera (with the words in the lower third) for Bible verses and hymns, black and clear', !!S().autoScene, (v) => {
+    settings.set('stream.autoScene', v); if (v) obs.resumeAuto(); paintObs();
+    if (v && !obs.isSetUp()) toast('Following the slides starts once OBS is set up: press “Set up OBS”.', '', 6000);
+  });
+  // Following needs SDA Sabbath's scenes in OBS: say so (and offer the button) instead of silently doing nothing.
+  const needSetup = h('div.st-showing', { hidden: true }, h('span.st-pill', 'Not following yet'),
+    h('span.grow', 'OBS is not set up for SDA Sabbath on this computer yet, so scenes cannot switch.'),
+    h('button.btn.sm.primary', { type: 'button', onclick: () => setupNow() }, icon('check'), h('span', 'Set up OBS')));
   const mediaSel = select([['camera', 'the camera scene'], ['presentation', 'the presentation scene (with a Window Capture of the display)'], ['stay', 'no change']], S().mediaScene || 'camera', (v) => settings.set('stream.mediaScene', v));
   const studioT = toggle('In Studio Mode, put scenes in Preview (you press Transition)', S().studioPreview !== false, (v) => settings.set('stream.studioPreview', v));
   const pausedEl = h('div.st-showing', { hidden: true }, h('span.st-pill', 'Following paused'), h('span.grow', 'You chose a scene in OBS. Following starts again with the next item.'),
     h('button.btn.sm', { type: 'button', onclick: () => obs.resumeAuto() }, icon('play'), h('span', 'Resume now')));
   const healthEl = h('div.note.st-health');
   const controlCard = card('OBS control', outState, healthEl, h('div.row.wrap', streamBtn, recBtn), h('div.note', 'Scenes (click to put on air):'), sceneChips, autoSceneT,
+    needSetup,
     h('div.row.wrap', h('span.note', 'Videos and screen sharing switch to'), mediaSel), studioT, pausedEl,
     h('p.note', 'Scene switching only moves between the camera scene and the presentation scene, so a scene you pick yourself in OBS (pre-service loop, closing card) is never taken off air.'));
   async function toggleOut(which) {
@@ -238,6 +250,7 @@ export default function create(ctx) {
     cams.forEach((x) => camSel.append(h('option', { value: x }, x + (x === camGuess && x !== S().camScene ? '  (has a camera)' : ''))));
     camSel.value = cur && cams.includes(cur) ? cur : camGuess || obs.program || cams[0] || '';
     pausedEl.hidden = !(obs.autoPaused && S().autoScene);
+    needSetup.hidden = !(S().autoScene && st === 'on' && !obs.isSetUp());
     const hl = obs.health;
     healthEl.hidden = !obs.streaming || !hl;
     if (hl) {

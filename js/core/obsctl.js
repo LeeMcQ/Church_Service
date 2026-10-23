@@ -115,6 +115,7 @@ obs.connect = (opts = {}) => new Promise(async (resolve) => { // eslint-disable-
         setState('on');
         settings.set('stream.obsAuto', true);
         await obs.refresh().catch(() => {});
+        await obs.detectSetup().catch(() => {});
         finish(true);
       } else if (m.op === 7) { // RequestResponse
         const p = pending.get(d.requestId);
@@ -202,6 +203,26 @@ function onEvent(type, d) {
 }
 
 /** Put a scene on air. In Studio Mode it goes to Preview instead (the operator presses Transition), unless asked otherwise. */
+/** Is OBS set up for SDA Sabbath (presentation scene and camera scene known)? Needed to follow the slides. */
+obs.isSetUp = () => {
+  const s = settings.v.stream;
+  return obs.state === 'on' && !!s.camScene && !!s.presScene && obs.scenes.includes(s.camScene) && obs.scenes.includes(s.presScene);
+};
+/**
+ * OBS was set up before (from another browser or computer): recognise it — the presentation scene exists and
+ * the lower third sits in a camera scene — so following the slides works without pressing Set up again.
+ */
+obs.detectSetup = async () => {
+  const s = settings.v.stream;
+  if (!obs.scenes.includes(s.presScene)) return false;
+  if (s.camScene && obs.scenes.includes(s.camScene)) return true;
+  for (const sc of obs.scenes) {
+    if (sc === s.presScene) continue;
+    if (await itemId(sc, LOWER_NAME) != null) { settings.set('stream.camScene', sc); obs.emit('change', obs); return true; }
+  }
+  return false;
+};
+
 obs.setScene = (name, { program = false } = {}) => {
   if (obs.studio && !program && settings.v.stream.studioPreview !== false) return obs.call('SetCurrentPreviewScene', { sceneName: name });
   lastAsked = name;

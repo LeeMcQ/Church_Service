@@ -328,3 +328,9 @@ body.ss > .ss-top { grid-row: 1; } body.ss > .ss-msg { grid-row: 2; } body.ss > 
   .ss-who { flex: 0 0 auto; }
   .ss-dot { width: 16px; height: 16px; }
 }
+
+/* Now / Next tags: readable from a distance — darker red and green (white text ≥ 6:1), larger, with a dot. */
+.ss-tag { font-size: clamp(13px, 1.6vh, 22px); padding: .25em .6em; letter-spacing: .06em; border-radius: 6px; line-height: 1.2; }
+.ss-tag.live { background: #b3262c; color: #fff; box-shadow: 0 0 0 1px rgba(255,255,255,.18) inset; }
+.ss-tag.live::before { content: ""; display: inline-block; width: .55em; height: .55em; border-radius: 50%; background: #fff; margin-right: .4em; vertical-align: .05em; }
+.ss-tag.next { background: #23703a; color: #fff; }

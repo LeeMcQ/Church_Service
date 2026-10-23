@@ -125,6 +125,31 @@ export function createDisplay(root, { post, self = false } = {}) {
     requestAnimationFrame(step);
   }
 
+  // Black (or Logo) during a video: the sound fades out in a third of a second and the video pauses where it
+  // is; taking Black off again carries on from the same place. (Behind a black screen the sound must stop too.)
+  let blankPaused = false;
+  function blankMedia(mode) {
+    if (!video) { blankPaused = false; return; }
+    if (mode && !video.paused) {
+      blankPaused = true;
+      const baseVol = mediaOpts.volume == null ? 1 : mediaOpts.volume;
+      const start = performance.now();
+      const step = (t) => {
+        if (!video || !blankPaused) return;
+        const k = Math.min(1, (t - start) / 300);
+        const vol = baseVol * (1 - k);
+        if (audio) audio.gain.gain.value = vol; else video.volume = Math.max(0, Math.min(1, vol));
+        if (k < 1) requestAnimationFrame(step);
+        else { video.pause(); applyVolume(baseVol); report(); }
+      };
+      requestAnimationFrame(step);
+    } else if (!mode && blankPaused) {
+      blankPaused = false;
+      applyVolume(mediaOpts.volume == null ? 1 : mediaOpts.volume);
+      safePlay();
+    }
+  }
+
   function snapshot() {
     if (!video || !video.videoWidth) return;
     const c = document.createElement('canvas');
@@ -297,10 +322,10 @@ export function createDisplay(root, { post, self = false } = {}) {
     let drawn = null;
     switch (msg.t) {
       case 'style': style = msg.style || {}; stage.applyStyle(style); if (deck && deck.frames) { lastFrame = null; drawn = showCurrent(); } break;
-      case 'deck': deck = msg.deck; index = msg.index || 0; lastFrame = null; stage.setBlank(msg.blank || null); drawn = showCurrent(); startAuto(); break;
+      case 'deck': deck = msg.deck; index = msg.index || 0; lastFrame = null; blankPaused = false; stage.setBlank(msg.blank || null); drawn = showCurrent(); startAuto(); break;
       case 'go': index = msg.index || 0; autoLast = Date.now(); drawn = showCurrent(); break;
       case 'auto': autoPaused = !msg.on; autoLast = Date.now(); break;
-      case 'blank': stage.setBlank(msg.mode); break;
+      case 'blank': stage.setBlank(msg.mode); blankMedia(msg.mode); break;
       case 'clear': deck = null; lastFrame = null; stopAuto(); teardownVideo(); stage.show(null); stage.setBlank(msg.mode || null); break;
       case 'media': mediaCmd(msg.op, msg.v); break;
       case 'caption': stage.setCaption(msg.text || ''); break;

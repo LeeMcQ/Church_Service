@@ -51,6 +51,13 @@ function onDisplayMsg(m) {
 }
 
 window.addEventListener('message', (e) => {
+  // This page was reloaded (an accidental F5, or after a crash) while the projector window stayed open: the
+  // window says it is there, and the app takes it over again — the projector never went blank.
+  if (e.origin === location.origin && e.data && e.data.t === 'here-win' && e.source && !link.kind) {
+    attachWindow(e.source, 'Display window');
+    link.emit('reattached');
+    return;
+  }
   if (e.origin !== location.origin || !link.win || e.source !== link.win) return;
   onDisplayMsg(e.data);
 });
@@ -145,9 +152,14 @@ link.openWindow = async ({ prompt = false } = {}) => {
   }
   if (!w) w = window.open(url, WIN_NAME, features);
   if (!w) { link.emit('blocked'); return false; }
+  attachWindow(w, scr ? scr.label || 'Second screen' : 'Display window');
+  return true;
+};
+/** Use a display window: one just opened, or one still open from before this page was reloaded. */
+function attachWindow(w, label) {
   link.win = w;
   sendImpl = (m) => { if (!w.closed) w.postMessage(m, location.origin); };
-  setState('window', false, scr ? scr.label || 'Second screen' : 'Display window');
+  setState('window', false, label);
   clearInterval(pollT);
   pollT = setInterval(() => { if (w.closed) { clearInterval(pollT); if (link.win === w) { link.win = null; sendImpl = null; setState(null, false, ''); } } }, 1000);
   // Handshake: ask until the display answers (its page may still be loading).
@@ -157,8 +169,7 @@ link.openWindow = async ({ prompt = false } = {}) => {
   // Ask the display to go full screen once it is up.
   setTimeout(() => { try { if (!w.closed) w.postMessage({ t: 'fullscreen' }, location.origin); } catch (e) { /* */ } }, 500);
   if (lastStream) setTimeout(() => link.setStream(lastStream), 600);
-  return true;
-};
+}
 
 // ------------------------------------------------------------ this device
 link.openSelf = async (createDisplay) => {
@@ -231,6 +242,10 @@ link.openCast = async () => {
     else throw e;
   }
   const conn = await req.start();
+  useCast(conn);
+  return true;
+};
+function useCast(conn) {
   castConn = conn;
   conn.binaryType = 'arraybuffer';
   const dec = createDecoder(onDisplayMsg);
@@ -241,8 +256,7 @@ link.openCast = async () => {
   setState('cast', conn.state === 'connected', 'Cast display');
   conn.onconnect = () => { setState('cast', true); sendImpl({ t: 'hello?' }); startKeepAlive(); };
   if (conn.state === 'connected') { sendImpl({ t: 'hello?' }); startKeepAlive(); }
-  return true;
-};
+}
 
 // ------------------------------------------------------------ LAN companion
 link.connectSocket = (base, pin, room = 'main') => {
@@ -279,13 +293,24 @@ link.connectSocket = (base, pin, room = 'main') => {
 /** What the stop button says for the current display. */
 link.stopLabel = () => ({ cast: 'Stop casting', window: 'Close the display window', socket: 'Disconnect from the companion', self: 'Exit display' }[link.kind] || 'Close display');
 
-// Closing or reloading the control page stops a cast (the TV goes back to its home screen) and closes the
-// display window, so nothing is left showing an old slide with no one able to control it. A LAN display
-// (companion) is left alone: other controllers, such as the church PC, may still be using it.
+// Reloading the control page (an accidental F5, or after a crash) must never blank the projector: the display
+// window and a cast stay as they are, and the reloaded page takes them over again (display window: it
+// announces itself; cast: reconnect by its id). If the app is really closed, the display window closes itself
+// a few seconds later (display-main.js) and a cast TV goes black after a short wait.
 window.addEventListener('pagehide', () => {
-  if (link.kind === 'cast' && castConn) { try { castConn.terminate(); } catch (e) { /* */ } }
-  if (link.kind === 'window' && link.win) { try { link.win.close(); } catch (e) { /* */ } }
+  if (link.kind === 'cast' && castConn) { try { sessionStorage.setItem('selah.castId', castConn.id); } catch (e) { /* */ } }
 });
+// After a reload: take over the cast that was running.
+(async () => {
+  let id = null;
+  try { id = sessionStorage.getItem('selah.castId'); sessionStorage.removeItem('selah.castId'); } catch (e) { /* */ }
+  if (!id || !link.canCast()) return;
+  try {
+    const req = new PresentationRequest([new URL('display.html?via=cast', location.href).href]);
+    const conn = await req.reconnect(id);
+    if (!link.kind) { useCast(conn); link.emit('reattached'); }
+  } catch (e) { /* the cast has ended meanwhile */ }
+})();
 
 link.close = (silent) => {
   clearInterval(pollT); clearTimeout(wsTimer);
