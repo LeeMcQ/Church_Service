@@ -40,9 +40,12 @@
         msg.textContent = 'Downloading a fresh copy…';
         var done = function () { location.replace(location.pathname + '?v=' + Date.now()); };
         (navigator.serviceWorker ? navigator.serviceWorker.getRegistrations() : Promise.resolve([])).then(function (rs) {
-          return Promise.all(rs.map(function (r) { return r.unregister(); }));
+          // Only this app's own worker (the other app on this site keeps its own).
+          return Promise.all(rs.filter(function (r) { return location.href.indexOf(r.scope) === 0; }).map(function (r) { return r.unregister(); }));
         }).then(function () { return window.caches ? caches.keys() : []; }).then(function (ks) {
-          return Promise.all(ks.map(function (k) { return caches.delete(k); }));
+          // Only this app's own caches (another app on the same site keeps its offline files).
+          var mine = 'selah-' + location.pathname.replace(/[^\/]*$/, '') + '|';
+          return Promise.all(ks.filter(function (k) { return k.indexOf(mine) === 0; }).map(function (k) { return caches.delete(k); }));
         }).then(done, done);
       });
     };

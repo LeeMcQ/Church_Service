@@ -2,6 +2,7 @@
 import { emitter, lowPowerDevice } from './util.js';
 
 const KEY = 'selah.settings.v1'; // kept from the app's first name: existing settings carry over
+const AIKEY = 'selah.aikey.session';
 
 export const DEFAULTS = {
   app: { theme: 'dark', railSide: 'left', monitors: true, lowPower: null, lastTab: 'bible', clickerKeys: true, webPart: 'web', toolsPart: 'service' },
@@ -45,7 +46,8 @@ export const DEFAULTS = {
   // Background music for banners (Banners & Music → Music). auto: start when a banner or the pre-service
   // loop goes on screen; fade: fade out when something else goes on screen.
   bannerMusic: { auto: true, fade: true, fadeSec: 3, volume: 0.7, shuffle: false, repeat: 'all' },
-  ai: { provider: 'openai', apiKey: '', model: '', imageModel: '', auto: {} },
+  // keySession: keep the API key only until this browser tab or window is closed (not saved on the device).
+  ai: { provider: 'openai', apiKey: '', model: '', imageModel: '', auto: {}, keySession: false },
   // The church's details, used by Banners (name, town, sunset times, service countdown, giving QR code).
   church: { name: '', town: '', lat: null, lon: null, service: '09:30', givingUrl: '', givingLabel: '' },
 };
@@ -86,6 +88,8 @@ function load() {
     const raw = JSON.parse(localStorage.getItem(KEY) || '{}');
     v = fixTypes(DEFAULTS, merge(DEFAULTS, raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}));
   } catch (e) { v = merge(DEFAULTS, {}); }
+  // A key kept for this session only lives in sessionStorage, never in the saved settings.
+  if (v.ai.keySession) { try { v.ai.apiKey = sessionStorage.getItem(AIKEY) || ''; } catch (e) { v.ai.apiKey = ''; } }
   // v1.1: the projector margin default grew from 80 to 96 px (safe area for cropping projectors).
   // Move people still on the old default along once; a margin they chose themselves is kept.
   if (!v.app.rev || v.app.rev < 2) {
@@ -145,7 +149,19 @@ settings.set = (path, value) => {
   settings.emit('change:' + keys[0], path, value);
 };
 
-settings.save = () => { try { localStorage.setItem(KEY, JSON.stringify(settings.v)); } catch (e) { /* private mode */ } };
+settings.save = () => {
+  try {
+    const ai = settings.v.ai || {};
+    if (ai.keySession) {
+      // Session-only key: remembered for this tab, left out of what is saved on the device.
+      try { sessionStorage.setItem(AIKEY, ai.apiKey || ''); } catch (e) { /* */ }
+      localStorage.setItem(KEY, JSON.stringify(Object.assign({}, settings.v, { ai: Object.assign({}, ai, { apiKey: '' }) })));
+    } else {
+      try { sessionStorage.removeItem(AIKEY); } catch (e) { /* */ }
+      localStorage.setItem(KEY, JSON.stringify(settings.v));
+    }
+  } catch (e) { /* private mode */ }
+};
 
 settings.reset = (section) => {
   if (section) settings.v[section] = merge(DEFAULTS[section], {});

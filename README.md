@@ -128,7 +128,7 @@ What it adds:
 |---|---|
 | **Phone remote** | Phones on the church Wi-Fi open `http://<pc>:7777/remote` (or scan the QR code in Settings → Displays) and enter the PIN. |
 | **TV or second PC as the screen** | Open `http://<pc>:7777/display` in the TV's browser. |
-| **Videos from the PC** | Files in `Videos\Selah` appear in the Video tab on every device, and stream with seeking. |
+| **Videos from the PC** | Files in `Videos\Selah` appear in the Video tab on every device, and stream with seeking. The list needs the PIN, but the files themselves can be opened by anyone on the same Wi-Fi who knows a file’s name, so keep private files out of that folder. |
 | **Exact PowerPoint** | If LibreOffice is installed, .pptx files are converted to PDF so they look exactly as designed. Without it SDA Sabbath uses its built-in renderer (text, pictures, shapes, backgrounds). |
 
 **Safe on the church PC:** only the companion's own pages (opened from its address) may use it without the PIN. A website

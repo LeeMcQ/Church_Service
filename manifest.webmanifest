@@ -10,7 +10,7 @@
   "orientation": "any",
   "background_color": "#161c28",
   "theme_color": "#161c28",
-  "lang": "en",
+  "lang": "en-ZA",
   "categories": ["productivity", "utilities", "lifestyle"],
   "icons": [
     { "src": "icons/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },

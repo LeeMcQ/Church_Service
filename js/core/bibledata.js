@@ -87,17 +87,24 @@ export async function getBook(id, b) {
 }
 
 /** Expand parsed segments into verse objects [{b,c,v,text}] (clamped to real verse counts). */
-export async function versesFor(id, book, segs) {
+export async function versesFor(id, book, segs, opts) {
   const info = await getInfo(id);
   const data = await getBook(info.id, book);
   const out = [];
   const counts = (info.books[book - 1] || [])[2] || [];
+  // Psalm titles: Afrikaans (and other Bibles) number the heading as verse 1 (sometimes 2), English Bibles
+  // do not. Topic and key-verse lists are written in English numbering, so `opts.english` shifts them.
+  let kc = null;
+  if (opts && opts.english && book === 19 && info.id !== 'kjv' && info.id !== 'web') {
+    try { kc = ((await getInfo('kjv')).books[18] || [])[2] || null; } catch (e) { kc = null; }
+  }
   for (const s of segs) {
     for (let c = s.c1; c <= s.c2; c++) {
       const n = counts[c - 1] || (data[c - 1] || []).length;
       if (!n) continue;
-      const from = c === s.c1 && s.v1 != null ? s.v1 : 1;
-      const to = c === s.c2 && s.v2 != null ? Math.min(s.v2, n) : n;
+      const off = kc && kc[c - 1] && n - kc[c - 1] > 0 && n - kc[c - 1] <= 2 ? n - kc[c - 1] : 0;
+      const from = c === s.c1 && s.v1 != null ? s.v1 + off : (off ? 1 + off : 1);
+      const to = c === s.c2 && s.v2 != null ? Math.min(s.v2 + off, n) : n;
       for (let v = Math.max(1, from); v <= to; v++) out.push({ b: book, c, v, text: (data[c - 1] || [])[v - 1] || '' });
     }
   }

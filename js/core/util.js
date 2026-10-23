@@ -152,3 +152,6 @@ export function scrubUrls(v, depth = 0) {
   }
   return out;
 }
+
+/** The address folder this copy of the app lives in (for example '/Church_Service/'). Used to keep window and channel names apart from any other app on the same site. */
+export const APP_SCOPE = (typeof location !== 'undefined' ? location.pathname : '/').replace(/[^/]*$/, '');

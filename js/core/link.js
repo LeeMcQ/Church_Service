@@ -3,11 +3,11 @@
 //   self    – this device becomes the screen (phone/tablet on HDMI or screen mirroring)
 //   cast    – Presentation API (Chromecast / wireless display from Chrome)
 //   socket  – SDA Sabbath companion on the LAN (TV browser or second PC shows display.html?via=ws)
-import { emitter, h } from './util.js';
+import { emitter, h, APP_SCOPE } from './util.js';
 import { createEncoder, createDecoder } from './wire.js';
 import { settings } from './settings.js';
 
-const WIN_NAME = 'selah-display';
+const WIN_NAME = 'selah-display:' + APP_SCOPE;
 export const link = emitter({ kind: null, ready: false, info: { w: 1920, h: 1080, label: '' }, win: null, self: null });
 
 let sendImpl = null;
@@ -15,7 +15,7 @@ let lastStream = null;
 let pollT = null;
 let ws = null, wsEnc = null, wsTimer = null;
 let castConn = null, castEnc = null;
-const bc = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('selah-display') : null;
+const bc = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('selah-display:' + APP_SCOPE) : null;
 let displayAlive = false;
 if (bc) {
   bc.onmessage = (e) => { if (e.data && e.data.t === 'here') { displayAlive = true; link.emit('found'); } };

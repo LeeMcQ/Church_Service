@@ -120,6 +120,7 @@ export default function create(ctx) {
     const verses = await versesFor(st.tr, book, [{ c1: chap, v1: null, c2: chap, v2: null }]);
     if (book !== st.book || chap !== st.chapter) return;
     clear(verseList);
+    if (info.lang && info.lang !== 'en') verseList.setAttribute('lang', info.lang); else verseList.removeAttribute('lang');
     const frag = document.createDocumentFragment();
     verses.forEach((v) => {
       const row = h('div.vr', { 'data-v': v.v, html: '<b>' + v.v + '</b><span>' + verseHtml(v.text, { redLetter: false, italics: S().italics }) + '</span>' });
@@ -343,7 +344,8 @@ export default function create(ctx) {
     };
     const frameFor = (g) => {
       const a = g[0], b = g[g.length - 1];
-      const ref = refText(tinfo.names, book, [{ c1: a.c, v1: a.v, c2: b.c, v2: b.v }]) + (g.length === 1 && a.part ? a.part : '');
+      // A verse cut into parts says where it is: "Esther 8:9 (1/2)". No word is changed.
+      const ref = refText(tinfo.names, book, [{ c1: a.c, v1: a.v, c2: b.c, v2: b.v }]) + (g.length === 1 && a.part ? ' (' + a.pn + '/' + a.pt + ')' : '');
       const html = g.map((p) => vHtml(p, p.text)).join('');
       const f = { kind: 'text', variant: 'bible', html, foot: ref, footR: tinfo.abbr, refPos: S().refPos };
       if (pinfo) {
@@ -355,12 +357,14 @@ export default function create(ctx) {
     };
     // One verse may shrink to the minimum size; several verses together must stay comfortably large.
     const roomy = Object.assign({}, style, { minFont: Math.max(style.minFont || 58, Math.round((style.maxFont || 150) * 0.56)) });
-    const fits = (g) => fitsText(frameFor(g), g.length > 1 ? roomy : style, aspect);
+    // A single verse that would need text smaller than 80 px (on the 1920-wide screen) is cut into parts instead.
+    const single = Object.assign({}, style, { minFont: Math.max(style.minFont || 58, 80) });
+    const fits = (g) => fitsText(frameFor(g), g.length > 1 ? roomy : single, aspect);
     const splitVerse = (v) => {
       for (let n = 2; n <= 5; n++) {
         const parts = splitText(v.text, n);
         const pparts = pinfo ? splitText(pmap.get(v.c + ':' + v.v) || '', parts.length) : null;
-        const ps = parts.map((t, i) => ({ c: v.c, v: v.v, text: t, ptext: pparts ? pparts[i] || '' : null, part: 'abcde'[i] }));
+        const ps = parts.map((t, i) => ({ c: v.c, v: v.v, text: t, ptext: pparts ? pparts[i] || '' : null, part: 'abcde'[i], pn: i + 1, pt: parts.length }));
         if (ps.every((p) => fits([p])) || n === 5) return ps;
       }
       return [v];

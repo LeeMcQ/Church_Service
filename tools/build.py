@@ -14,7 +14,7 @@ import hashlib, json, os, re, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INCLUDE_DIRS = ['css', 'js', 'vendor', 'fonts', 'icons', 'data']
-INCLUDE_FILES = ['index.html', 'display.html', 'stage.html', 'obs.html', 'manifest.webmanifest']
+INCLUDE_FILES = ['index.html', 'display.html', 'stage.html', 'obs.html', 'privacy.html', 'terms.html', 'manifest.webmanifest']
 SKIP = re.compile(r'(\.map$|\.md$|LICENSE|\.txt$|\.DS_Store)')
 
 
@@ -69,6 +69,8 @@ def check_offline_safe(files):
     for page in ('index.html', 'display.html', 'stage.html', 'obs.html'):
         html = open(os.path.join(ROOT, page), encoding='utf-8').read()
         for m in _re.finditer(r"""<(?:script|link)[^>]+(?:src|href)=["'](https?:)?//""", html):
+            if _re.search(r'rel=["\'](?:canonical|alternate|me)["\']', m.group(0)) or 'rel="canonical"' in html[m.start():m.start() + 60]:
+                continue  # page metadata, not something the page loads
             bad.append(page + ' loads something from the internet: ' + m.group(0)[:80])
         for m in _re.finditer(r"""<(?:script|link)[^>]+(?:src|href)=["']([^"':]+)["']""", html):
             f = m.group(1).split('?')[0]

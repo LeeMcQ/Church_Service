@@ -26,10 +26,11 @@ export default function create(ctx) {
   const zone = dropzone('Drop PDF, PowerPoint (.pptx) or pictures here, or tap to choose', '.pdf,.pptx,image/*', (files) => importFiles(files));
   const addBtn = btn('plus', 'Add files', () => zone.querySelector('input').click(), { cls: 'sm', label: 'Add' });
   const linkBtn = btn('link', 'Add from link', () => addFromLink(), { cls: 'sm', label: 'Link' });
-  const saveBannerBtn = btn('banner', 'Make the selected slide a banner', () => makeBanner(), { cls: 'sm', label: 'Make banner' });
+  const saveBannerBtn = btn('banner', 'Make the selected slide a banner you can edit', () => makeBanner(), { cls: 'sm', label: 'Make banner' });
   saveBannerBtn.hidden = true;
   const deckMenuBtn = btn('more', 'Deck options', () => deck && menu(deckMenuBtn, [
-    { label: 'Make this slide a banner', icon: 'banner', onclick: makeBanner },
+    { label: 'Make this slide an editable banner', icon: 'banner', onclick: () => makeBanner() },
+    ...(deck && deck.type === 'pptx' ? [{ label: 'Make a picture banner (exact look)', icon: 'banner', onclick: () => makeBanner(true) }] : []),
     { label: 'Duplicate this slide', icon: 'copy', onclick: duplicateSlide },
     { label: 'Delete this slide', icon: 'trash', onclick: deleteSlide },
     { label: 'Move slide earlier', icon: 'up', onclick: () => moveSlide(-1) },
@@ -391,31 +392,43 @@ export default function create(ctx) {
     } finally { host.remove(); }
   }
 
-  /** Make the selected slide a banner: a picture banner (PowerPoint slides are drawn to a picture; text only if that fails). */
-  async function makeBanner() {
+  /** Make the selected slide a banner. A PowerPoint slide becomes real slide elements (text boxes, shapes,
+   *  pictures, background) that the slide editor can change; a PDF page or picture becomes the banner's picture.
+   *  `exact` makes a flat picture of a PowerPoint slide instead (looks identical, but is not editable). */
+  async function makeBanner(exact) {
     if (!deck || !frames || !frames[stagedIndex]) { toast('Open a slide first.', 'err'); return; }
     const f = frames[stagedIndex];
     const name = deck.name + ' – slide ' + (stagedIndex + 1);
     try {
-      let spec = null;
+      let spec = null, msg = 'Slide ' + (stagedIndex + 1) + ' is now a banner. Save it, or set it as Next.';
       if (f.kind === 'image') {
         const r = await db.get('renders', deck.id + '/' + stagedIndex);
         if (r && r.full) spec = { blob: r.full, name };
+        msg = 'Slide ' + (stagedIndex + 1) + ' is now a banner with the page as its picture. Add or change text with the slide tools; the words inside the page are part of the picture.';
       } else if (f.kind === 'html') {
-        let blob = null;
-        try { blob = await rasterSlide(f); } catch (e) { console.warn('raster', e); }
-        if (blob && blob.size > 2000) spec = { blob, name };
-        else {
-          const d = new DOMParser().parseFromString('<div>' + String(f.html || '').replace(/<\/(p|div|h\d|li)>/gi, '$&\n') + '</div>', 'text/html');
-          const lines = (d.body.textContent || '').split('\n').map((x) => x.replace(/\s+/g, ' ').trim()).filter(Boolean);
-          if (lines.length) spec = { title: lines[0], text: lines.slice(1).join('\n'), name };
+        if (exact !== true) {
+          try {
+            const { slideToBanner } = await import('../core/slidetobanner.js');
+            const r = slideToBanner(f);
+            if (r.els.length) { spec = { els: r.els, bg: r.bg, name }; msg = 'Slide ' + (stagedIndex + 1) + ' is now a banner you can edit: click its text to retype it, move or resize anything, change colours. Save it, or set it as Next.'; }
+          } catch (e) { console.warn('slide to banner', e); }
+        }
+        if (!spec) {
+          let blob = null;
+          try { blob = await rasterSlide(f); } catch (e) { console.warn('raster', e); }
+          if (blob && blob.size > 2000) { spec = { blob, name }; msg = 'Slide ' + (stagedIndex + 1) + ' is now a picture banner (an exact copy, so its words cannot be retyped).'; }
+          else {
+            const d = new DOMParser().parseFromString('<div>' + String(f.html || '').replace(/<\/(p|div|h\d|li)>/gi, '$&\n') + '</div>', 'text/html');
+            const lines = (d.body.textContent || '').split('\n').map((x) => x.replace(/\s+/g, ' ').trim()).filter(Boolean);
+            if (lines.length) spec = { title: lines[0], text: lines.slice(1).join('\n'), name };
+          }
         }
       }
       if (!spec) { toast('This slide cannot become a banner (web links have no picture). Import it as PDF first.', 'err', 6000); return; }
       const ai = await ctx.showTab('ai');
       const b = ai && ai.fromSlide ? ai : await ctx.tab('ai');
       await b.fromSlide(spec);
-      toast('Slide ' + (stagedIndex + 1) + ' is now a banner. Save it, or set it as Next.', 'ok', 4000);
+      toast(msg, 'ok', 6000);
     } catch (e) { console.error(e); toast('Could not make a banner: ' + e.message, 'err', 6000); }
   }
   async function addToPlan() { const c = ctx.stagedOf('slides'); if (c) (await ctx.tab('plan')).addItem(c.plan); }

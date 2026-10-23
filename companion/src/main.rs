@@ -396,7 +396,15 @@ fn list_media(dir: &Path, base: &Path, depth: u32, out: &mut Vec<String>) {
     }
 }
 
+/// Only one PowerPoint conversion runs at a time: LibreOffice is heavy (up to 3 minutes each), so a second
+/// request is turned away instead of piling up behind the first.
+static CONVERTING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+struct ConvertGuard;
+impl Drop for ConvertGuard { fn drop(&mut self) { CONVERTING.store(false, std::sync::atomic::Ordering::SeqCst); } }
+
 fn convert(st: &State, w: &mut TcpStream, req: &Request, reader: &mut BufReader<TcpStream>) -> io::Result<()> {
+    if CONVERTING.swap(true, std::sync::atomic::Ordering::SeqCst) { return text(w, "429 Too Many Requests", "Another file is being converted. Try again in a minute."); }
+    let _guard = ConvertGuard;
     let len: usize = req.headers.get("content-length").and_then(|v| v.parse().ok()).unwrap_or(0);
     if len == 0 || len > MAX_UPLOAD { return text(w, "413 Payload Too Large", "File missing or too large"); }
     let mut body = vec![0u8; len];

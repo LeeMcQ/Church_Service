@@ -7,7 +7,7 @@
 //   ?via=cast    a Chromecast / Google TV started from the app (Presentation API)
 //   ?via=lan     the SDA Sabbath companion on the church network (works without internet)
 //   #c=CODE      phones, tablets and laptops anywhere: the room code (or QR code) from the media desk
-import { h, clear, pad2, uid } from './core/util.js';
+import { h, clear, pad2, uid, APP_SCOPE } from './core/util.js';
 import { icon } from './core/icons.js';
 import { createStage, fitBody, sanitizeSlideHtml } from './core/render.js';
 import { createEncoder, createDecoder } from './core/wire.js';
@@ -672,7 +672,7 @@ function viaWindow() {
     onMsg(e.data);
   });
   // The control page was reloaded: say hello again.
-  try { const bc = new BroadcastChannel('selah-stage'); bc.onmessage = (e) => { if (e.data && e.data.t === 'who') hello(); }; } catch (e) { /* */ }
+  try { const bc = new BroadcastChannel('selah-stage:' + APP_SCOPE); bc.onmessage = (e) => { if (e.data && e.data.t === 'who') hello(); }; } catch (e) { /* */ }
   // SDA Sabbath itself was closed (not just reloaded): close this window too after a few seconds.
   if (!PREVIEW && host === window.opener) {
     let gone = 0;

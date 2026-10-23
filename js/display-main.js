@@ -5,6 +5,7 @@
 import { createDisplay } from './display/display.js';
 import { createDecoder, createEncoder } from './core/wire.js';
 import { sanitizeSlideHtml } from './core/render.js';
+import { APP_SCOPE } from './core/util.js';
 
 // Slides that arrive over a network link (the companion on the church network, or Cast) are cleaned before
 // they are drawn: only plain formatting survives, never scripts, frames, event handlers or odd links. The
@@ -47,7 +48,7 @@ window.addEventListener('message', (e) => {
 try { addWin(window.opener); } catch (e) { /* */ }
 // Lets a reloaded control tab find this window again.
 try {
-  const bc = new BroadcastChannel('selah-display');
+  const bc = new BroadcastChannel('selah-display:' + APP_SCOPE);
   bc.onmessage = (e) => {
     if (!e.data || e.data.t !== 'who') return;
     bc.postMessage({ t: 'here' });

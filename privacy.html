@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en-ZA">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; base-uri 'self'; form-action 'none'; object-src 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#161c28">
+<title>Privacy notice – SDA Sabbath</title>
+<meta name="description" content="What SDA Sabbath stores, what it sends, and your rights under POPIA.">
+<link rel="canonical" href="https://leemcq.github.io/Church_Service/privacy.html">
+<link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+<style>
+  :root { color-scheme: light dark; --bg:#fbfaf7; --fg:#1d2330; --muted:#5a6475; --line:#d9d6cc; --accent:#1f4068; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161c28; --fg:#e9e4d8; --muted:#a3acbd; --line:#36435c; --accent:#f2cf7a; } }
+  body { margin:0; background:var(--bg); color:var(--fg); font:17px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 46rem; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 1.9rem; line-height:1.2; margin: .4em 0 .2em; } h2 { font-size: 1.25rem; margin: 1.8em 0 .4em; padding-top:.6em; border-top:1px solid var(--line); }
+  a { color: var(--accent); } .muted { color: var(--muted); } nav a { margin-right: 1rem; }
+  table { border-collapse: collapse; width:100%; font-size:.95rem; } th, td { text-align:left; vertical-align: top; padding:.5em .6em; border-bottom:1px solid var(--line); }
+  th { color: var(--muted); font-weight:600; }
+</style>
+</head>
+<body>
+<main>
+<nav aria-label="Pages"><a href="./">← Open SDA Sabbath</a> <a href="privacy.html">Privacy</a> <a href="terms.html">Terms</a></nav>
+
+<h1>Privacy notice</h1>
+<p class="muted">Last updated 23 October 2026. This notice follows South Africa’s Protection of Personal Information Act (POPIA).</p>
+
+<h2>In short</h2>
+<p>SDA Sabbath runs in your browser. It has no accounts, no adverts and no tracking, and its maker does not receive your plans, settings, pictures or anything else you do in it. Almost everything stays on the device you use. A few features send a request to another company, only when you press the button for them. They are listed below.</p>
+
+<h2>Who is responsible</h2>
+<p>SDA Sabbath is free software made by Leo McQuire and released under the MIT licence. The source is at <a href="https://github.com/LeeMcQ/Church_Service">github.com/LeeMcQ/Church_Service</a>. Questions about this notice can be raised there under “Issues”. The church or person who installs and runs SDA Sabbath is responsible for any personal information they type into it (for example names in a service plan or on a banner).</p>
+
+<h2>What stays on your device</h2>
+<p>Your settings, service plans, banners and pictures, imported Bibles and hymnbooks, hymn and video lists, the church details you enter (name, town, service time, giving link) and, if you choose to keep it, your AI key are stored in this browser’s own storage (IndexedDB and localStorage). They are not uploaded. You can erase everything by clearing this site’s data in your browser, or with “Download a fresh copy” and “Reset” in Settings. Backups you export are files you keep yourself; they never include your AI key.</p>
+
+<h2>What is sent, and to whom</h2>
+<table>
+<tr><th>Feature</th><th>What is sent</th><th>To</th></tr>
+<tr><td>Opening the app</td><td>A normal web request (your IP address and browser details), as for any website. After the first visit the app works offline.</td><td>GitHub Pages (GitHub, USA), which hosts the app</td></tr>
+<tr><td>AI buttons in Banners &amp; Music and Settings</td><td>What you typed (a topic, a picture description, or Bible text you asked to summarise), plus your API key to the provider you chose</td><td>OpenAI, Google, xAI, Together AI, OpenRouter or Anthropic (companies in the USA), under their terms</td></tr>
+<tr><td>Lyrics search</td><td>The song title and artist you searched for</td><td>LRCLIB and Lyrics.ovh (outside South Africa)</td></tr>
+<tr><td>Adding Bibles from the internet</td><td>A request for the translation you pick</td><td>bible.helloao.org and GitHub (raw.githubusercontent.com), USA</td></tr>
+<tr><td>YouTube videos in Web &amp; PC</td><td>The video address; YouTube may set cookies in the video frame</td><td>YouTube (Google, USA), using the privacy-enhanced youtube-nocookie.com address</td></tr>
+<tr><td>Stage screen for phones and laptops</td><td>Slide text, timers and messages go directly from the church computer to each phone (WebRTC, encrypted with the room code). Public Nostr relays carry only the encrypted connection set-up. The people connected can see each other’s IP addresses, as in any peer-to-peer connection.</td><td>The phones that join, and the public relays you have not replaced with your own</td></tr>
+<tr><td>Web page or Google Slides link you add</td><td>A request for that address</td><td>That website</td></tr>
+</table>
+<p>Nothing else is sent. SDA Sabbath does not use analytics, advertising or tracking cookies.</p>
+
+<h2>Why, and your consent</h2>
+<p>Each of these is used only to give you the feature you asked for, and only when you use it. Using the feature is your consent to that request. You can stop at any time by not using it, by removing your AI key in Settings, or by going offline.</p>
+
+<h2>Please do not type personal details into AI buttons</h2>
+<p>Names, phone numbers, addresses and health or other private details should not be typed into a request that goes to an AI provider, and should be kept out of banners and plans that are shown to or shared with others. Photographs of people need their permission under POPIA.</p>
+
+<h2>Your rights</h2>
+<p>Because the information is on your own device, you can see, change and delete it yourself at any time. You may also ask the church that runs SDA Sabbath what it keeps about you. If you believe your personal information has been handled wrongly, you may complain to the Information Regulator (South Africa): <a href="https://inforegulator.org.za">inforegulator.org.za</a>.</p>
+
+<h2>Children</h2>
+<p>SDA Sabbath is a tool for church media teams. It does not knowingly collect information from children.</p>
+
+<h2>Security</h2>
+<p>An AI key kept in the browser can be read by anyone who can use that browser profile, and by other pages on the same website address. Use a key with a low spending limit, choose “Forget the key when this window closes” on a shared computer, and remove the key after the service.</p>
+
+<h2>Changes</h2>
+<p>If this notice changes, the date at the top changes and the app’s Settings points here.</p>
+
+</main>
+</body>
+</html>

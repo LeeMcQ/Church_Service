@@ -102,7 +102,7 @@ export default function create(ctx) {
         settings.set('display.keepFull', v);
         if (link.kind === 'window' && link.win) { try { link.win.postMessage({ t: 'keepfull', on: v }, location.origin); } catch (e) { /* */ } }
       }, 'If the projector window leaves full screen (Esc, a clicker button, another window), it goes back to full screen straight away or on your next click or key press here.')),
-      h('p.note', 'Tip: in Chrome or Edge, allow “Window management” once and SDA Sabbath opens the display straight onto the projector every time. Click the projector screen once at the start so videos may play with sound (not needed once Selah is installed).'));
+      h('p.note', 'Tip: in Chrome or Edge, allow “Window management” once and SDA Sabbath opens the display straight onto the projector every time. Click the projector screen once at the start so videos may play with sound (not needed once SDA Sabbath is installed).'));
     // Phone remote via the companion
     const comp = ctx.companion;
     const rc = h('div.card', h('h3', 'Phone remote and network displays'));
@@ -116,7 +116,7 @@ export default function create(ctx) {
       }).catch(() => {});
       rc.append(h('div.row.wrap', qrBox, h('div.col', h('code', url), h('p.note', 'TV or second PC as the screen: open ' + (comp.urls && comp.urls[0] || location.origin) + '/display.html?via=ws&pin=' + (comp.pin || 'PIN')))));
     } else {
-      rc.append(h('p.note', 'Run the SDA Sabbath companion on the church PC to control the screen from a phone, use a smart-TV browser as the screen, play videos straight from the PC’s Videos folder, and convert PowerPoint files exactly. Then open Selah from the address it shows.'));
+      rc.append(h('p.note', 'Run the SDA Sabbath companion on the church PC to control the screen from a phone, use a smart-TV browser as the screen, play videos straight from the PC’s Videos folder, and convert PowerPoint files exactly. Then open SDA Sabbath from the address it shows. Anything in the PC’s Videos\\Selah folder can be opened by anyone on the same Wi-Fi who knows its file name, so keep private files out of it.'));
     }
     box.append(rc);
   });
@@ -158,7 +158,7 @@ export default function create(ctx) {
       h('label', 'Install'), ctx.installPrompt ? h('button.btn', { type: 'button', onclick: async () => { await ctx.promptInstall(); rebuild(); } }, icon('download'), 'Install SDA Sabbath') : h('span.note', window.matchMedia('(display-mode: standalone)').matches ? 'Installed.' : 'Use the browser menu → Install app / Add to Home screen.'),
       h('label', 'Offline'), h('div.col', { style: { gap: '6px' } }, cache,
         h('div.row.wrap', h('button.btn.sm', { type: 'button', onclick: () => { cache.textContent = 'Checking…'; if (!ctx.checkOffline || !ctx.checkOffline(true)) offlineStatus().then((t) => { cache.textContent = t; }); } }, icon('check'), 'Check & repair offline files'))),
-      h('label', 'Storage'), h('div.row.wrap', storage, h('button.btn.sm', { type: 'button', onclick: async () => { const ok = await persistStorage(); toast(ok ? 'SDA Sabbath’s data is protected from automatic clean-up.' : 'The browser did not allow it yet — install Selah first.', ok ? 'ok' : ''); } }, 'Protect data')),
+      h('label', 'Storage'), h('div.row.wrap', storage, h('button.btn.sm', { type: 'button', onclick: async () => { const ok = await persistStorage(); toast(ok ? 'SDA Sabbath’s data is protected from automatic clean-up.' : 'The browser has not allowed it yet. Install SDA Sabbath first.', ok ? 'ok' : ''); } }, 'Protect data')),
       h('label', 'Backup'), h('div.row.wrap',
         h('button.btn.sm', { type: 'button', onclick: exportBackup }, icon('download'), 'Export settings & plans'),
         h('button.btn.sm', { type: 'button', onclick: importBackup }, icon('upload'), 'Import')),
@@ -258,8 +258,13 @@ export default function create(ctx) {
       h('div.row', { style: { gap: '8px', alignItems: 'center' } }, keyInp, showBtn, removeBtn),
       h('label', 'Check'), h('div.col', { style: { alignItems: 'flex-start' } }, testBtn, testOut),
       h('span'), models,
-      h('p.note', 'Stored only in this browser on this device, and never included in backups. On a shared church computer anyone using this browser can use the key: press "Remove key" after the service, and set a spending limit with your provider.'),
-      h('p.note', 'Privacy (POPIA): when you use an online AI button, the topic or picture description you typed is sent directly to the provider chosen above and handled under their terms. Do not type names, contact details or other personal information. Everything else in SDA Sabbath works offline and sends nothing.')));
+      h('label.switch', { title: 'The key is forgotten when this tab or window is closed' }, (() => {
+        const c = h('input', { type: 'checkbox', checked: !!A.keySession, onchange: () => { settings.set('ai.keySession', c.checked); toast(c.checked ? 'The key is now kept only until this tab is closed. Paste it again next time.' : 'The key is saved on this device again.', 'ok', 4000); } });
+        return c;
+      })(), h('span', 'Forget the key when this window closes (recommended on a shared church computer)')),
+      h('p.note', 'Stored only in this browser on this device, and never included in backups. Other pages on the same website address can read what a browser page stores, so use a key with a low spending limit, and press "Remove key" after the service on a shared computer.'),
+      h('p.note', 'AI output can be wrong, and it can be doctrinally wrong. Read everything against Scripture before it goes on the screen. AI pictures are marked “AI-generated”.'),
+      h('p.note', 'Privacy (POPIA): when you use an online AI button, what you typed (a topic, a picture description, or Bible text you asked it to summarise) is sent directly to the provider chosen above and handled under their terms. These providers are companies in the USA: OpenAI, Google, xAI, Together AI, OpenRouter and Anthropic. Do not type names, contact details or other personal information. Other online features send a request only when you use them: lyrics search (LRCLIB and Lyrics.ovh, outside South Africa), Bible downloads (bible.helloao.org and GitHub, USA) and YouTube videos you embed (youtube-nocookie.com, Google, USA). Everything else in SDA Sabbath works offline and sends nothing. The full notice is on the privacy page.')));
   });
 
   // ------------------------------------------------------------ Coming next
@@ -283,6 +288,7 @@ export default function create(ctx) {
       } }, icon('copy'), h('span', 'Copy version details'))));
     box.append(h('p', 'SDA Sabbath — a free, offline church presenter made for Seventh-day Adventist media teams.'),
       h('p.note', { style: { marginTop: '8px' } }, 'Bibles: KJV (public domain), World English Bible (public domain), Afrikaanse Bybel 1933/53. Fonts: Atkinson Hyperlegible Next and Source Serif 4 (SIL Open Font License). PDF rendering: pdf.js (Apache 2.0). ZIP reading: fflate (MIT). QR codes: qrcode-generator (MIT). Stage link: Trystero and noble-secp256k1 (MIT). Sample hymn words are in the public domain.'),
+      h('p.note', { style: { marginTop: '8px' } }, h('a', { href: 'privacy.html', target: '_blank', rel: 'noopener' }, 'Privacy notice'), ' · ', h('a', { href: 'terms.html', target: '_blank', rel: 'noopener' }, 'Terms of use'), ' · ', h('a', { href: 'vendor/VERSIONS.md', target: '_blank', rel: 'noopener' }, 'Third-party code')),
       h('p.note', { style: { marginTop: '8px' } }, 'Hymn music: the church\'s own MIDI recordings, played by SpessaSynth (Apache 2.0) with the GeneralUser GS 2.0.3 SoundFont by S. Christian Collins (free to use; schristiancollins.com), using the reverb and chorus levels the author recommends.'));
   });
 
@@ -315,9 +321,11 @@ export default function create(ctx) {
     if (!(await reallyOnline())) { toast('No internet: the offline copy is kept. Connect first.', 'err', 6000); return; }
     if (!(await confirmBox('Download a fresh copy?', 'Only if the app misbehaves: this removes the stored app files and downloads them again (about 36 MB). Your plans, hymns, banners and settings stay. Keep the internet on until it finishes.', 'Download again', true))) return;
     try {
-      const regs = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistrations() : [];
+      // Only this app's worker and files: another app on the same site keeps its own offline copy.
+      const regs = 'serviceWorker' in navigator ? (await navigator.serviceWorker.getRegistrations()).filter((r) => location.href.indexOf(r.scope) === 0) : [];
+      const mine = 'selah-' + (regs[0] ? new URL(regs[0].scope).pathname : location.pathname.replace(/[^/]*$/, '')) + '|';
       await Promise.all(regs.map((r) => r.unregister()));
-      if (window.caches) { const keys = await caches.keys(); await Promise.all(keys.map((k) => caches.delete(k))); }
+      if (window.caches) { const keys = await caches.keys(); await Promise.all(keys.filter((k) => k.startsWith(mine)).map((k) => caches.delete(k))); }
     } catch (e) { console.warn('fresh copy', e); }
     const u = new URL(location.href); u.searchParams.set('v', Date.now()); location.replace(u.href);
   }
@@ -329,7 +337,8 @@ export default function create(ctx) {
       const hh = ctx.offlineHealth;
       if (hh && hh.total) return hh.missingCount ? 'Stored for offline use: ' + hh.have + ' of ' + hh.total + ' files. ' + (navigator.onLine ? 'Fetching the rest…' : 'Connect to the internet once to finish.') : 'Everything is stored for offline use (' + hh.total + ' files).';
       const man = await (await fetch('asset-manifest.json', { cache: 'no-store' })).json();
-      const c = await caches.open('selah-' + man.version);
+      const reg = await navigator.serviceWorker.getRegistration();
+      const c = await caches.open('selah-' + new URL(reg ? reg.scope : location.href).pathname.replace(/[^/]*$/, '') + '|' + man.version);
       const have = (await c.keys()).length;
       return have >= man.files.length ? 'Everything is stored for offline use (' + fmtBytes(man.bytes) + ').' : 'Stored for offline use: ' + have + ' / ' + man.files.length + ' files.';
     } catch (e) { return navigator.serviceWorker && navigator.serviceWorker.controller ? 'Stored for offline use.' : ''; }

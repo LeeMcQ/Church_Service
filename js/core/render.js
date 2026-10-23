@@ -15,19 +15,43 @@ const DEFAULT_MARK = '<svg class="logo-mark" viewBox="0 0 64 64" aria-hidden="tr
 
 export const STAGE_W = 1920;
 
-/** Defence in depth for imported slide HTML: drop active elements, event handlers and non-http(s)/data URLs. */
-const BAD_TAGS = 'script,iframe,object,embed,link,meta,base,form,frame,frameset,svg,math,template';
+/**
+ * Slide HTML from outside (an imported PowerPoint, or a frame a phone or a TV received) is rebuilt from an
+ * allow-list: only plain text, layout and pictures that are already on the device survive. Scripts, frames,
+ * forms, links, remote pictures and every address in a style are removed.
+ */
+const DROP_WITH_CONTENT = 'script,style,iframe,object,embed,link,meta,base,form,frame,frameset,svg,math,template,noscript,audio,video,source,track,input,button,textarea,select,canvas,applet';
+const KEEP_TAGS = new Set(['DIV', 'P', 'SPAN', 'B', 'I', 'U', 'S', 'EM', 'STRONG', 'BR', 'IMG', 'UL', 'OL', 'LI', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'SUB', 'SUP',
+  'TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'TD', 'TH', 'COLGROUP', 'COL', 'FONT', 'SMALL', 'BIG', 'CENTER']);
+// The only class names the frames use (PowerPoint boxes, verse numbers, red letters, hymn lines, speaker names).
+const FRAME_CLASSES = new Set(['sp', 'v', 'vn', 'wj', 'ln', 'hn', 'ha', 'who', 'lines']);
+const safeStyle = (v) => String(v || '').replace(/\/\*[\s\S]*?\*\//g, '').split(';').filter((d) => d.trim() && !/url\s*\(|expression\s*\(|@import|behavior\s*:|-moz-binding|javascript:/i.test(d)).join(';');
 export function sanitizeSlideHtml(html) {
-  const t = document.createElement('template');
-  t.innerHTML = String(html || '');
-  t.content.querySelectorAll(BAD_TAGS).forEach((n) => n.remove());
-  t.content.querySelectorAll('*').forEach((n) => {
-    for (const a of Array.from(n.attributes)) {
-      const name = a.name.toLowerCase(), v = a.value.trim().toLowerCase();
-      if (name.startsWith('on') || ((name === 'src' || name === 'href' || name === 'xlink:href') && !/^(https?:|data:image\/|blob:|#|$)/.test(v)) || (name === 'style' && /url\s*\(\s*['"]?\s*javascript:|expression\s*\(/.test(v))) n.removeAttribute(a.name);
+  const src = document.createElement('template');
+  src.innerHTML = String(html || '').slice(0, 2000000);
+  src.content.querySelectorAll(DROP_WITH_CONTENT).forEach((n) => n.remove());
+  const out = document.createElement('template');
+  const walk = (from, to) => {
+    for (const n of Array.from(from.childNodes)) {
+      if (n.nodeType === 3) { to.appendChild(document.createTextNode(n.nodeValue)); continue; }
+      if (n.nodeType !== 1) continue;
+      if (!KEEP_TAGS.has(n.tagName)) { walk(n, to); continue; } // links and unknown tags keep only their content
+      const k = document.createElement(n.tagName);
+      for (const a of Array.from(n.attributes)) {
+        const name = a.name.toLowerCase(), v = a.value.trim();
+        if (name === 'style') { const st = safeStyle(v); if (st) k.setAttribute('style', st); }
+        else if (name === 'class') { const c = v.split(/\s+/).filter((x) => FRAME_CLASSES.has(x)); if (c.length) k.className = c.join(' '); }
+        else if (name === 'data-a' || name === 'data-abg') { if (/^\d{1,4}$/.test(v)) k.setAttribute(name, v); }
+        else if (name === 'colspan' || name === 'rowspan' || name === 'width' || name === 'height') { if (/^\d{1,4}%?$/.test(v)) k.setAttribute(name, v); }
+        else if (name === 'alt') k.setAttribute('alt', v.slice(0, 200));
+        else if (name === 'src' && n.tagName === 'IMG' && /^(blob:|data:image\/(png|jpe?g|gif|webp|bmp);)/i.test(v)) k.setAttribute('src', v);
+      }
+      walk(n, k);
+      to.appendChild(k);
     }
-  });
-  return t.innerHTML;
+  };
+  walk(src.content, out.content);
+  return out.innerHTML;
 }
 export const stageHeight = (aspect) => Math.round(STAGE_W / (aspect > 0.3 ? aspect : 16 / 9));
 

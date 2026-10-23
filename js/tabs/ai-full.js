@@ -38,7 +38,7 @@ export function openFullBanner(opts) {
   const heading = inp('Heading', f.heading, 'The main words, e.g. Happy Sabbath');
   const message = inp('Message', f.message, 'Optional message', 3);
   const foot = inp('Bottom line', f.foot, 'Optional: place, time, date, contact');
-  const extra = inp('Anything else', '', 'Optional: e.g. “a Bible verse reference”, “children’s program at 10:00”');
+  const extra = inp('Anything else', '', 'Optional: e.g. “a Bible verse reference”, “children’s programme at 10:00”');
   const style = inp('Style', f.style, 'e.g. sunrise over a green valley, warm gold and blue', 2);
   const picked = new Set();
   let useLogo = false, logoBlob = null;

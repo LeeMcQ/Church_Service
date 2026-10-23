@@ -6,7 +6,8 @@ import { icon } from '../core/icons.js';
 import { btn, menu, toast, promptBox, confirmBox, modal, closeModal, activatable, emptyState, toggle } from '../core/ui.js';
 import { db } from '../core/db.js';
 import { parseRef, refText, EN } from '../core/books.js';
-import { getInfo, versesFor, listTranslations } from '../core/bibledata.js';
+import { getInfo, versesFor, listTranslations, verseText } from '../core/bibledata.js';
+import { church, nextSabbath } from '../core/church.js';
 import { music } from '../core/hymnmusic.js';
 
 const TEMPLATES = {
@@ -66,6 +67,7 @@ export default function create(ctx) {
     { label: 'Mark all as not shown', icon: 'reload', onclick: () => { if (plan) { plan.items.forEach((i) => { i.done = false; }); save(); render(); } }, disabled: !plan },
     { label: plan && plan.autoAdvance ? 'Auto-advance: on' : 'Auto-advance: off', icon: 'next', onclick: toggleAuto, disabled: !plan },
     '-',
+    { label: 'Export to Word document…', icon: 'download', onclick: exportWord, disabled: !plan },
     { label: 'Export (to use on another device)', icon: 'download', onclick: exportPlan, disabled: !plan },
     { label: 'Import a plan…', icon: 'upload', onclick: importPlan },
     '-',
@@ -155,7 +157,8 @@ export default function create(ctx) {
 
   const save = () => { if (plan) { plan.updated = Date.now(); return db.put('plans', plan.id, plan); } };
 
-  const today = () => 'Sabbath ' + new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  // A new plan is named after the coming Sabbath (the same day the banners use), not after today.
+  const today = () => 'Sabbath ' + nextSabbath().toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
   // ------------------------------------------------------------ templates (ready-made and your own)
   // Keys: 'b:<name>' for the ready-made orders above, 'c:<id>' for templates saved on this device.
   let myTpls = [];
@@ -285,6 +288,73 @@ export default function create(ctx) {
     plan.autoAdvance = !plan.autoAdvance;
     save(); render();
     toast(plan.autoAdvance ? 'Auto-advance on: after Present, the next part is put on Next.' : 'Auto-advance off.', 'ok', 3500);
+  }
+  /** The plan as a Word document to print or share: order of service, and optionally the readings and hymn words. */
+  async function exportWord() {
+    if (!plan) return;
+    const prefs = (await db.get('kv', 'plan-word').catch(() => null)) || {};
+    const c = church();
+    const sab = nextSabbath();
+    const p2 = (n) => (n < 10 ? '0' : '') + n;
+    const isoDay = (d) => d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+    const date = h('input.field', { type: 'date', value: isoDay(sab), 'aria-label': 'Date of the service' });
+    const start = h('input.field', { type: 'time', value: c.service, 'aria-label': 'Start time' });
+    const o = { times: prefs.times !== false, scripture: prefs.scripture !== false, hymns: !!prefs.hymns, notes: !!prefs.notes };
+    const hasMins = plan.items.some((i) => i.mins > 0);
+    const body = h('div.col', { style: { gap: '10px' } },
+      h('p.note', 'Makes a Word file (.docx) with the whole plan laid out to read, print and share. It opens in Word, Google Docs, LibreOffice and Pages.'),
+      h('div.row.wrap', { style: { gap: '12px' } },
+        h('div.col', { style: { gap: '4px' } }, h('label.muted', 'Date'), date),
+        h('div.col', { style: { gap: '4px' } }, h('label.muted', 'Service starts'), start)),
+      toggle('Show the time each part starts', o.times, (v) => { o.times = v; }, hasMins ? 'Worked out from the minutes planned for each part' : 'Needs minutes on the parts (part menu → Who leads / minutes)'),
+      toggle('Add the Scripture readings in full', o.scripture, (v) => { o.scripture = v; }, 'The text of each Bible passage, in the plan’s translation'),
+      toggle('Add the hymn words', o.hymns, (v) => { o.hymns = v; }, 'Check your copyright licence (for example CCLI) before you share the file'),
+      toggle('Leave a column for notes', o.notes, (v) => { o.notes = v; }, 'Wide page with space to write on the printed copy'));
+    modal({ title: 'Export to Word', body, actions: [{ label: 'Cancel' }, { label: 'Create Word document', primary: true, onclick: async () => {
+      db.put('kv', 'plan-word', o).catch(() => {});
+      try { await makeWord(date.value, start.value, o); } catch (e) { console.error(e); toast('Could not make the document: ' + e.message, 'err', 6000); }
+    } }] });
+  }
+  async function makeWord(dateStr, startStr, o) {
+    const { planWord } = await import('../lib/planword.js');
+    const c = church();
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? new Date(dateStr + 'T12:00:00') : nextSabbath();
+    const parts = plan.items.map((it, i) => ({ n: i + 1, part: titleOf(it), kind: it.heading ? 'note' : it.tab, kindLabel: kindText(it), detail: mediaLabel(it) || '', role: it.role || '', mins: it.mins > 0 ? it.mins : 0, empty: !!it.heading }));
+    const model = { church: c.name, title: plan.name, dateLine: d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+      start: /^\d{1,2}:\d{2}$/.test(startStr) ? startStr.replace(/^(\d):/, '0$1:') : c.service, showTimes: o.times, notes: o.notes, parts, readings: [], hymns: [],
+      generated: new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) };
+    if (o.scripture) {
+      for (const it of plan.items) {
+        if (it.heading || it.tab !== 'bible' || !it.ref) continue;
+        const r = parseRef(it.ref);
+        if (!r) continue;
+        const tr = it.tr || ctx.settings.v.bible.primary;
+        let vs = [];
+        try { vs = await versesFor(tr, r.book, r.segs); } catch (e) { vs = []; }
+        vs = vs.filter((v) => v.text);
+        const more = vs.length > 60;
+        model.readings.push({ ref: it.ref, tr, part: partOf(it) !== it.ref ? partOf(it) : '', verses: vs.slice(0, 60).map((v) => ({ v: v.v, t: verseText(v.text).trim() })), more });
+      }
+    }
+    if (o.hymns) {
+      let books = [];
+      try { books = await (await fetch('data/hymns/index.json')).json(); } catch (e) { books = []; }
+      const cache = {};
+      for (const it of plan.items) {
+        if (it.heading || it.tab !== 'hymns' || !it.n) continue;
+        const order = books.filter((b) => b.id === it.book).concat(books.filter((b) => b.id !== it.book));
+        for (const b of order) {
+          try {
+            cache[b.id] = cache[b.id] || await (await fetch('data/hymns/' + b.file)).json();
+            const hy = (cache[b.id].hymns || []).find((x) => x.n === +it.n);
+            if (hy && Array.isArray(hy.v)) { model.hymns.push({ n: hy.n, title: hy.t, book: b.short, stanzas: hy.v, chorus: Array.isArray(hy.c) ? hy.c : null }); break; }
+          } catch (e) { /* try the next book */ }
+        }
+      }
+    }
+    const blob = planWord(model);
+    download(blob, (plan.name.replace(/[^\w-]+/g, '_').replace(/^_+|_+$/g, '') || 'Order_of_service') + '.docx');
+    toast('Word document ready: “' + plan.name + '.docx”. Check your downloads.', 'ok', 5000);
   }
   function exportPlan() { download(new Blob([JSON.stringify(plan, null, 1)], { type: 'application/json' }), plan.name.replace(/[^\w-]+/g, '_') + '.sda-sabbath-plan.json'); }
   function importPlan() {

@@ -117,7 +117,7 @@ export default function create(ctx) {
     renderList();
   } }, k)));
   const listEl = h('div.list');
-  const titleEl = h('h2.grow.trunc', '');
+  const titleEl = h('h2.grow.trunc', 'Hymns');
   const metaEl = h('span.note', '');
   const verseChips = h('div.row.wrap');
   const grid = h('div.stanza-grid');
@@ -282,7 +282,7 @@ export default function create(ctx) {
   }
 
   function restage() {
-    if (!hymn) { titleEl.textContent = ''; metaEl.textContent = ''; clear(grid); clear(verseChips); empty.hidden = false; musicBar.hidden = true; return; }
+    if (!hymn) { titleEl.textContent = 'Hymns'; metaEl.textContent = ''; clear(grid); clear(verseChips); empty.hidden = false; musicBar.hidden = true; return; }
     empty.hidden = true;
     cue = buildCue(hymn);
     titleEl.textContent = hymn.n + '  ' + hymn.t;

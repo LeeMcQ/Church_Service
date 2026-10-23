@@ -335,7 +335,7 @@ input[type=range] { accent-color: var(--next); }
 .plan-item .pi-tile { width: 56px; height: 42px; border-radius: 8px; border: 1px solid; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; flex: none; }
 .plan-item .pi-tile img { width: 100%; height: 100%; object-fit: cover; }
 .plan-item .pi-tile-t { font-size: 11px; font-weight: 700; line-height: 1.1; text-align: center; max-width: 52px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.plan-item .pi-tile-s { font-size: 9px; opacity: .7; }
+.plan-item .pi-tile-s { font-size: 12px; opacity: .7; }
 .plan-item .pi-t { font-weight: 700; font-size: 15px; }
 .plan-item .pi-s { color: var(--muted); font-size: 13px; margin-top: 2px; }
 .plan-item.cur { background: color-mix(in srgb, var(--next) 8%, var(--panel)); border-color: var(--next); }
@@ -548,7 +548,7 @@ google-cast-launcher, .cast-button, [aria-label*="Cast"], button[title*="Cast"],
 .skip-link { position: absolute; left: 8px; top: -60px; z-index: 1000; padding: 10px 14px; border-radius: 8px; background: var(--focus); color: #000; font-weight: 700; text-decoration: none; }
 .skip-link:focus { top: 8px; }
 .work:focus { outline: none; }
-.field.quiet-focus:focus-visible, .toolbar .field.quiet-focus:focus-visible, .pane-h .field.quiet-focus:focus-visible { outline: none; box-shadow: none; }
+.field.quiet-focus:focus-visible, .toolbar .field.quiet-focus:focus-visible, .pane-h .field.quiet-focus:focus-visible { outline: 2px solid var(--next); outline-offset: 1px; box-shadow: none; }
 /* Small controls: at least 24 px targets (WCAG 2.2 AA 2.5.8). */
 .btn.sm, .chip, input[type=checkbox], input[type=radio] { min-height: 24px; min-width: 24px; }
 
@@ -865,7 +865,7 @@ google-cast-launcher, .cast-button, [aria-label*="Cast"], button[title*="Cast"],
 .se-tb svg.i { width: 17px; height: 17px; }
 .se-tb.se-b span { font-weight: 800; } .se-tb.se-i span { font-style: italic; font-family: Georgia, serif; } .se-tb.se-u span { text-decoration: underline; } .se-tb.se-s span { text-decoration: line-through; }
 .se-tb span { font-size: 14px; }
-.se-caret { font-size: 9px !important; opacity: .7; }
+.se-caret { font-size: 12px !important; opacity: .7; }
 .se-sep { width: 1px; height: 20px; background: var(--line); margin: 0 3px; }
 .se-hint { color: var(--muted); font-size: 12px; padding: 0 6px; }
 .se-font { height: 30px; max-width: 150px; border-radius: 6px; border: 1px solid var(--line); background: var(--raised); color: var(--text); font: inherit; font-size: 13px; padding: 0 4px; }
@@ -1075,3 +1075,9 @@ button.se-sw[aria-pressed="true"] { outline: 2px solid var(--focus, #2f6fe0); ou
 .mu-rules > h3 { font-size: var(--fs-md); display: flex; align-items: center; gap: 6px; margin: 0 0 8px; }
 .ver-box { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; padding: 10px 12px; margin-bottom: 10px; border-radius: var(--r); background: var(--sunk); border: 1px solid var(--line); }
 .mono { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+
+/* Review fixes: easier targets, wrapped titles, visible focus */
+input[type=range] { min-height: 24px; }
+.video-ctl input[type=number], .vd-speed, .vd-ab input { min-height: 44px; }
+.list > button > .grow > .trunc:first-child { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.field:focus-visible, .toolbar .field:focus-visible, .pane-h .field:focus-visible { outline: 2px solid var(--next); outline-offset: 1px; box-shadow: none; }

@@ -227,7 +227,8 @@ export function createDisplay(root, { post, self = false } = {}) {
       const fr = document.createElement('iframe');
       fr.src = safeHttpUrl(frame.url) || 'about:blank';
       fr.allow = 'autoplay; fullscreen; encrypted-media';
-      fr.referrerPolicy = 'no-referrer';
+      // YouTube needs to know which page embeds the video; every other site gets no referrer at all.
+      fr.referrerPolicy = /^https:\/\/(www\.)?youtube(-nocookie)?\.com\//i.test(fr.src) ? 'strict-origin-when-cross-origin' : 'no-referrer';
       box.appendChild(fr);
       return () => { fr.src = 'about:blank'; };
     }

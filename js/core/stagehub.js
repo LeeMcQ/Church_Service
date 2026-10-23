@@ -9,7 +9,7 @@
 //
 // Stage screens may also send back: a talk-back message to the media desk, and — only when allowed
 // (the control PIN, or the operator allowing that device) — slide and timer commands.
-import { emitter, uid, debounce, throttle, isBlob } from './util.js';
+import { emitter, uid, debounce, throttle, isBlob, APP_SCOPE } from './util.js';
 import { live } from './live.js';
 import { link } from './link.js';
 import { settings } from './settings.js';
@@ -481,7 +481,7 @@ hub.disconnect = (id) => {
 };
 
 // ------------------------------------------------------------ 1. window on another screen / preview
-const WIN_NAME = 'selah-stage';
+const WIN_NAME = 'selah-stage:' + APP_SCOPE;
 let stageWin = null;
 function windowOutlet(w, kind) {
   for (const o of hub.outlets.values()) if (o.w === w) return o;
@@ -509,7 +509,7 @@ setInterval(() => {
 }, 1500);
 // A reloaded control page finds a stage window that is still open.
 try {
-  const bc = new BroadcastChannel('selah-stage');
+  const bc = new BroadcastChannel('selah-stage:' + APP_SCOPE);
   bc.postMessage({ t: 'who' });
   hub.bc = bc;
 } catch (e) { /* old browser */ }

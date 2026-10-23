@@ -8,7 +8,8 @@ import { capture, stopStream, canCapture, attachSurfaceControl } from '../lib/ca
 
 function youtubeEmbed(url) {
   const m = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/|live\/))([\w-]{6,})/.exec(url);
-  return m ? 'https://www.youtube-nocookie.com/embed/' + m[1] + '?autoplay=1&rel=0&modestbranding=1' : null;
+  // origin= and a referrer let YouTube see which page embeds the video (without them it answers "Error 153").
+  return m ? 'https://www.youtube-nocookie.com/embed/' + m[1] + '?autoplay=1&rel=0&modestbranding=1&playsinline=1&origin=' + encodeURIComponent(location.origin) : null;
 }
 function normaliseUrl(u) {
   u = (u || '').trim();
@@ -21,11 +22,12 @@ function normaliseUrl(u) {
 
 export default function create(ctx) {
   const { live } = ctx;
+  const warnedFrame = new Set();
   let mode = 'mirror';
   let cap = null, surf = null;
   const url = h('input.field.grow', { type: 'url', placeholder: 'Web address, e.g. youtube.com/watch?v=…', inputmode: 'url',
     onkeydown: (e) => { if (e.key === 'Enter') go(); } });
-  const frame = h('iframe.web-frame', { title: 'Web page preview', referrerpolicy: 'no-referrer', allow: 'autoplay; fullscreen; encrypted-media' });
+  const frame = h('iframe.web-frame', { title: 'Web page preview', referrerpolicy: 'strict-origin-when-cross-origin', allow: 'autoplay; fullscreen; encrypted-media' });
   const capVideo = h('video', { muted: true, autoplay: true, playsInline: true });
   capVideo.muted = true;
   const capBox = h('div.cap-prev', capVideo);
@@ -73,6 +75,8 @@ export default function create(ctx) {
     const src = youtubeEmbed(u) || u;
     if (frame.src !== src) frame.src = src;
     let host = u; try { host = new URL(u).host; } catch (e) { /* */ }
+    // A site that refuses to be shown inside another page cannot be detected from here: say what to do instead.
+    if (!youtubeEmbed(u) && !warnedFrame.has(host)) { warnedFrame.add(host); toast('If this page stays blank, ' + host + ' does not allow embedding. Use “Open in a window” or “Mirror a tab” instead.', '', 7000); }
     ctx.setStaged('web', { id: 'web:' + src, tab: 'web', title: host, sub: 'Web page', deck: { kind: 'web', frame: { kind: 'web', url: src, title: host, sub: 'Web page' } }, plan: { tab: 'web', url: u, label: host } });
   }
 
