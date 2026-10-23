@@ -48,7 +48,7 @@ let current = null;
 export const isMobile = () => matchMedia('(max-width: 760px)').matches;
 // Android app (Capacitor WebView): there is no second window, so present on this device instead.
 const NATIVE = !!window.SDA_NATIVE;
-const APP_NO_LAN = 'Not available in the Android app yet: it cannot reach the companion on the church network (ws://). Use SDA Sabbath in Chrome on the church PC for this.';
+const APP_NO_LAN = 'Not available in the Android app yet: it cannot reach the companion on the church network (ws://). Use Church Service in Chrome on the church PC for this.';
 
 // ------------------------------------------------------------ context passed to tabs
 const ctx = {
