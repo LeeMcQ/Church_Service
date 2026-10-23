@@ -100,6 +100,43 @@ export default function create(ctx) {
     try { e.dataTransfer.setData('text/uri-list', u); e.dataTransfer.setData('text/plain', u); e.dataTransfer.effectAllowed = 'copyLink'; } catch (er) { /* */ }
   }));
 
+  // ------------------------------------------------------------ OBS on another computer (no WebSocket, any OBS version)
+  // The companion on the SDA Sabbath PC serves the overlays on the church network; OBS on any other PC (or the same one)
+  // just loads them as Browser Sources. No password, no OBS settings, no internet.
+  const lanBody = h('div.col', { style: { gap: '8px' } });
+  const lanCard = card('OBS on another computer (easiest)', lanBody);
+  function lanBase() { const c = ctx.companion; return (c && c.urls && c.urls[0]) || ''; }
+  function copyText(text, msg) {
+    const done = () => toast(msg, 'ok', 9000);
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, () => promptBox('Copy this address', 'Address', text));
+    else promptBox('Copy this address', 'Address', text);
+  }
+  function paintLan() {
+    clear(lanBody);
+    const comp = ctx.companion;
+    if (!comp) {
+      lanBody.append(
+        h('p', 'To link OBS on another PC over your Wi-Fi or cable, without internet: run the ', h('b', 'SDA Sabbath companion'), ' on this PC and open SDA Sabbath from it (the address it shows, like http://192.168.1.20:7777). This box then shows the two addresses for OBS.'),
+        h('p.note', 'Without the companion, the “Set up OBS by hand” addresses below also work on another PC, as long as both PCs have internet.'));
+      return;
+    }
+    const base = lanBase();
+    if (!base) { lanBody.append(h('p.note', 'The companion has not found this PC’s network address. Check that Wi-Fi or the cable is connected, then reload.')); return; }
+    const lower = base + '/obs.html?via=lan&mode=lower', full = base + '/obs.html?via=lan&mode=full';
+    const row = (title, note, u, which) => h('div.st-src', h('div', h('b', title), h('span.note', ' — ' + note)), h('code.st-url', u),
+      h('div.row.wrap', h('button.btn.sm.primary', { type: 'button', onclick: () => copyText(u, 'Copied. In OBS: Sources → + → Browser → paste into URL, Width 1920, Height 1080 → OK.') }, icon('copy'), h('span', 'Copy ' + which))));
+    lanBody.append(
+      h('ol.st-steps', { style: { margin: '0', paddingLeft: '20px', display: 'grid', gap: '4px' } },
+        h('li', 'On the OBS computer, connect to the same Wi-Fi or network as this PC.'),
+        h('li', 'In OBS press ', h('b', 'Sources → + → Browser'), ', name it “SDA Sabbath lower third”, and paste the first address below as the URL.'),
+        h('li', 'Set ', h('b', 'Width 1920'), ' and ', h('b', 'Height 1080'), ', press OK. Put it above your camera in the scene.'),
+        h('li', 'Optional: do the same with the Presentation address for a full-screen slides scene.'),
+        h('li', 'Test: show a Bible verse here. The words appear over the camera in OBS.')),
+      row('Lower third', 'over the camera, transparent', lower, 'lower third address'),
+      row('Presentation', 'the slides full screen', full, 'presentation address'),
+      h('p.note', 'Windows may ask to allow the companion on the private network the first time: choose Allow. If OBS shows nothing, open the address in a browser on the OBS PC to check the link. Scene switching and Start/Stop streaming need OBS’s WebSocket; showing the overlays does not.'));
+  }
+
   // ------------------------------------------------------------ 2. OBS control
   const sceneChips = h('div.row.wrap.st-scenes');
   const streamBtn = h('button.btn', { type: 'button', onclick: () => toggleOut('stream') });
@@ -285,14 +322,14 @@ export default function create(ctx) {
   }
   const linkNote = h('p.note');
   manualCard.append(linkNote);
-  function paintAll() { paintObs(); paintUrls(); paintLower(); paintNames(); }
+  function paintAll() { paintObs(); paintUrls(); paintLower(); paintNames(); paintLan(); }
 
   const el = h('section.stage-tab.stream-tab',
     h('div.toolbar', h('h2', 'Stream'), h('span.note.hide-sm', 'OBS Studio: lower thirds and the slides for the live stream'), h('div.grow'),
       h('button.btn.sm', { type: 'button', onclick: () => hub.hideLower() }, icon('x'), h('span', 'Hide lower third'))),
     h('div.scroll.st-grid',
       h('div.st-col', lowerCard, autoLowerCard, pvCard),
-      h('div.st-col', controlCard, autoCard, manualCard, lookCard)));
+      h('div.st-col', lanCard, controlCard, autoCard, manualCard, lookCard)));
 
   obs.on('state', paintAll);
   obs.on('change', paintObs);

@@ -408,6 +408,8 @@ scene with the slides. Press it again any time to repair or update the sources (
 choosing another camera scene moves the lower third). OBS on another computer: open SDA Sabbath from the companion on
 that computer (an https page may only reach OBS on the same PC), or set it up by hand.
 
+**OBS on another computer (no WebSocket, any OBS version):** run the companion on the SDA Sabbath PC and open SDA Sabbath from it. In **Tools → Stream → OBS on another computer** press **Copy lower third address**, then in OBS on the other PC add a Browser Source with that address (1920 × 1080). It works over Wi-Fi or cable without internet.
+
 **By hand:** Tools → Stream → *Set up OBS by hand* → **Copy address**, then in OBS: Sources → + → **Browser** → paste the URL,
 Width 1920, Height 1080. Or drag the **Drag into OBS** button onto the Sources list.
 
