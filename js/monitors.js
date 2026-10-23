@@ -34,9 +34,10 @@ export function createMonitors(host) {
   // Stage: while a stage screen is connected, a third monitor shows exactly what the platform sees.
   const stageTitle = h('span.t', '');
   const stageScreen = h('div.screen.stage-mon');
-  const stageHide = h('button.btn.sm.ghost.mon-x', { type: 'button', title: 'Hide the stage monitor (show it again in Tools → Stage)', 'aria-label': 'Hide the stage monitor',
-    onclick: () => settings.set('stage.monitor', false) }, icon('x'));
-  const stageSec = h('section.mon-stage', { hidden: true }, h('div.mon-h', h('span.tally-dot.stage'), h('span', 'Stage'), stageTitle, stageHide), stageScreen);
+  // Below Black / Logo / Clear: a switch shows the live preview of the stage screen when it is needed.
+  const stageSw = h('input', { type: 'checkbox', onchange: () => settings.set('stage.monitorPreview', stageSw.checked) });
+  const stageToggle = h('label.switch.mon-sw', { title: 'Show what the stage screen shows' }, stageSw, h('span', 'Preview'));
+  const stageSec = h('section.mon-stage', { hidden: true }, h('div.mon-h', h('span.tally-dot.stage'), h('span', 'Stage'), stageTitle, stageToggle), stageScreen);
 
   host.append(strip,
     h('section', h('div.mon-h', h('span.tally-dot.next'), h('span', 'Next'), nextTitle), nextScreen),
@@ -176,18 +177,21 @@ export function createMonitors(host) {
     const S = settings.v.stage || {};
     const want = screens.length > 0 && S.monitor !== false;
     stageSec.hidden = !want;
+    const on = want && S.monitorPreview === true;
+    stageSw.checked = on;
+    stageScreen.hidden = !on;
     stageTitle.textContent = want ? (screens.length === 1 ? screens[0].name || screens[0].label || '1 screen' : screens.length + ' screens') : '';
-    const draw = want && !settings.lowPower();
+    const draw = on && !settings.lowPower();
     if (draw && !stageFrame) {
       stageFrame = h('iframe.st-pv-f.st-pv-tv', { src: 'stage.html?via=win&preview=1', title: 'What the stage screen shows', tabindex: '-1' });
       stageScreen.append(stageFrame);
       emptyText(stageScreen, '');
       stageScale();
     } else if (!draw && stageFrame) { stageFrame.remove(); stageFrame = null; }
-    if (want && !draw) emptyText(stageScreen, 'Stage preview is off in low-power mode.');
+    if (on && !draw) emptyText(stageScreen, 'Stage preview is off in low-power mode.');
   }
   stageHub.on('outlets', syncStage);
-  settings.on('change:stage', (p) => { if (p === 'stage.monitor') syncStage(); });
+  settings.on('change:stage', (p) => { if (p === 'stage.monitor' || p === 'stage.monitorPreview') syncStage(); });
   settings.on('change:app', (p) => { if (p === 'app.lowPower') syncStage(); });
   syncStage();
 

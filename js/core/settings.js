@@ -31,7 +31,7 @@ export const DEFAULTS = {
   stage: {
     code: '', pin: '', online: false, layout: 'full', featured: 'speaker', warnSec: 120, clock24: true,
     showNext: true, showPlan: true, showNotes: true, showLive: true, textSize: 1, mirror: false,
-    allowWinControl: true, msgSec: 0, autoPlanTimer: true, preview: true, monitor: true,
+    allowWinControl: true, msgSec: 0, autoPlanTimer: true, preview: true, monitor: true, monitorPreview: false,
     presets: [], timers: [], turnUrl: '', turnUser: '', turnPass: '', relays: '', hostKey: null,
   },
   // Live stream (OBS): lower thirds and the full-slide output, their look, and the OBS connection.

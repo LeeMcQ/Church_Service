@@ -440,6 +440,8 @@ export default function create(ctx) {
   const api = {
     el,
     importFiles,
+    /** Read the slide library again (after a shared plan brought slides in). */
+    async reload() { await ready; await loadLibrary(); },
     async open({ deck: id, index = 0 }) {
       await ready;
       await ctx.showTab('slides');

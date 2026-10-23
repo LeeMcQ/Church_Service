@@ -39,7 +39,7 @@ export default function create(ctx) {
   }
 
   const layoutSeg = seg([['full', 'Full'], ['words', 'Words'], ['slides', 'Slides'], ['timer', 'Timer']], S().layout, (v) => settings.set('stage.layout', v));
-  const monToggle = toggle('Stage monitor beside Next and Live', S().monitor !== false, (v) => settings.set('stage.monitor', v), 'While a stage screen is connected, the main screen shows what it shows');
+  const monToggle = toggle('Stage row under Black / Logo / Clear', S().monitor !== false, (v) => settings.set('stage.monitor', v), 'While a stage screen is connected, the main screen has a Stage row; its Preview switch shows what the stage sees');
   settings.on('change:stage', (p) => { if (p === 'stage.monitor') monToggle.querySelector('input').checked = S().monitor !== false; });
   const opts = h('div.st-opts',
     toggle('Show what comes next', S().showNext, (v) => settings.set('stage.showNext', v)),

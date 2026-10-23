@@ -1,7 +1,7 @@
 // Service plan: prepare the order of service at home, then step through it in church.
 // Each part of the plan has a name ("Opening Hymn") and, once attached, the media it shows: a Bible
 // passage, hymn or chorus, slides, a video, a web page or a banner.
-import { h, clear, uid, readText, download, debounce } from '../core/util.js';
+import { h, clear, uid, download, debounce } from '../core/util.js';
 import { icon } from '../core/icons.js';
 import { btn, menu, toast, promptBox, confirmBox, modal, closeModal, activatable, emptyState, toggle } from '../core/ui.js';
 import { db } from '../core/db.js';
@@ -9,6 +9,7 @@ import { parseRef, refText, EN } from '../core/books.js';
 import { getInfo, versesFor, listTranslations, verseText } from '../core/bibledata.js';
 import { church, nextSabbath } from '../core/church.js';
 import { music } from '../core/hymnmusic.js';
+import { collectPlan, packageBlob, openPackage, installPackage, fmtSize, EXT } from '../core/planpack.js';
 
 const TEMPLATES = {
   'Divine Service': [
@@ -68,8 +69,8 @@ export default function create(ctx) {
     { label: plan && plan.autoAdvance ? 'Auto-advance: on' : 'Auto-advance: off', icon: 'next', onclick: toggleAuto, disabled: !plan },
     '-',
     { label: 'Export to Word document…', icon: 'download', onclick: exportWord, disabled: !plan },
-    { label: 'Export (to use on another device)', icon: 'download', onclick: exportPlan, disabled: !plan },
-    { label: 'Import a plan…', icon: 'upload', onclick: importPlan },
+    { label: 'Save or share this plan (with its media)…', icon: 'send', onclick: () => sharePlan(plan.items, plan.name, 'plan'), disabled: !plan },
+    { label: 'Open a shared plan or template…', icon: 'upload', onclick: importPlan },
     '-',
     { label: 'Delete this plan', icon: 'trash', onclick: deletePlan, disabled: !plan },
   ]), { cls: 'sm' });
@@ -240,6 +241,7 @@ export default function create(ctx) {
           h('div.row', { style: { gap: '4px' } },
             isDef ? null : h('button.btn.sm', { type: 'button', title: 'Start new plans from this template', onclick: async () => { defTpl = t.key; await saveTpls(); paint(); render(); } }, icon('star'), h('span', 'Make default')),
             h('button.btn.sm', { type: 'button', title: 'Make a new plan from this template now', onclick: async () => { closeModal(); await createFromTemplate(t.key); } }, icon('plus'), h('span.hide-sm', 'New plan')),
+            t.mine ? btn('send', 'Share', () => { const tt = myTpls.find((x) => 'c:' + x.id === t.key); closeModal(); sharePlan(tt.items, tt.name, 'template'); }, { cls: 'sm' }) : null,
             t.mine ? btn('edit', 'Rename', async () => {
               const tt = myTpls.find((x) => 'c:' + x.id === t.key);
               const n = await promptBox('Rename template', 'Name', tt.name);
@@ -255,7 +257,8 @@ export default function create(ctx) {
     };
     paint();
     modal({ title: 'Plan templates', body: h('div.col', { style: { gap: '10px' } },
-      h('p.note', 'New plans start from the default template. To make your own: build a plan the way your church does it, then Plan options (⋯) → Save as template.'),
+      h('p.note', 'New plans start from the default template. To make your own: build a plan the way your church does it, attach its hymns, slides, videos and banners, then Plan options (⋯) → Save as template. Share sends a template with its media to another device.'),
+      h('div.row', h('button.btn.sm', { type: 'button', onclick: () => { closeModal(); importPlan(); } }, icon('upload'), h('span', 'Open a shared template…'))),
       list), actions: [{ label: 'Close' }] });
   }
   async function storeNew(p) { await db.put('plans', p.id, p); await db.put('kv', 'plan-current', p.id); await load(); }
@@ -356,17 +359,130 @@ export default function create(ctx) {
     download(blob, (plan.name.replace(/[^\w-]+/g, '_').replace(/^_+|_+$/g, '') || 'Order_of_service') + '.docx');
     toast('Word document ready: “' + plan.name + '.docx”. Check your downloads.', 'ok', 5000);
   }
-  function exportPlan() { download(new Blob([JSON.stringify(plan, null, 1)], { type: 'application/json' }), plan.name.replace(/[^\w-]+/g, '_') + '.sda-sabbath-plan.json'); }
-  function importPlan() {
-    const inp = h('input', { type: 'file', accept: '.json' });
-    inp.onchange = async () => {
+  // ------------------------------------------------------------ save / share a plan or template with its media
+  // One .sdaplan file: the parts, who leads them, and the slides, pictures, banners and videos they show.
+  // Bible passages and hymns go as references (every copy of SDA Sabbath has them).
+  const safeName = (n) => (String(n || 'Service plan').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '_') || 'Service_plan');
+  async function sharePlan(items, name, kind) {
+    if (!items || !items.length) { toast('There is nothing in this ' + (kind === 'template' ? 'template' : 'plan') + ' yet.', 'err'); return; }
+    let est;
+    try { est = await collectPlan(items, { media: true, videos: true, ask: false, kind, name }); } catch (e) { toast('Could not read the media: ' + e.message, 'err'); return; }
+    const st = est.stats;
+    let media = true, videos = st.videoBytes < 1.5 * 1073741824;
+    const refs = items.filter((it) => !it.heading && (it.tab === 'bible' || it.tab === 'hymns')).length;
+    const other = [st.decks ? st.decks + ' slide deck' + (st.decks === 1 ? '' : 's') : '', st.banners ? st.banners + ' banner' + (st.banners === 1 ? '' : 's') : ''].filter(Boolean).join(', ');
+    const sizeNote = h('p.note', '');
+    const paintSize = () => {
+      const n = (media ? st.otherBytes : 0) + (media && videos ? st.videoBytes : 0);
+      sizeNote.textContent = 'File size: about ' + (n ? fmtSize(n + 4096) : '10 KB') + '.';
+    };
+    const vidToggle = toggle('Include the videos and music' + (st.videos ? ' (' + st.videos + ', ' + fmtSize(st.videoBytes) + ')' : ''), videos, (v) => { videos = v; paintSize(); },
+      'Off: the parts keep the video names; the other device adds its own copies');
+    if (!st.videos) vidToggle.hidden = true;
+    const body = h('div.col', { style: { gap: '10px' } },
+      h('p', h('b', name), h('span.note', '  ·  ' + items.length + ' part' + (items.length === 1 ? '' : 's'))),
+      toggle('Include slides, pictures and banners' + (other ? ' (' + other + (st.otherBytes ? ', ' + fmtSize(st.otherBytes) : '') + ')' : ''), media, (v) => { media = v; vidToggle.querySelector('input').disabled = !v || !st.videos; paintSize(); },
+        'Off: a small file with links only: part names, who leads, Bible passages and hymns'),
+      vidToggle,
+      h('p.note', (refs ? refs + (refs === 1 ? ' Bible passage or hymn goes as a reference; ' : ' Bible passages and hymns go as references; ') : 'Bible passages and hymns go as references; ') +
+        'every copy of SDA Sabbath has them. Bibles or hymnbooks you imported yourself must also be on the other device.'),
+      est.manifest.missing.length ? h('p.note', { style: { color: 'var(--warn, #b45309)' } }, 'Not on this device, so not included: ' + est.manifest.missing.slice(0, 6).join(', ') + (est.manifest.missing.length > 6 ? '…' : '') + '.') : null,
+      st.handles ? h('p.note', 'Some videos are linked to files on this PC; you may be asked to allow SDA Sabbath to read them.') : null,
+      sizeNote,
+      h('p.note', 'To use it: on the other device open Plan → ⋯ → Open a shared plan or template, and choose the file.'));
+    paintSize();
+    const make = async () => {
+      const t = toast('Preparing the file…', '', 60000);
       try {
-        const p = JSON.parse(await readText(inp.files[0]));
-        if (!p || typeof p !== 'object' || !Array.isArray(p.items)) throw new Error('Not an SDA Sabbath plan file.');
-        tidy(p); p.id = uid(); p.updated = Date.now();
-        await storeNew(p);
-        toast('Plan imported. Slides and videos must also exist on this device.', 'ok', 5000);
-      } catch (e) { toast(e.message, 'err'); }
+        const pack = await collectPlan(items, { media, videos: media && videos, kind, name });
+        let last = 0;
+        const blob = await packageBlob(pack, (done, total) => {
+          const pct = total ? Math.floor((done / total) * 100) : 100;
+          if (t && total > 50 * 1048576 && pct >= last + 5) { last = pct; t.textContent = 'Preparing the file… ' + pct + '%'; }
+        });
+        if (t && t.remove) t.remove();
+        return { blob, fname: safeName(name) + EXT, pack };
+      } catch (e) { toast('Could not make the file: ' + e.message, 'err', 6000); return null; }
+    };
+    const canShare = (() => { try { return !!(navigator.canShare && navigator.canShare({ files: [new File(['x'], 'plan' + EXT, { type: 'application/octet-stream' })] })); } catch (e) { return false; } })();
+    const actions = [{ label: 'Cancel' }];
+    if (canShare) actions.push({ label: 'Share…', onclick: async () => {
+      const r = await make(); if (!r) return false;
+      try { await navigator.share({ files: [new File([r.blob], r.fname, { type: 'application/octet-stream' })], title: name, text: 'Service plan from SDA Sabbath' }); }
+      catch (e) { if (e.name !== 'AbortError') { download(r.blob, r.fname); toast('Sharing is not available here; the file was saved instead.', '', 4000); } }
+      return true;
+    } });
+    actions.push({ label: 'Save file', primary: true, onclick: async () => {
+      const r = await make(); if (!r) return false;
+      download(r.blob, r.fname);
+      toast('Saved “' + r.fname + '” (' + fmtSize(r.blob.size) + '). Check your downloads; send it by e-mail, WhatsApp, a USB stick or a shared drive.', 'ok', 7000);
+      return true;
+    } });
+    modal({ title: kind === 'template' ? 'Save or share this template' : 'Save or share this plan', body, actions });
+  }
+
+  function importPlan() {
+    const inp = h('input', { type: 'file', accept: EXT + ',.json,.zip,application/zip,application/json' });
+    inp.onchange = async () => {
+      const f = inp.files && inp.files[0];
+      if (!f) return;
+      let pkg;
+      try { pkg = await openPackage(f); } catch (e) { toast(e.message || 'This is not an SDA Sabbath plan file.', 'err', 5000); return; }
+      const m = pkg.manifest;
+      const n = { decks: 0, videos: 0, pictures: 0 };
+      (m.files || []).forEach((x) => { if (x && x.kind === 'deck') n.decks++; else if (x && x.kind === 'media') n.videos++; else if (x) n.pictures++; });
+      const what = [n.decks ? n.decks + ' slide deck' + (n.decks === 1 ? '' : 's') : '', (m.banners || []).length ? m.banners.length + ' banner' + (m.banners.length === 1 ? '' : 's') : '',
+        n.videos ? n.videos + ' video' + (n.videos === 1 ? '' : 's') : ''].filter(Boolean).join(', ');
+      const linkOnly = m.items.filter((it) => it && !it.heading && ((it.tab === 'slides' && it.deck) || (it.tab === 'video' && it.item) || (it.tab === 'ai' && it.banner)))
+        .filter((it) => !(m.files || []).some((x) => x && (x.id === it.deck || x.id === it.item)) && !(m.banners || []).some((b) => b && b.id === it.banner));
+      const name = h('input.field', { value: m.name || f.name.replace(/\.(sdaplan|json|zip)$/i, '') });
+      let asTpl = m.kind === 'template', makeDef = false;
+      const defT = toggle('Use it for new plans (default template)', makeDef, (v) => { makeDef = v; });
+      defT.hidden = !asTpl;
+      const kindSeg = h('div.seg', { role: 'group', 'aria-label': 'Open as' });
+      const paintSeg = () => {
+        kindSeg.replaceChildren(...[['plan', 'A new plan'], ['tpl', 'A template']].map(([k, lab]) => h('button', { type: 'button', 'aria-pressed': String((k === 'tpl') === asTpl),
+          onclick: () => { asTpl = k === 'tpl'; defT.hidden = !asTpl; paintSeg(); } }, lab)));
+      };
+      paintSeg();
+      const body = h('div.col', { style: { gap: '10px' } },
+        h('p', h('b', m.items.length + ' part' + (m.items.length === 1 ? '' : 's')), what ? h('span.note', '  ·  with ' + what) : h('span.note', '  ·  links only')),
+        h('label.muted', 'Name'), name,
+        h('label.muted', 'Add it as'), kindSeg, defT,
+        linkOnly.length ? h('p.note', linkOnly.length + ' part' + (linkOnly.length === 1 ? ' shows' : 's show') + ' media that is not in the file (' + linkOnly.slice(0, 3).map((x) => x.label || 'media').join(', ') + (linkOnly.length > 3 ? '…' : '') + '). Add it on this device, then attach it to the part.') : null,
+        h('p.note', 'Slides, pictures and videos already on this device are not copied twice.'));
+      modal({ title: 'Open a shared plan', body, actions: [{ label: 'Cancel' }, { label: 'Add', primary: true, onclick: async () => {
+        const nm = name.value.trim() || 'Shared plan';
+        toast('Adding…', '', 20000);
+        let res;
+        try {
+          res = await installPackage(pkg, {
+            addBanners: async (docs) => { const t = await ctx.tab('ai'); if (t.addBanners) await t.addBanners(docs); },
+            reloadSlides: async () => { const t = await ctx.tab('slides'); if (t.reload) await t.reload(); },
+            reloadVideos: async () => { const t = await ctx.tab('video'); if (t.reload) await t.reload(); },
+          });
+        } catch (e) { toast('Could not add it: ' + e.message, 'err', 6000); return false; }
+        const got = [res.made.decks ? res.made.decks + ' slide deck' + (res.made.decks === 1 ? '' : 's') : '', res.made.banners ? res.made.banners + ' banner' + (res.made.banners === 1 ? '' : 's') : '',
+          res.made.videos ? res.made.videos + ' video' + (res.made.videos === 1 ? '' : 's') : ''].filter(Boolean).join(', ');
+        if (asTpl) {
+          let tn = nm;
+          if (TEMPLATES[tn]) tn += ' (shared)';
+          const items = res.items.map((it) => { const c = Object.assign({}, it); delete c.id; return c; });
+          const old = myTpls.find((t) => low(t.name) === low(tn));
+          if (old) Object.assign(old, { items, updated: Date.now() }); else myTpls.unshift({ id: uid(), name: tn, items, updated: Date.now() });
+          const t = old || myTpls[0];
+          if (makeDef) defTpl = 'c:' + t.id;
+          await saveTpls();
+          render();
+          toast('Template added: ' + tn + (makeDef ? ' (default for new plans)' : '') + (got ? '. Also added ' + got : '') + '.', 'ok', 6000);
+        } else {
+          const p = { id: uid(), name: nm, items: res.items, updated: Date.now() };
+          tidy(p);
+          await storeNew(p);
+          toast('Plan added' + (got ? ' with ' + got : '') + (res.reused ? '; ' + res.reused + ' item' + (res.reused === 1 ? ' was' : 's were') + ' already here' : '') + '.', 'ok', 6000);
+        }
+        return true;
+      } }] });
     };
     inp.click();
   }
@@ -587,6 +703,7 @@ export default function create(ctx) {
       const alt = h('div.row.wrap.plan-tpls');
       allTpls().filter((t) => t.key !== dt.key && t.key !== 'b:Empty plan').forEach((t) => alt.appendChild(h('button.btn', { type: 'button', onclick: () => createFromTemplate(t.key) }, t.mine ? icon('star') : null, h('span', t.name))));
       alt.appendChild(h('button.btn', { type: 'button', onclick: newPlan }, icon('plus'), h('span', 'New plan…')));
+      alt.appendChild(h('button.btn', { type: 'button', onclick: importPlan }, icon('upload'), h('span', 'Open a shared plan…')));
       listEl.lastChild.appendChild(alt);
       return;
     }

@@ -1087,5 +1087,6 @@ input[type=range] { min-height: 24px; }
 .screen.stage-mon { border-color: var(--stage, #c9a44c); background: #0b0f17; contain: layout paint; }
 .screen.stage-mon .st-pv-f { pointer-events: none; }
 .tally-dot.stage { background: var(--stage, #c9a44c); }
-.mon-h .mon-x { margin-left: auto; padding: 2px 6px; min-height: 0; }
+.mon-h .mon-sw { margin-left: auto; font-size: var(--fs-xs); }
+.screen.stage-mon[hidden] { display: none; }
 @media (max-width: 760px) { .monitors > section.mon-stage { display: none; } }

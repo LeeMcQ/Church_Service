@@ -327,6 +327,8 @@ export default function create(ctx) {
   const api = {
     el,
     /** Add files from another tab (Plan): resolves once they are in the playlist. */
+    /** Read the playlist again (after a shared plan brought videos in). */
+    async reload() { await ready; await loadItems(); },
     async importFiles(files) { await ready; const before = new Set(items.map((x) => x.id)); await addFiles(files); return items.filter((x) => !before.has(x.id)); },
     async open({ item }) {
       await ready;

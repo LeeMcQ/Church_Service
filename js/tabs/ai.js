@@ -1695,6 +1695,15 @@ export default function create(ctx) {
   // ============================================================ control bar + plan
   const api = {
     el,
+    /** Banners brought in with a shared plan: add them to the saved banners. */
+    async addBanners(docs) {
+      await ready;
+      const add = (docs || []).map(repair).filter((b) => b && b.id && !lib.some((x) => x.id === b.id));
+      lib = add.concat(lib);
+      await saveLib();
+      if (view === 'library') renderLibrary();
+      return add.length;
+    },
     /** Turn a slide into a banner in the editor: {blob} makes a picture banner, {title,text} a text banner. */
     async fromSlide({ blob, title, text, name, els, bg }) {
       await ready;
