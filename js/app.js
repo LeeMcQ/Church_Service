@@ -18,7 +18,7 @@ import { hub as stageHub, timerValue } from './core/stagehub.js';
 import { obs } from './core/obsctl.js';
 
 export const VERSION = '1.5.0';
-export const BUILD = 'a096bb3';
+export const BUILD = 'cd58f98';
 
 const TABS = [
   { id: 'bible', label: 'Bible', icon: 'bible', file: 'bible.js', load: () => import('./tabs/bible.js') },

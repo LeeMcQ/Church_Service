@@ -205,7 +205,7 @@ export default function create(ctx) {
     toggle('Bible verses: the reference and the verse appear on the stream when they go on the screen', S().autoBible, (v) => settings.set('stream.autoBible', v)),
     toggle('Hymns: the words appear on the stream so viewers at home can sing along', S().autoHymns, (v) => settings.set('stream.autoHymns', v)),
     h('div.row.wrap', h('span.note', 'Hymns show'), seg([['lines', 'The words'], ['title', 'Only the hymn title']], S().hymnMode, (v) => settings.set('stream.hymnMode', v))),
-    toggle('Other text slides (responsive readings, Tools) too', S().autoOther, (v) => settings.set('stream.autoOther', v)),
+    toggle('Other text slides too', S().autoOther, (v) => settings.set('stream.autoOther', v)),
     h('p.note', 'A name or announcement you show by hand goes over the automatic words while it is up.'));
 
   // ------------------------------------------------------------ look

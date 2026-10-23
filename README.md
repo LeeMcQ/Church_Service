@@ -306,25 +306,20 @@ tools/                       build.py, build_bibles.py, build_hymn_music.py, bui
 - Hymn MIDI files: supplied by the church for its own services.
 - SDA Sabbath code: MIT.
 
-## Service tools
+## Tools
 
-The **Tools** tab (under More) has three parts, chosen with the buttons at its top:
+The **Tools** tab (under More) has two parts, chosen with the buttons at its top:
 
-- **Service** — responsive readings (Leader / People in the accent colour; click to put on Next, double-click to show
-  at once), Communion / Ordinance of Humility as one four-slide sequence (Present, then → for each step), a lower third
-  for the projector (**Set as Next**), and experimental live captions via browser speech recognition on the display's
-  caption line.
 - **Stage** — the second screen for the platform: messages, timers, stage screens, phones & laptops. See
   [Stage screen](#stage-screen).
 - **Stream** — OBS: lower thirds, the slides for a presentation scene, scene switching. See
   [Live stream (OBS)](#live-stream-obs).
 
-Like every tab, Tools slides go to the green **Next** screen first; Present (F5) shows them. Offering banners (verse +
-giving QR code) are in **Banners**. Children’s story templates were intentionally left out.
+Offering banners (verse + giving QR code) are in **Banners**.
 
 ## Stage screen
 
-**Tools → Stage** (Tools is under More; Stage is the second button at the top of the tab) runs a second screen for the preacher, worship leaders, singers and band — a
+**Tools → Stage** (Tools is under More; Stage is the first button at the top of the tab) runs a second screen for the preacher, worship leaders, singers and band — a
 *confidence monitor*. The congregation never sees it: nothing on it goes to the projector.
 
 ```
