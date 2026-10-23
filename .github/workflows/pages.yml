@@ -1,4 +1,5 @@
-# Publishes the SDA Sabbath web app to GitHub Pages on every push to main.
+# Publishes the SDA Sabbath web app to GitHub Pages on every push to main, together with the companion
+# programs (built from the same code) under /download/, so the site always offers a matching download.
 # Actions are pinned to a full commit (the version is in the comment); Dependabot proposes updates.
 name: Deploy app to GitHub Pages
 
@@ -15,7 +16,43 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  companion:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, target: x86_64-pc-windows-msvc,    name: selah-windows-x64.exe }
+          - { os: ubuntu-latest,  target: x86_64-unknown-linux-gnu,  name: selah-linux-x64 }
+          - { os: ubuntu-latest,  target: aarch64-unknown-linux-gnu, name: selah-linux-arm64, linker: aarch64-linux-gnu-gcc, pkg: gcc-aarch64-linux-gnu }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: '3.12' }
+      - run: python tools/build.py
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with: { targets: '${{ matrix.target }}' }
+      - name: Cross linker
+        if: matrix.linker
+        run: |
+          sudo apt-get update && sudo apt-get install -y ${{ matrix.pkg }}
+          echo "CARGO_TARGET_$(echo ${{ matrix.target }} | tr 'a-z-' 'A-Z_')_LINKER=${{ matrix.linker }}" >> $GITHUB_ENV
+      - name: Build
+        working-directory: companion
+        run: cargo build --release --target ${{ matrix.target }}
+      - name: Rename
+        shell: bash
+        run: |
+          src=companion/target/${{ matrix.target }}/release/selah
+          [ -f "$src.exe" ] && src="$src.exe"
+          cp "$src" "${{ matrix.name }}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with: { name: '${{ matrix.name }}', path: '${{ matrix.name }}' }
+
   build:
+    # The web app is published even if a companion build fails (the download page then says so).
+    needs: companion
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -26,13 +63,32 @@ jobs:
       - name: Collect the web app
         run: |
           mkdir -p site
-          cp -r index.html display.html stage.html obs.html privacy.html terms.html manifest.webmanifest sw.js asset-manifest.json css js vendor fonts icons data site/
+          cp -r index.html display.html stage.html obs.html privacy.html terms.html companion.html manifest.webmanifest sw.js asset-manifest.json css js vendor fonts icons data site/
           touch site/.nojekyll
+      - name: Add the companion downloads
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with: { path: site/download, merge-multiple: true }
+      - name: List the downloads
+        run: |
+          mkdir -p site/download
+          cd site/download
+          python3 - <<'PY'
+          import json, os, hashlib, datetime
+          files = []
+          for n in sorted(os.listdir('.')):
+              if n.startswith('selah-'):
+                  h = hashlib.sha256(open(n, 'rb').read()).hexdigest()
+                  files.append({'name': n, 'size': os.path.getsize(n), 'sha256': h})
+          json.dump({'built': datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC'), 'commit': os.environ.get('GITHUB_SHA', '')[:7], 'files': files}, open('index.json', 'w'))
+          print(files)
+          PY
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with: { path: site }
 
   deploy:
     needs: build
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       pages: write

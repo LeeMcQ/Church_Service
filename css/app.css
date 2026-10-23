@@ -1090,3 +1090,4 @@ input[type=range] { min-height: 24px; }
 .mon-h .mon-sw { margin-left: auto; font-size: var(--fs-xs); }
 .screen.stage-mon[hidden] { display: none; }
 @media (max-width: 760px) { .monitors > section.mon-stage { display: none; } }
+a.btn { text-decoration: none; }

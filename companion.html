@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en-ZA">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self' https://leemcq.github.io; style-src 'self' 'unsafe-inline'; img-src 'self' data:; base-uri 'self'; form-action 'none'; object-src 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#161c28">
+<title>Companion download – SDA Sabbath</title>
+<meta name="description" content="Download the SDA Sabbath companion for the church PC: OBS, phones, TVs and a second PC on the church network, without internet.">
+<link rel="canonical" href="https://leemcq.github.io/Church_Service/companion.html">
+<link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+<style>
+  :root { color-scheme: light dark; --bg:#fbfaf7; --fg:#1d2330; --muted:#5a6475; --line:#d9d6cc; --accent:#1f4068; --btn:#2b7f3e; --card:#fff; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161c28; --fg:#e9e4d8; --muted:#a3acbd; --line:#36435c; --accent:#f2cf7a; --btn:#2f8a45; --card:#1d2433; } }
+  body { margin:0; background:var(--bg); color:var(--fg); font:17px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 46rem; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 1.9rem; line-height:1.2; margin: .4em 0 .2em; } h2 { font-size: 1.25rem; margin: 1.6em 0 .4em; padding-top:.6em; border-top:1px solid var(--line); }
+  a { color: var(--accent); } .muted { color: var(--muted); } nav a { margin-right: 1rem; }
+  .dl { display:grid; gap:10px; margin: 14px 0; }
+  .dl a.b { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; border-radius:12px; border:1px solid var(--line); background:var(--card); color:var(--fg); text-decoration:none; }
+  .dl a.b.main { background:var(--btn); border-color:var(--btn); color:#fff; font-weight:700; font-size:1.1rem; }
+  .dl a.b .s { font-size:.9rem; opacity:.85; font-weight:400; }
+  ol li { margin: .35em 0; } code { font-size:.92em; background:rgba(127,127,127,.15); padding:1px 5px; border-radius:4px; word-break: break-all; }
+  .note { padding:10px 14px; border-left:4px solid var(--accent); background:rgba(127,127,127,.08); border-radius:6px; }
+  .err { color:#c0392b; }
+</style>
+</head>
+<body>
+<main>
+<nav aria-label="Pages"><a href="./">← Open SDA Sabbath</a> <a href="privacy.html">Privacy</a> <a href="terms.html">Terms</a></nav>
+
+<h1>SDA Sabbath companion</h1>
+<p>One small program for the PC that runs the service. It links that PC to the other devices on the church Wi‑Fi or network, with no internet needed:</p>
+<ul>
+  <li><b>OBS on another computer</b>: the lower third and the slides follow SDA Sabbath.</li>
+  <li><b>Phones</b> as a remote, a <b>TV</b> or <b>second PC</b> as the screen, and <b>stage screens</b>.</li>
+  <li>Videos from the PC’s Videos folder, and exact PowerPoint conversion (with LibreOffice).</li>
+</ul>
+
+<div id="dl" class="dl" aria-live="polite"><p class="muted">Looking for the latest download…</p></div>
+<p id="meta" class="muted"></p>
+
+<h2>Set it up on Windows</h2>
+<ol>
+  <li>Download <b>the Windows program</b> above on the PC that runs the service.</li>
+  <li>Double‑click <code>selah-windows-x64.exe</code>. Windows may say it “protected your PC”: click <b>More info → Run anyway</b> (the program is not signed by a company).</li>
+  <li>When Windows asks about network access, tick <b>Private networks</b> and click <b>Allow</b>. Without this, other computers cannot reach it.</li>
+  <li>SDA Sabbath opens in your browser at <code>http://localhost:7777</code>. <b>Use SDA Sabbath from this tab</b> during the service (not the website) and keep it open.</li>
+  <li>Optional: to get a Start‑menu and desktop shortcut, run it once with <code>--install</code> (PowerShell: <code>.\selah-windows-x64.exe --install</code>).</li>
+</ol>
+
+<h2>Connect OBS on the second computer</h2>
+<ol>
+  <li>Make sure both computers are on the same Wi‑Fi or network.</li>
+  <li>In SDA Sabbath (the <code>localhost:7777</code> tab) open <b>Tools → Stream</b>. The box <b>“OBS on another computer”</b> shows two addresses with this PC’s network address in them.</li>
+  <li>Click <b>Copy lower third address</b>. Send it to the OBS computer (e‑mail, WhatsApp, or type it — it looks like <code>http://192.168.1.20:7777/obs.html?via=lan&amp;mode=lower</code>).</li>
+  <li>In OBS: <b>Sources → + → Browser</b>, paste it as the <b>URL</b>, set <b>Width 1920</b>, <b>Height 1080</b>, press OK, and drag it above the camera.</li>
+  <li>Show a Bible verse in SDA Sabbath: the words appear in OBS. For full‑screen slides, add the <b>Presentation</b> address the same way in its own scene.</li>
+</ol>
+<p class="note"><b>OBS says “waiting for the media desk”?</b> The OBS link works, but SDA Sabbath is not open at <code>http://localhost:7777</code> on the companion PC. Open it there (not the website) and keep it open. <b>OBS shows nothing at all?</b> Open the same address in a browser on the OBS computer; if it does not load, allow the companion through Windows Firewall on private networks.</p>
+
+<h2>Raspberry Pi or Linux</h2>
+<p>Download the Linux file, then in a terminal: <code>chmod +x selah-linux-*</code> and run it. Open <code>http://localhost:7777</code>.</p>
+
+<p class="muted">Built automatically from the source at <a href="https://github.com/LeeMcQ/Church_Service">github.com/LeeMcQ/Church_Service</a> every time the website is updated, so it always matches the website.</p>
+</main>
+<script src="js/companion-page.js"></script>
+</body>
+</html>

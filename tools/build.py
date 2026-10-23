@@ -14,7 +14,7 @@ import hashlib, json, os, re, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INCLUDE_DIRS = ['css', 'js', 'vendor', 'fonts', 'icons', 'data']
-INCLUDE_FILES = ['index.html', 'display.html', 'stage.html', 'obs.html', 'privacy.html', 'terms.html', 'manifest.webmanifest']
+INCLUDE_FILES = ['index.html', 'display.html', 'stage.html', 'obs.html', 'privacy.html', 'terms.html', 'companion.html', 'manifest.webmanifest']
 SKIP = re.compile(r'(\.map$|\.md$|LICENSE|\.txt$|\.DS_Store)')
 
 

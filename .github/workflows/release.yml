@@ -59,7 +59,7 @@ jobs:
         with: { python-version: '3.12' }
       - run: |
           python tools/build.py
-          zip -qr selah-web-offline.zip index.html display.html stage.html obs.html privacy.html terms.html manifest.webmanifest sw.js asset-manifest.json css js vendor fonts icons data
+          zip -qr selah-web-offline.zip index.html display.html stage.html obs.html privacy.html terms.html companion.html manifest.webmanifest sw.js asset-manifest.json css js vendor fonts icons data
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with: { name: selah-web-offline.zip, path: selah-web-offline.zip }
 

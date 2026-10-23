@@ -118,6 +118,7 @@ export default function create(ctx) {
       lanBody.append(
         h('p', { style: { color: 'var(--warn, #f0b429)', fontWeight: '700' } }, 'OBS says “waiting for the media desk” when this page is not the one feeding it.'),
         h('p', 'To link OBS on another PC over your Wi-Fi or cable, without internet: run the ', h('b', 'SDA Sabbath companion'), ' on the PC that runs the service and open SDA Sabbath from it (at http://localhost:7777, on that PC). This box then shows the two addresses for OBS.'),
+        h('a.btn.primary', { href: 'companion.html', target: '_blank', rel: 'noopener', style: { alignSelf: 'flex-start' } }, icon('download'), h('span', 'Download the companion (Windows, Linux, Raspberry Pi)')),
         h('p.note', 'Without the companion, the “Set up OBS by hand” addresses below also work on another PC, as long as both PCs have internet.'));
       return;
     }
@@ -138,6 +139,7 @@ export default function create(ctx) {
         h('li', 'Test: show a Bible verse here. The words appear over the camera in OBS.')),
       row('Lower third', 'over the camera, transparent', lower, 'lower third address'),
       row('Presentation', 'the slides full screen', full, 'presentation address'),
+      h('p.note', 'Step-by-step help and the companion download for another PC: ', h('a', { href: 'companion.html', target: '_blank', rel: 'noopener' }, 'companion page'), '.'),
       h('p.note', 'Windows may ask to allow the companion on the private network the first time: choose Allow. If OBS shows nothing, open the address in a browser on the OBS PC to check the link. Scene switching and Start/Stop streaming need OBS’s WebSocket; showing the overlays does not.'));
   }
 

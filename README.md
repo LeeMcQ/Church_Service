@@ -114,11 +114,11 @@ SDA Sabbath is built to run a whole service with no internet:
 
 One program (about 25 MB — most of it the hymn-music instrument sounds; no installer, no other software) that contains the whole app:
 
-- **Windows:** download `selah-windows-x64.exe` from the [Releases page](https://github.com/LeeMcQ/Church_Service/releases/latest) and double-click it.
+- **Windows:** download `selah-windows-x64.exe` from the **[companion download page](https://leemcq.github.io/Church_Service/companion.html)** (also linked in the app under Settings and Tools → Stream; it is rebuilt with every website update) and double-click it.
   SDA Sabbath opens at `http://localhost:7777`. To add Start-menu and desktop shortcuts in one go:
 
   ```powershell
-  irm https://github.com/LeeMcQ/Church_Service/releases/latest/download/selah-windows-x64.exe -OutFile $env:TEMP\selah.exe; & $env:TEMP\selah.exe --install
+  irm https://leemcq.github.io/Church_Service/download/selah-windows-x64.exe -OutFile $env:TEMP\selah.exe; & $env:TEMP\selah.exe --install
   ```
 - **Raspberry Pi / Linux / Mac:** `selah-linux-arm64`, `selah-linux-x64`, `selah-macos-arm64` — `chmod +x` and run.
 

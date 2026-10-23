@@ -117,6 +117,7 @@ export default function create(ctx) {
       rc.append(h('div.row.wrap', qrBox, h('div.col', h('code', url), h('p.note', 'TV or second PC as the screen: open ' + (comp.urls && comp.urls[0] || location.origin) + '/display.html?via=ws&pin=' + (comp.pin || 'PIN')))));
     } else {
       rc.append(h('p.note', 'Run the SDA Sabbath companion on the church PC to control the screen from a phone, use a smart-TV browser as the screen, play videos straight from the PC’s Videos folder, and convert PowerPoint files exactly. Then open SDA Sabbath from the address it shows. Anything in the PC’s Videos\\Selah folder can be opened by anyone on the same Wi-Fi who knows its file name, so keep private files out of it.'));
+      rc.append(h('a.btn.primary', { href: 'companion.html', target: '_blank', rel: 'noopener' }, icon('download'), h('span', 'Download the companion')));
     }
     box.append(rc);
   });
