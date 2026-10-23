@@ -39,9 +39,12 @@ export default function create(ctx) {
   }
 
   const layoutSeg = seg([['full', 'Full'], ['words', 'Words'], ['slides', 'Slides'], ['timer', 'Timer']], S().layout, (v) => settings.set('stage.layout', v));
+  const monToggle = toggle('Stage monitor beside Next and Live', S().monitor !== false, (v) => settings.set('stage.monitor', v), 'While a stage screen is connected, the main screen shows what it shows');
+  settings.on('change:stage', (p) => { if (p === 'stage.monitor') monToggle.querySelector('input').checked = S().monitor !== false; });
   const opts = h('div.st-opts',
     toggle('Show what comes next', S().showNext, (v) => settings.set('stage.showNext', v)),
     toggle('Show the order of service', S().showPlan, (v) => settings.set('stage.showPlan', v)),
+    monToggle,
     toggle('Show speaker notes (slides)', S().showNotes, (v) => settings.set('stage.showNotes', v)),
     toggle('Show the slide picture', S().showLive, (v) => settings.set('stage.showLive', v)),
     toggle('24-hour clock', S().clock24, (v) => settings.set('stage.clock24', v)),

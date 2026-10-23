@@ -102,6 +102,13 @@ textarea.ss-field { resize: vertical; }
 .ss-notes { flex: none; max-height: 28%; overflow: auto; white-space: pre-wrap; font-size: calc(19px * var(--ts)); color: #dfe6f2; background: #0e141e; border-left: 4px solid var(--s-brass); border-radius: 6px; padding: 8px 12px; }
 .ss-media { flex: none; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--s-warn); font-size: calc(20px * var(--ts)); }
 .ss-then { flex: none; color: var(--s-muted); font-size: calc(16px * var(--ts)); }
+/* Next part of the plan (shown when working from a plan) */
+.ss-pn { flex: none; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; padding: 8px 10px; border-radius: 8px; background: var(--s-raised); border-left: 4px solid var(--s-brass); min-width: 0; }
+.ss-tag.plan { background: transparent; color: var(--s-brass); border: 1px solid var(--s-brass); }
+.ss-pn-t { font-weight: 700; font-size: calc(22px * var(--ts)); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.ss-pn-m { color: var(--s-muted); font-size: calc(15px * var(--ts)); }
+.ss-big-pn { margin-top: .6em; font-size: calc(clamp(18px, 2.6vw, 40px) * var(--ts)); color: var(--s-brass); font-weight: 700; max-width: 90vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preview .ss-pn { padding: 4px 6px; }
 
 /* Order of service */
 .ss-plan-l { list-style: none; margin: 0; padding: 0; overflow: auto; min-height: 0; flex: 1 1 auto; }
@@ -334,3 +341,9 @@ body.ss > .ss-top { grid-row: 1; } body.ss > .ss-msg { grid-row: 2; } body.ss > 
 .ss-tag.live { background: #b3262c; color: #fff; box-shadow: 0 0 0 1px rgba(255,255,255,.18) inset; }
 .ss-tag.live::before { content: ""; display: inline-block; width: .55em; height: .55em; border-radius: 50%; background: #fff; margin-right: .4em; vertical-align: .05em; }
 .ss-tag.next { background: #23703a; color: #fff; }
+
+/* Room for the Next-in-plan strip under the Next picture */
+@media (min-width: 761px) {
+.lay-full .ss-next:has(.ss-pn:not([hidden])) .ss-scr { width: min(100%, calc((100cqh - 150px) * 16 / 9)); }
+.lay-slides .ss-next:has(.ss-pn:not([hidden])) .ss-scr { width: min(100%, calc((100cqh - 110px) * 16 / 9)); }
+}

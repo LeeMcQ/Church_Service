@@ -6,6 +6,7 @@ import { live, frameCount, slideName } from './core/live.js';
 import { link } from './core/link.js';
 import { settings } from './core/settings.js';
 import { icon } from './core/icons.js';
+import { hub as stageHub } from './core/stagehub.js';
 
 function frameOf(cue, i) {
   if (!cue) return null;
@@ -30,10 +31,17 @@ export function createMonitors(host) {
   // Phones with nothing staged or live show this slim strip instead of two empty screens.
   const strip = h('div.mon-strip', h('span.tally-dot.next'), h('span', 'Nothing on screen · pick something, then tap Present'));
 
+  // Stage: while a stage screen is connected, a third monitor shows exactly what the platform sees.
+  const stageTitle = h('span.t', '');
+  const stageScreen = h('div.screen.stage-mon');
+  const stageHide = h('button.btn.sm.ghost.mon-x', { type: 'button', title: 'Hide the stage monitor (show it again in Tools → Stage)', 'aria-label': 'Hide the stage monitor',
+    onclick: () => settings.set('stage.monitor', false) }, icon('x'));
+  const stageSec = h('section.mon-stage', { hidden: true }, h('div.mon-h', h('span.tally-dot.stage'), h('span', 'Stage'), stageTitle, stageHide), stageScreen);
+
   host.append(strip,
     h('section', h('div.mon-h', h('span.tally-dot.next'), h('span', 'Next'), nextTitle), nextScreen),
     h('section', h('div.mon-h', h('span.tally-dot.live'), h('span', 'Live'), liveTitle), liveScreen, frames),
-    actions, extra,
+    actions, stageSec, extra,
   );
 
   const nextStage = createStage(nextHost, { placeholderOnly: true });
@@ -158,6 +166,30 @@ export function createMonitors(host) {
   link.on('hello', () => { setAspect(); updateExtra(); });
   link.on('state', updateExtra);
   settings.on('change:display', (p) => { if (p === 'display.aspect') setAspect(); });
+
+  // ---- the Stage monitor (a live stage-screen preview, drawn at TV size and scaled down)
+  let stageFrame = null;
+  const stageScale = () => { if (stageFrame) stageFrame.style.transform = 'scale(' + ((stageScreen.clientWidth || 320) / 1280) + ')'; };
+  if (window.ResizeObserver) new ResizeObserver(stageScale).observe(stageScreen);
+  function syncStage() {
+    const screens = stageHub.screens().filter((o) => o.role !== 'obs');
+    const S = settings.v.stage || {};
+    const want = screens.length > 0 && S.monitor !== false;
+    stageSec.hidden = !want;
+    stageTitle.textContent = want ? (screens.length === 1 ? screens[0].name || screens[0].label || '1 screen' : screens.length + ' screens') : '';
+    const draw = want && !settings.lowPower();
+    if (draw && !stageFrame) {
+      stageFrame = h('iframe.st-pv-f.st-pv-tv', { src: 'stage.html?via=win&preview=1', title: 'What the stage screen shows', tabindex: '-1' });
+      stageScreen.append(stageFrame);
+      emptyText(stageScreen, '');
+      stageScale();
+    } else if (!draw && stageFrame) { stageFrame.remove(); stageFrame = null; }
+    if (want && !draw) emptyText(stageScreen, 'Stage preview is off in low-power mode.');
+  }
+  stageHub.on('outlets', syncStage);
+  settings.on('change:stage', (p) => { if (p === 'stage.monitor') syncStage(); });
+  settings.on('change:app', (p) => { if (p === 'app.lowPower') syncStage(); });
+  syncStage();
 
   setAspect(); updateExtra();
   live.buildStyle();

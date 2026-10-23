@@ -87,7 +87,10 @@ const nextScr = h('div.ss-scr.next', nextHost, nextEmpty);
 const nextWordsIn = h('div.ss-words-in');
 const nextWords = h('div.ss-words.small', nextWordsIn);
 const thenEl = h('div.ss-then', { hidden: true });
-const nextSec = h('section.ss-next', h('div.ss-lab', h('span.ss-tag.next', 'Next'), nextLabel, nextPart), nextScr, nextWords, thenEl);
+// Working from a plan: the next part of the order of service, whatever the operator has picked so far.
+const pnT = h('span.ss-pn-t', ''), pnM = h('span.ss-pn-m', '');
+const planNextEl = h('div.ss-pn', { hidden: true }, h('span.ss-tag.plan', 'Next in plan'), pnT, pnM);
+const nextSec = h('section.ss-next', h('div.ss-lab', h('span.ss-tag.next', 'Next'), nextLabel, nextPart), nextScr, nextWords, thenEl, planNextEl);
 
 const planList = h('ol.ss-plan-l');
 const planName = h('span.ss-lab-t', '');
@@ -96,7 +99,8 @@ const planSec = h('section.ss-plan', h('div.ss-lab', h('span.ss-tag', 'Order of 
 const bigName = h('div.ss-big-n', '');
 const bigTime = h('div.ss-big-t', '');
 const bigClock = h('div.ss-big-c', '');
-const bigSec = h('section.ss-big', bigName, bigTime, bigClock);
+const bigNext = h('div.ss-big-pn', { hidden: true });
+const bigSec = h('section.ss-big', bigName, bigTime, bigClock, bigNext);
 
 const main = h('main.ss-main', nowSec, nextSec, planSec, bigSec);
 
@@ -204,6 +208,7 @@ function paintLayout() {
   root.classList.toggle('mirror', !!opt('mirror'));
   root.style.setProperty('--ts', String(Math.max(0.6, Math.min(2, +opt('textSize') || 1))));
   churchEl.textContent = S.cfg.church || 'Stage';
+  paintPlanNext();
   requestAnimationFrame(() => { nowStage.fit(); nextStage.fit(); paintWords(); });
 }
 
@@ -287,7 +292,32 @@ function paintMedia() {
   mediaEl.textContent = (m.paused ? 'Video paused · ' : 'Video · ') + fmtClockDur(left * 1000) + ' left';
 }
 
+/** The next part of the plan: the one the plan marks as next, else the first part not yet shown after the one on screen. */
+function planNext() {
+  const p = S.plan;
+  if (!p || !Array.isArray(p.items) || !p.items.length || opt('showPlan') === false) return null;
+  const items = p.items;
+  let lastNow = -1;
+  items.forEach((it, i) => { if (it.st === 'now') lastNow = i; });
+  const marked = items.findIndex((it, i) => it.st === 'next' && i > lastNow);
+  if (marked >= 0) return { it: items[marked], i: marked, n: items.length };
+  for (let i = lastNow + 1; i < items.length; i++) if (items[i].st !== 'done' && items[i].st !== 'now') return { it: items[i], i, n: items.length };
+  return lastNow >= 0 ? { end: true } : null;
+}
+function paintPlanNext() {
+  const pn = planNext();
+  planNextEl.hidden = !pn;
+  bigNext.hidden = !pn;
+  if (!pn) return;
+  if (pn.end) { pnT.textContent = 'This is the last part'; pnM.textContent = ''; bigNext.textContent = 'Last part of the service'; return; }
+  const it = pn.it;
+  pnT.textContent = it.t || 'Part ' + (pn.i + 1);
+  pnM.textContent = [it.m, it.role ? 'led by ' + it.role : '', it.mins ? it.mins + ' min' : '', (pn.i + 1) + ' of ' + pn.n].filter(Boolean).join(' · ');
+  bigNext.textContent = 'Next: ' + (it.t || 'Part ' + (pn.i + 1)) + (it.role ? ' · ' + it.role : '');
+}
+
 function paintPlan() {
+  paintPlanNext();
   clear(planList);
   const p = S.plan;
   planName.textContent = p && p.name ? p.name : '';

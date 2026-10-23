@@ -1081,3 +1081,11 @@ input[type=range] { min-height: 24px; }
 .video-ctl input[type=number], .vd-speed, .vd-ab input { min-height: 44px; }
 .list > button > .grow > .trunc:first-child { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .field:focus-visible, .toolbar .field:focus-visible, .pane-h .field:focus-visible { outline: 2px solid var(--next); outline-offset: 1px; box-shadow: none; }
+
+/* Stage monitor (third monitor while a stage screen is connected) */
+.monitors > section[hidden] { display: none; }
+.screen.stage-mon { border-color: var(--stage, #c9a44c); background: #0b0f17; contain: layout paint; }
+.screen.stage-mon .st-pv-f { pointer-events: none; }
+.tally-dot.stage { background: var(--stage, #c9a44c); }
+.mon-h .mon-x { margin-left: auto; padding: 2px 6px; min-height: 0; }
+@media (max-width: 760px) { .monitors > section.mon-stage { display: none; } }
