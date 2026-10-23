@@ -72,6 +72,8 @@ obs.connect = (opts = {}) => new Promise(async (resolve) => { // eslint-disable-
     setState('error', 'This page (https) cannot reach OBS on another computer directly. Either run OBS on this PC, or open SDA Sabbath from the companion on the OBS computer (http://localhost:7777) — or set OBS up by hand with the addresses below.');
     resolve(false); return;
   }
+  // Android app: ws:// from https://localhost is blocked (mixed content), and 127.0.0.1 is the phone itself.
+  if (window.SDA_NATIVE) { want = false; setState('error', 'Not available in the Android app yet: it cannot reach OBS on another computer (ws://). Use SDA Sabbath in Chrome on the OBS PC, or add the sources in OBS by hand with the addresses below.'); resolve(false); return; }
   want = true; quiet = !!opts.quiet;
   const lnaBefore = isLoopback(host) || /^(10|192\.168|172\.(1[6-9]|2\d|3[01]))\./.test(host) ? await lnaState() : null;
   if (lnaBefore === 'denied') { want = false; setState('error', LNA_BLOCKED); resolve(false); return; }

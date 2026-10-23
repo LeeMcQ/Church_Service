@@ -25,7 +25,7 @@ export default function create(ctx) {
   let cap = null, surf = null;
   const url = h('input.field.grow', { type: 'url', placeholder: 'Web address, e.g. youtube.com/watch?v=…', inputmode: 'url',
     onkeydown: (e) => { if (e.key === 'Enter') go(); } });
-  const frame = h('iframe.web-frame', { title: 'Web page preview', referrerpolicy: 'no-referrer', allow: 'autoplay; fullscreen; encrypted-media' });
+  const frame = h('iframe.web-frame', { title: 'Web page preview', referrerpolicy: 'strict-origin-when-cross-origin' /* YouTube Error 153 needs a Referer; origin only */, allow: 'autoplay; fullscreen; encrypted-media' });
   const capVideo = h('video', { muted: true, autoplay: true, playsInline: true });
   capVideo.muted = true;
   const capBox = h('div.cap-prev', capVideo);

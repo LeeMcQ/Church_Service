@@ -1,6 +1,7 @@
 // Start-up safety net (a plain script, so it runs even if the app's modules cannot load).
 // If SDA Sabbath has not started after a while, explain what to do instead of showing a blank page.
 (function () {
+  if (window.SDA_NATIVE) return; // Android app: js/android-app.js has its own guard (no service worker there)
   var shown = false;
   function online(cb) {
     // A file the service worker never stores: only reachable with real internet.

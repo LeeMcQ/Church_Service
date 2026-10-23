@@ -18,7 +18,7 @@ import { hub as stageHub, timerValue } from './core/stagehub.js';
 import { obs } from './core/obsctl.js';
 
 export const VERSION = '1.5.0';
-export const BUILD = 'b5a2935';
+export const BUILD = '6132142';
 
 const TABS = [
   { id: 'bible', label: 'Bible', icon: 'bible', file: 'bible.js', load: () => import('./tabs/bible.js') },
@@ -46,6 +46,9 @@ const railBtns = new Map();
 let current = null;
 
 export const isMobile = () => matchMedia('(max-width: 760px)').matches;
+// Android app (Capacitor WebView): there is no second window, so present on this device instead.
+const NATIVE = !!window.SDA_NATIVE;
+const APP_NO_LAN = 'Not available in the Android app yet: it cannot reach the companion on the church network (ws://). Use SDA Sabbath in Chrome on the church PC for this.';
 
 // ------------------------------------------------------------ context passed to tabs
 const ctx = {
@@ -203,7 +206,8 @@ async function doPresent() {
   const a = document.activeElement;
   if (a && (a.tagName === 'INPUT' || a.tagName === 'SELECT') && a !== document.body) a.blur();
   // Always present on the extended screen, full screen.
-  if (!link.ready) {
+  // Android app: window.open returns null there, so live.take() asks where to present (This device).
+  if (!link.ready && !NATIVE) {
     const opened = await link.openWindow({ prompt: true });
     if (!opened) return;
     // Wait briefly for the display window to be ready.
@@ -274,6 +278,7 @@ function companionDialog() {
       onclose: () => resolve(false),
       actions: [{ label: 'Cancel' }, { label: 'Connect', primary: true, onclick: () => {
         settings.set('companion.url', url.value.trim()); settings.set('companion.pin', pin.value.trim());
+        if (NATIVE) { ui.toast(APP_NO_LAN, 'err', 9000); resolve(false); return; } // Android app: ws:// to the LAN is blocked
         link.connectSocket(url.value.trim(), pin.value.trim()); resolve(true);
       } }],
     });
@@ -370,7 +375,7 @@ function displayMenu(anchor) {
     if (link.kind === 'cast') items.push({ label: 'Cast to another device…', icon: 'cast', onclick: () => { link.close(); startCast(); } });
     items.push('-');
   }
-  if (!isMobile() || innerWidth > 900) {
+  if (!NATIVE && (!isMobile() || innerWidth > 900)) { // Android app: no second window
     items.push({ label: 'Open display on second screen', icon: 'present', onclick: () => link.openWindow() });
     if ('getScreenDetails' in window) items.push({ label: 'Choose screen…', icon: 'pc', onclick: () => chooseScreen() });
   }
@@ -504,7 +509,7 @@ if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
 paintAudioBtn();
 
 live.ensureDisplay = () => new Promise((resolve) => {
-  if (!isMobile() && !matchMedia('(pointer: coarse)').matches) { link.openWindow().then(resolve); return; }
+  if (!NATIVE && !isMobile() && !matchMedia('(pointer: coarse)').matches) { link.openWindow().then(resolve); return; }
   let done = false;
   const opt = (ic, title, desc, fn) => h('button', { type: 'button', onclick: async () => { done = true; ui.closeModal(); try { resolve(await fn()); } catch (e) { ui.toast(e.message, 'err'); resolve(false); } } },
     icon(ic), h('div.grow', h('div', { style: { fontWeight: 700 } }, title), h('div.note', desc)));
@@ -513,7 +518,7 @@ live.ensureDisplay = () => new Promise((resolve) => {
     link.canCast() ? opt('cast', 'Cast', 'Chromecast, Google TV or Android TV on the same Wi-Fi.', () => startCast()) : null,
     onAndroid() ? opt('info', 'My TV is not found', 'Smart View, Miracast and other ways to reach the TV.', () => { castHelp(null); return false; }) : null,
     opt('link', 'SDA Sabbath companion', 'Control a PC or TV on the church network from this phone.', companionDialog),
-    innerWidth > 700 ? opt('present', 'Display window', 'A separate window you can move to a projector.', () => link.openWindow()) : null);
+    !NATIVE && innerWidth > 700 ? opt('present', 'Display window', 'A separate window you can move to a projector.', () => link.openWindow()) : null);
   ui.modal({ title: 'Where should SDA Sabbath present?', body: list, onclose: () => { if (!done) resolve(false); } });
 });
 
@@ -848,6 +853,8 @@ async function detectCompanion() {
 // ------------------------------------------------------------ service worker (offline + updates)
 function registerSW() {
   if (!('serviceWorker' in navigator) || !window.isSecureContext) return;
+  // Android app: every file is already inside the APK, and Capacitor serves them itself.
+  if (NATIVE) return;
   navigator.serviceWorker.register('sw.js').then((reg) => {
     const ask = (w) => {
       const t = ui.toast(h('span', 'An SDA Sabbath update is ready. ', h('button.btn.sm', { type: 'button', onclick: () => { w.postMessage({ t: 'skip' }); } }, 'Update now')), 'ok', 15000);

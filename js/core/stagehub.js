@@ -575,6 +575,8 @@ function dropLanOutlets() { Array.from(hub.outlets.values()).filter((o) => o.kin
 /** Connect to the companion's "stage" room (base: the companion address; local operators need no PIN). */
 hub.connectLan = (base, pin) => {
   hub.disconnectLan();
+  // Android app: ws:// to the companion on the LAN is blocked from https://localhost.
+  if (window.SDA_NATIVE) { hub.lan = { state: 'off', error: 'Not available in the Android app yet (church-network companion). Phones can still join with the room code / QR.' }; hub.emit('lan', hub.lan); return; }
   const u = new URL(base || location.origin);
   lanWant = { base: u.origin, pin: pin || '' };
   hub.lan = { state: 'connecting', base: u.origin };
@@ -696,7 +698,8 @@ hub.newPin = () => {
 // Phones need a secure (https) page for the encrypted link. When this app runs from the companion
 // (http://localhost or the church PC's address), the QR code points to the published site instead.
 export const PUBLIC_BASE = 'https://leemcq.github.io/Church_Service/';
-const joinBase = () => (location.protocol === 'https:' ? location.href : PUBLIC_BASE);
+// Android app: the page is https://localhost (only valid on this phone), so others join on the public site.
+const joinBase = () => (location.protocol === 'https:' && !window.SDA_NATIVE ? location.href : PUBLIC_BASE);
 /** Address phones open (the QR code): the code travels after #, so it never reaches any web server. */
 hub.joinUrl = (code) => {
   const u = new URL('stage.html', joinBase());

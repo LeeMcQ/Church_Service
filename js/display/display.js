@@ -227,7 +227,7 @@ export function createDisplay(root, { post, self = false } = {}) {
       const fr = document.createElement('iframe');
       fr.src = safeHttpUrl(frame.url) || 'about:blank';
       fr.allow = 'autoplay; fullscreen; encrypted-media';
-      fr.referrerPolicy = 'no-referrer';
+      fr.referrerPolicy = 'strict-origin-when-cross-origin'; // YouTube Error 153 needs a Referer; origin only
       box.appendChild(fr);
       return () => { fr.src = 'about:blank'; };
     }
