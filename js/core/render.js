@@ -122,7 +122,8 @@ export async function renderFrame(layer, frame, opts = {}) {
     const maxF = opts.maxFont || 150;
     // Hymn lines never wrap (see stage.css), and sung text is capped a little lower (110 px at the
     // default 150) so short stanzas don't look shouty.
-    fitBody(body, opts.minFont || 58, frame.variant === 'title' ? maxF * 1.2 : frame.variant === 'hymn' ? Math.round(maxF * 110 / 150) : maxF);
+    // A slide may allow smaller text than usual (a long Bible passage that must stay on one slide).
+    fitBody(body, Math.min(opts.minFont || 58, frame.minFont > 0 ? frame.minFont : 999), frame.variant === 'title' ? maxF * 1.2 : frame.variant === 'hymn' ? Math.round(maxF * 110 / 150) : maxF);
   } else if (k === 'image') {
     const box = document.createElement('div');
     box.className = 'f-image' + (frame.fit === 'cover' ? ' cover' : '');

@@ -1,5 +1,5 @@
 // Bible tab: pick a passage (type it, or tap book → chapter → verses), see it in Next,
-// press Present. Long passages are split into readable slides automatically.
+// press Present. Whole verses only: up to 3 verses share a slide, longer passages go over several slides.
 import { h, clear, esc, debounce } from '../core/util.js';
 import { icon } from '../core/icons.js';
 import { btn, modal, seg, toggle, menu, select, activatable, enter, motionOK, emptyState, keepInView } from '../core/ui.js';
@@ -297,31 +297,6 @@ export default function create(ctx) {
   }
 
   // ------------------------------------------------------------ slide building
-  function splitText(text, n) {
-    const words = text.split(' ');
-    if (n <= 1 || words.length < n * 3) return [text];
-    const out = [];
-    let start = 0;
-    for (let k = 1; k < n; k++) {
-      const target = Math.round((words.length * k) / n);
-      let best = target;
-      for (let d = 0; d < Math.min(8, words.length); d++) {
-        if (/[,;:.!?]$/.test(words[target - d - 1] || '')) { best = target - d; break; }
-        if (/[,;:.!?]$/.test(words[target + d - 1] || '')) { best = target + d; break; }
-      }
-      out.push(words.slice(start, best).join(' ')); start = best;
-    }
-    out.push(words.slice(start).join(' '));
-    // keep red-letter / italic markers balanced across parts
-    for (let i = 0; i < out.length - 1; i++) {
-      [['‹', '›'], ['[', ']']].forEach(([o, c]) => {
-        const open = out[i].lastIndexOf(o), close = out[i].lastIndexOf(c);
-        if (open > close) { out[i] += c; out[i + 1] = o + out[i + 1]; }
-      });
-    }
-    return out;
-  }
-
   async function buildCue(tr, book, segs) {
     const tinfo = await getInfo(tr);
     const verses = await versesFor(tr, book, segs);
@@ -355,43 +330,38 @@ export default function create(ctx) {
       }
       return f;
     };
-    // One verse may shrink to the minimum size; several verses together must stay comfortably large.
-    const roomy = Object.assign({}, style, { minFont: Math.max(style.minFont || 58, Math.round((style.maxFont || 150) * 0.56)) });
-    // A single verse that would need text smaller than 80 px (on the 1920-wide screen) is cut into parts instead.
-    const single = Object.assign({}, style, { minFont: Math.max(style.minFont || 58, 80) });
-    const fits = (g) => fitsText(frameFor(g), g.length > 1 ? roomy : single, aspect);
-    const splitVerse = (v) => {
-      for (let n = 2; n <= 5; n++) {
-        const parts = splitText(v.text, n);
-        const pparts = pinfo ? splitText(pmap.get(v.c + ':' + v.v) || '', parts.length) : null;
-        const ps = parts.map((t, i) => ({ c: v.c, v: v.v, text: t, ptext: pparts ? pparts[i] || '' : null, part: 'abcde'[i], pn: i + 1, pt: parts.length }));
-        if (ps.every((p) => fits([p])) || n === 5) return ps;
-      }
-      return [v];
+    // Whole verses only: a verse is never cut across slides. Up to 3 verses share a slide (or the number
+    // chosen in the options); a longer passage is spread evenly over slides (4 verses: 2 + 2, 7: 3 + 2 + 2).
+    // The text gets smaller when it must, down to a floor; only below that do the verses go on more slides.
+    const usual = Math.max(style.minFont || 58, Math.round((style.maxFont || 150) * 0.56));
+    const STEPS = [usual, 72, 64, 56, 50, 44, 40];
+    const SINGLE = [usual, 72, 64, 56, 50, 44, 40, 36, 32, 28];
+    const smallest = (g, steps) => {
+      for (const px of steps) if (fitsText(frameFor(g), Object.assign({}, style, { minFont: px }), aspect)) return px;
+      return 0;
     };
     const per = S().perSlide;
+    const maxPer = per === 'auto' ? 3 : Math.max(1, +per || 1);
     const groups = [];
-    const MAXV = 4;
-    const pack = (list, maxPer) => {
-      let cur = [];
-      for (const v of list) {
-        const tryG = cur.concat([v]);
-        if (cur.length < maxPer && fits(tryG)) { cur = tryG; continue; }
-        if (cur.length) { groups.push(cur); cur = []; }
-        if (fits([v])) cur = [v];
-        else splitVerse(v).forEach((p) => groups.push([p]));
-      }
-      if (cur.length) groups.push(cur);
+    const sizes = [];
+    const balanced = (list, max) => {
+      const k = Math.ceil(list.length / max);
+      const base = Math.floor(list.length / k), extra = list.length % k;
+      const out = [];
+      let i = 0;
+      for (let j = 0; j < k; j++) { const n = base + (j < extra ? 1 : 0); out.push(list.slice(i, i + n)); i += n; }
+      return out;
     };
-    if (per === 'auto') pack(verses, MAXV);
-    else {
-      const n = +per || 1;
-      for (let i = 0; i < verses.length; i += n) {
-        const chunk = verses.slice(i, i + n);
-        if (fits(chunk)) groups.push(chunk); else pack(chunk, n);
-      }
-    }
-    const frames = groups.map(frameFor);
+    const place = (g) => {
+      if (g.length === 1) { groups.push(g); sizes.push(smallest(g, SINGLE) || SINGLE[SINGLE.length - 1]); return; }
+      const px = smallest(g, STEPS);
+      if (px) { groups.push(g); sizes.push(px); return; }
+      balanced(g, Math.ceil(g.length / 2)).forEach(place); // too long even small: fewer verses on each slide
+    };
+    balanced(verses, maxPer).forEach(place);
+    const baseFrame = frameFor;
+    const frameAt = (g, i) => { const f = baseFrame(g); if (sizes[i] && sizes[i] < (style.minFont || 58)) f.minFont = sizes[i]; return f; };
+    const frames = groups.map(frameAt);
     const first = verses[0], last = verses[verses.length - 1];
     const title = refText(tinfo.names, book, segs);
     return {
@@ -412,7 +382,7 @@ export default function create(ctx) {
     if (!cur || !cur.bounds) return null;
     const tinfo = await getInfo(tr);
     const counts = tinfo.books[book - 1][2];
-    const step = S().perSlide === 'auto' ? 2 : +S().perSlide || 1;
+    const step = S().perSlide === 'auto' ? 3 : +S().perSlide || 1;
     let c, v1, v2;
     if (dir > 0) {
       c = cur.bounds.last.c; v1 = cur.bounds.last.v + 1;
@@ -497,7 +467,8 @@ export default function create(ctx) {
         ctx.isMobile() ? h('label', 'Second translation') : null,
         ctx.isMobile() ? (() => { const x = select([['', 'None']].concat(trList.filter((t) => t.id !== st.tr).map((t) => [t.id, t.abbr + ' · ' + t.name])), S().parallel || '',
           (v) => { settings.set('bible.parallel', v); parSel.value = v; restage(); }, 'field'); x.setAttribute('aria-label', 'Second translation'); return x; })() : null,
-        h('label', 'Verses per slide'), seg([['auto', 'Auto'], ['1', '1'], ['2', '2'], ['3', '3'], ['4', '4']], String(s.perSlide), set('perSlide')),
+        h('label', 'Verses per slide'), seg([['auto', 'Auto (up to 3)'], ['1', '1'], ['2', '2'], ['3', '3'], ['4', '4']], String(s.perSlide), set('perSlide')),
+        h('label', ''), h('p.note', 'A verse is never cut in two: the words get smaller when a slide needs room for whole verses.'),
         h('label', 'Reference'), seg([['bottom', 'Bottom'], ['top', 'Top'], ['none', 'Hidden']], s.refPos, set('refPos')),
         h('label', 'Two translations'), seg([['cols', 'Side by side'], ['rows', 'Stacked']], s.parallelLayout, set('parallelLayout')),
         h('label', 'Verse numbers'), toggle('Show verse numbers', s.numbers, set('numbers')),
