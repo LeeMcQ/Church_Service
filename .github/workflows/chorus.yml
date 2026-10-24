@@ -1,0 +1,34 @@
+# Chorus robot: checks choruses shared from SDA Sabbath (issues made with the "Share a praise chorus" form),
+# and publishes them to every church once the maintainer adds the label "chorus-approved".
+# Set the repository variable AUTO_PUBLISH_CHORUSES to "true" to publish choruses that pass every check
+# without waiting for approval.
+name: Chorus robot
+
+on:
+  issues:
+    types: [opened, edited, labeled]
+
+permissions:
+  contents: write
+  issues: write
+  actions: write
+
+concurrency:
+  group: chorus-robot
+  cancel-in-progress: false
+
+jobs:
+  chorus:
+    if: contains(github.event.issue.labels.*.name, 'chorus') || startsWith(github.event.issue.title, 'Chorus:')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { ref: main }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: '3.12' }
+      - name: Check (and publish) the chorus
+        run: python tools/chorus_bot.py
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUTO_PUBLISH: ${{ vars.AUTO_PUBLISH_CHORUSES }}

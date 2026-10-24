@@ -1091,3 +1091,5 @@ input[type=range] { min-height: 24px; }
 .screen.stage-mon[hidden] { display: none; }
 @media (max-width: 760px) { .monitors > section.mon-stage { display: none; } }
 a.btn { text-decoration: none; }
+/* Shared choruses (from other churches) */
+.hy-shared { flex: none; font-size: var(--fs-xs); font-weight: 700; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--next); color: var(--next); }

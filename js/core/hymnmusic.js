@@ -47,6 +47,9 @@ music.entry = async (book, n) => {
   if (custom && custom.blob) {
     return { f: 'custom', tune: custom.name || 'Custom', ok: false, custom: true, blob: custom.blob };
   }
+  // MIDI that came with a shared chorus (community.js).
+  const shared = await db.get('files', 'cmidi:' + book + ':' + n).catch(() => null);
+  if (shared && shared.blob) return { f: 'custom', tune: shared.name || 'Shared chorus', ok: false, custom: true, bundled: true, blob: shared.blob };
   const idx = await loadIndex();
   const b = idx && idx.books[book];
   const found = (b && b.hymns[String(n)]) || null;

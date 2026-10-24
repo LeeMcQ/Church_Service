@@ -1,0 +1,59 @@
+name: Share a praise chorus
+description: Send a chorus to every church that uses SDA Sabbath (Hymns → Praise Choruses). The chorus robot checks it, the maintainer approves it.
+title: "Chorus: "
+labels: ["chorus"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for sharing! The **chorus robot** checks the words and looks for a MIDI file within a few minutes and writes the result below. Once the maintainer approves it, every copy of SDA Sabbath gets the chorus when it is online.
+        **Only songs that may be shared:** public domain, written by your church, or shared with the writer's permission. Most modern worship songs (CCLI) may not be shared.
+  - type: input
+    id: song-title
+    attributes:
+      label: Song title
+      placeholder: e.g. Give Me Oil in My Lamp
+    validations:
+      required: true
+  - type: input
+    id: author
+    attributes:
+      label: Writer
+      description: Who wrote the words (and music), if known.
+  - type: textarea
+    id: lyrics
+    attributes:
+      label: Lyrics
+      description: One empty line between stanzas. Put a line "Chorus:" before the chorus.
+      render: text
+    validations:
+      required: true
+  - type: dropdown
+    id: rights
+    attributes:
+      label: May these words be shared with every church?
+      options:
+        - public-domain
+        - own
+        - permission
+        - unsure
+      description: "public-domain: an old song, or the writer died more than 70 years ago · own: written by our church or a member · permission: the writer allows sharing"
+    validations:
+      required: true
+  - type: input
+    id: church
+    attributes:
+      label: Shared by (church)
+      description: Optional. Shown publicly.
+  - type: textarea
+    id: midi
+    attributes:
+      label: MIDI file (optional)
+      description: Drag a .zip with the .mid file in here (GitHub does not take .mid files directly), or paste a link to a MIDI file. Leave it empty and the robot looks for one.
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Confirmation
+      options:
+        - label: I am allowed to share these words, and they may be shown in every church that uses SDA Sabbath.
+          required: true
