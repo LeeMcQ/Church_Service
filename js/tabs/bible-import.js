@@ -40,10 +40,12 @@ export function importBibleDialog(onDone) {
     h('p.note', 'Tap Add: it downloads once and then works offline.'));
   // Second free source: getBible (api.getbible.net), which also carries many African-language Bibles.
   const GB = 'https://api.getbible.net';
+  let srcInfo = { ao: 0, gb: 0, aoErr: '', gbErr: '' };
   async function loadAo() {
     if (aoIndex) return aoIndex;
     const out = [];
     const seen = new Set();
+    srcInfo = { ao: 0, gb: 0, aoErr: '', gbErr: '' };
     try {
       const r = await fetch(AO + '/api/available_translations.json');
       if (!r.ok) throw new Error(r.status);
@@ -52,9 +54,9 @@ export function importBibleDialog(onDone) {
         const o = { src: 'ao', id: t.id, abbr: t.shortName || t.id, name: t.englishName || t.name || t.id, lang: t.language || '',
           langName: t.languageEnglishName || t.languageName || '', license: t.licenseUrl ? 'licence: ' + String(t.licenseUrl).replace(/^https?:\/\//, '').slice(0, 40) : '',
           link: t.completeTranslationApiLink || ('/api/' + t.id + '/complete.json') };
-        seen.add((o.abbr + '|' + o.langName).toLowerCase()); out.push(o);
+        seen.add((o.abbr + '|' + o.langName).toLowerCase()); out.push(o); srcInfo.ao++;
       });
-    } catch (e) { /* offline or blocked: the other source may still answer */ }
+    } catch (e) { srcInfo.aoErr = String(e.message || e); }
     try {
       const r = await fetch(GB + '/v2/translations.json');
       if (!r.ok) throw new Error(r.status);
@@ -64,9 +66,9 @@ export function importBibleDialog(onDone) {
         const o = { src: 'gb', id: t.abbreviation || k, abbr: t.abbreviation || k, name: t.translation || k, lang: t.lang || '', langName: t.language || '',
           license: t.distribution_license ? 'licence: ' + String(t.distribution_license).slice(0, 40) : '', link: '/v2/' + encodeURIComponent(t.abbreviation || k) + '.json' };
         const key = (o.abbr + '|' + o.langName).toLowerCase();
-        if (!seen.has(key)) { seen.add(key); out.push(o); }
+        if (!seen.has(key)) { seen.add(key); out.push(o); srcInfo.gb++; }
       });
-    } catch (e) { /* ignore */ }
+    } catch (e) { srcInfo.gbErr = String(e.message || e); }
     aoIndex = out;
     return aoIndex;
   }
@@ -125,7 +127,13 @@ export function importBibleDialog(onDone) {
     hits = hits
       .sort((x, y) => rank(x) - rank(y) || (x.langName + x.name).localeCompare(y.langName + y.name))
       .slice(0, qq ? 60 : 80);
-    if (!hits.length) { searchBox.appendChild(h('p.note', 'No Bible matches “' + q + '”. Try the language name (Xhosa, Zulu, Sesotho …) or leave the box empty to browse.')); return; }
+    if (!hits.length) {
+      const bad = [srcInfo.aoErr && 'bible.helloao.org', srcInfo.gbErr && 'getBible'].filter(Boolean);
+      searchBox.appendChild(h('p.note', 'No Bible matches “' + q + '”. The free lists hold ' + list.length + ' Bibles (' + srcInfo.ao + ' from bible.helloao.org, ' + srcInfo.gb + ' from getBible)'
+        + (bad.length ? '; ' + bad.join(' and ') + ' could not be reached, check your connection and reopen this window' : '; this language is not in them')
+        + '. Most Xhosa, Zulu and Sesotho Bibles are copyrighted (Bible Society of South Africa): get the file from the Bible Society or your church, then choose the file in the form below the list.'));
+      return;
+    }
     if (fuzzy) searchBox.appendChild(h('p.note', 'No exact match for “' + q + '”. Closest results:'));
     hits.forEach((t) => searchBox.appendChild(row(t)));
   }
