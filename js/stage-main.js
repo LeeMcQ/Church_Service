@@ -518,7 +518,7 @@ function devName() {
 if (!local.did) { local.did = uid(); saveLocal(); }
 function helloMsg(nonce) {
   const pin = local.pins[pinKey()];
-  return { t: 'hello', sid: SID, v: 1, kind: kindName(), name: PREVIEW ? 'Preview' : local.name || '', dev: devName(), did: local.did, pin: pin || undefined, nonce, w: innerWidth, h: innerHeight };
+  return { t: 'hello', sid: SID, v: 1, slot: params.get('slot') === '2' ? 2 : 1, kind: kindName(), name: PREVIEW ? 'Preview' : local.name || '', dev: devName(), did: local.did, pin: pin || undefined, nonce, w: innerWidth, h: innerHeight };
 }
 function hello() {
   if (follower) { const id = follower.hostId(); if (id) follower.join(id); return; }

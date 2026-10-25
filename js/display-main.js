@@ -27,7 +27,10 @@ const params = new URLSearchParams(location.search);
 const root = document.getElementById('root');
 const outs = new Set();
 const post = (m) => outs.forEach((f) => { try { f(m); } catch (e) { /* closed */ } });
-const disp = createDisplay(root, { post });
+// ?mirror=1: the second projector (same picture as the main one, videos silent).
+const MIRROR = params.get('mirror') === '1';
+if (MIRROR) document.title = 'SDA Sabbath · projector 2';
+const disp = createDisplay(root, { post, mirror: MIRROR });
 window.SelahDisplay = disp; // direct API used by the opener window (streams, snapshots)
 
 // 1) Opener / any same-origin control window that messages us
@@ -53,7 +56,7 @@ try {
     if (!e.data || e.data.t !== 'who') return;
     bc.postMessage({ t: 'here' });
     // The control page that opened this window was reloaded: tell it directly, so it takes this window over.
-    try { if (window.opener && !window.opener.closed) window.opener.postMessage({ t: 'here-win' }, location.origin); } catch (er) { /* */ }
+    try { if (window.opener && !window.opener.closed) window.opener.postMessage({ t: MIRROR ? 'here-mirror' : 'here-win' }, location.origin); } catch (er) { /* */ }
   };
   bc.postMessage({ t: 'here' });
 } catch (e) { /* old browser */ }

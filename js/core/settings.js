@@ -11,6 +11,7 @@ export const DEFAULTS = {
     pad: 96, minFont: 58, maxFont: 150, fade: 250, transition: 'fade', aspect: 'auto',
     bgImage: null, bgDim: 0.45, logo: null, logoText: '', clearShows: 'background', weight: 'bold',
     keepFull: true, // put the projector window back in full screen whenever it drops out
+    screenLabel: '', screenLabel2: '', mirror: false, // projector screen; a second projector (same picture) and its screen
   },
   bible: {
     primary: 'kjv', parallel: '', parallelLayout: 'cols', perSlide: 'auto', numbers: true, redLetter: false,
@@ -32,6 +33,7 @@ export const DEFAULTS = {
     code: '', pin: '', online: false, layout: 'full', featured: 'speaker', warnSec: 120, clock24: true,
     showNext: true, showPlan: true, showNotes: true, showLive: true, textSize: 1, mirror: false,
     allowWinControl: true, msgSec: 0, autoPlanTimer: true, preview: true, monitor: true, monitorPreview: false,
+    useWindow: false, second: false, screenLabel: '', screenLabel2: '', // stage windows on this PC (layout in Settings → Displays)
     presets: [], timers: [], turnUrl: '', turnUser: '', turnPass: '', relays: '', hostKey: null,
   },
   // Live stream (OBS): lower thirds and the full-slide output, their look, and the OBS connection.

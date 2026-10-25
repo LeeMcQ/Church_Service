@@ -7,6 +7,7 @@ import { link } from './core/link.js';
 import { settings } from './core/settings.js';
 import { icon } from './core/icons.js';
 import { hub as stageHub } from './core/stagehub.js';
+import { missing, openNext, roleName } from './core/screens.js';
 
 function frameOf(cue, i) {
   if (!cue) return null;
@@ -136,8 +137,16 @@ export function createMonitors(host) {
   function updateExtra() {
     if (!link.kind) extra.textContent = 'No display connected. Press Present to open one.';
     else extra.textContent = (link.ready ? 'Presenting to: ' : 'Connecting to: ') + (link.info.label || link.kind) +
-      (link.info.w ? '  (' + link.info.w + ' × ' + link.info.h + ')' : '');
+      (link.info.w ? '  (' + link.info.w + ' × ' + link.info.h + ')' : '') + (link.hasMirror() ? ' + projector 2' : '');
+    // The screen layout has more outputs than are open: one click opens the next (browsers allow one per click).
+    const todo = link.kind ? missing().filter((r) => r !== 'projector') : [];
+    if (todo.length) {
+      extra.append(h('div', { style: { marginTop: '6px' } }, h('button.btn.sm.primary', { type: 'button', onclick: async () => { await openNext(); setTimeout(updateExtra, 900); } },
+        icon('present'), h('span', 'Open ' + roleName(todo[0]) + (todo.length > 1 ? ' (' + todo.length + ' to open)' : '')))));
+    }
   }
+  link.on('mirror', updateExtra);
+  stageHub.on('outlets', updateExtra);
 
   // "Same as Live": the Next monitor is showing what is already on screen.
   const markSame = () => nextScreen.classList.toggle('same', live.sameAsLive());

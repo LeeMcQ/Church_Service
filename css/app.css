@@ -1093,3 +1093,9 @@ input[type=range] { min-height: 24px; }
 a.btn { text-decoration: none; }
 /* Shared choruses (from other churches) */
 .hy-shared { flex: none; font-size: var(--fs-xs); font-weight: 700; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--next); color: var(--next); }
+/* Screens panel */
+.scr-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); flex-wrap: wrap; }
+.scr-row.on { border-color: var(--next); }
+.scr-row .scr-ic { flex: none; opacity: .8; }
+.scr-row select { max-width: 260px; }
+.scr-on { color: var(--next); font-size: var(--fs-xs); font-weight: 700; }

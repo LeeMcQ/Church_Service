@@ -1,4 +1,5 @@
 // Settings: how the screen looks, displays, Bibles, the app itself, and what's coming next.
+import { screensPanel } from './screens-panel.js';
 import { h, clear, uid, fmtBytes, download, readText, scrubUrls, debounce } from '../core/util.js';
 import { icon } from '../core/icons.js';
 import { btn, seg, toggle, toast, confirmBox } from '../core/ui.js';
@@ -85,7 +86,8 @@ export default function create(ctx) {
   section('display', 'Displays', (box) => {
     const stateLine = h('p', link.kind ? (link.ready ? 'Presenting to ' : 'Connecting to ') + link.info.label + (link.info.w ? ' (' + link.info.w + ' × ' + link.info.h + ')' : '') : 'No display connected.');
     const screens = h('div.list');
-    box.append(stateLine,
+    box.append(h('div.card', { style: { marginBottom: '14px' } }, h('h3', 'Screens: projectors and stage screens'), screensPanel()),
+      stateLine,
       h('div.row.wrap', { style: { margin: '10px 0' } },
         h('button.btn', { type: 'button', onclick: () => link.openWindow({ prompt: true }) }, icon('present'), 'Open display window'),
         'getScreenDetails' in window ? h('button.btn', { type: 'button', onclick: async () => {

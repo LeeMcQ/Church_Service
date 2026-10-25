@@ -5,7 +5,9 @@ import { isBlob, throttle, safeHttpUrl } from '../core/util.js';
 
 const EQ_FREQS = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
 
-export function createDisplay(root, { post, self = false } = {}) {
+export function createDisplay(root, { post, self = false, mirror = false } = {}) {
+  // mirror: a second projector showing the same picture. It plays videos silently (the main projector has the
+  // sound) and keeps them in time with the main projector.
   let deck = null, index = 0, style = {}, stream = null, frozen = null;
   let video = null, audio = null, mediaOpts = {}, abLoop = null, lastFrame = null;
   const winAspect = () => Math.max(0.5, (root.clientWidth || innerWidth) / (root.clientHeight || innerHeight || 1));
@@ -50,6 +52,7 @@ export function createDisplay(root, { post, self = false } = {}) {
   function applyVolume(v) {
     mediaOpts.volume = v;
     if (!video) return;
+    if (mirror) { video.muted = true; return; }
     if (v > 1 || audio) {
       const a = ensureAudioGraph();
       if (a) { video.volume = 1; a.gain.gain.value = v; return; }
@@ -171,7 +174,8 @@ export function createDisplay(root, { post, self = false } = {}) {
       case 'frame': video.pause(); video.currentTime = Math.max(0, video.currentTime + v / 25); break;
       case 'rate': video.playbackRate = v; break;
       case 'volume': applyVolume(v); break;
-      case 'mute': video.muted = !!v; if (!v && audio) audio.ctx.resume(); break;
+      case 'mute': if (!mirror) { video.muted = !!v; if (!v && audio) audio.ctx.resume(); } break;
+      case 'sync': if (mirror && v && isFinite(v.time)) { if (Math.abs(video.currentTime - v.time) > 0.35) video.currentTime = v.time; if (v.paused && !video.paused) video.pause(); else if (!v.paused && video.paused) safePlay(); } break;
       case 'loop': video.loop = !!v; break;
       case 'ab': abLoop = v && v.b > v.a ? v : null; break;
       case 'fit': mediaOpts.fit = v; applyVisual(); break;
