@@ -52,6 +52,7 @@ export const DEFAULTS = {
   ai: { provider: 'openai', apiKey: '', model: '', imageModel: '', auto: {}, keySession: false },
   // The church's details, used by Banners (name, town, sunset times, service countdown, giving QR code).
   church: { name: '', town: '', lat: null, lon: null, service: '09:30', givingUrl: '', givingLabel: '' },
+  backup: { slides: true, videos: false, lastDrive: null, lastFile: null },
 };
 
 function merge(base, over) {

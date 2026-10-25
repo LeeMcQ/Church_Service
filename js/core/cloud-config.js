@@ -7,4 +7,7 @@ export const CLOUD = {
   anonKey: '',        // the "anon public" key
   google: false,      // true once Google sign-in is turned on in Supabase → Authentication → Providers
   requireSignIn: true, // first start asks to sign in (never blocks the app without internet)
+  // Google Drive backup (works without Supabase): an OAuth client id from Google Cloud, type "Web application".
+  // See docs/backup.md. Empty: the Drive buttons explain that it is not set up; backup files still work.
+  googleClientId: '',
 };

@@ -218,6 +218,20 @@ def main():
                 s = L(); assert s['live'] == 'deck' and s['i'] == 1, 'Present showed %r' % s
             t_pdf()
 
+            @check('a backup file can be made and read back')
+            def t_backup():
+                r = pg.evaluate("""async () => {
+                  const { db } = await import('./js/core/db.js');
+                  await db.put('plans', 'smoke-plan', { id: 'smoke-plan', name: 'Smoke test plan', items: [], updated: Date.now() });
+                  const b = await import('./js/core/backup.js');
+                  const { blob, stats } = await b.buildBackup({ slides: true, videos: false, device: 'test' });
+                  const pkg = await b.readBackup(new File([blob], 'x' + b.EXT));
+                  return { plans: pkg.manifest.stores.plans.map((x) => x[0]), slides: stats.slides, size: blob.size };
+                }""")
+                assert 'smoke-plan' in r['plans'], 'plan missing from the backup: %r' % r
+                assert r['slides'] >= 1, 'slides missing from the backup: %r' % r
+            t_backup()
+
             @check('hymn music plays (SoundFont loads)')
             def t_music():
                 r = pg.evaluate("""async () => {

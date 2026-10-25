@@ -1,5 +1,6 @@
 // Settings: how the screen looks, displays, Bibles, the app itself, and what's coming next.
 import { accountSection, openFeedback } from './account.js';
+import { backupSection } from './backup-ui.js';
 import { screensPanel } from './screens-panel.js';
 import { h, clear, uid, fmtBytes, download, readText, scrubUrls, debounce } from '../core/util.js';
 import { icon } from '../core/icons.js';
@@ -164,8 +165,8 @@ export default function create(ctx) {
         h('div.row.wrap', h('button.btn.sm', { type: 'button', onclick: () => { cache.textContent = 'Checking…'; if (!ctx.checkOffline || !ctx.checkOffline(true)) offlineStatus().then((t) => { cache.textContent = t; }); } }, icon('check'), 'Check & repair offline files'))),
       h('label', 'Storage'), h('div.row.wrap', storage, h('button.btn.sm', { type: 'button', onclick: async () => { const ok = await persistStorage(); toast(ok ? 'SDA Sabbath’s data is protected from automatic clean-up.' : 'The browser has not allowed it yet. Install SDA Sabbath first.', ok ? 'ok' : ''); } }, 'Protect data')),
       h('label', 'Backup'), h('div.row.wrap',
-        h('button.btn.sm', { type: 'button', onclick: exportBackup }, icon('download'), 'Export settings & plans'),
-        h('button.btn.sm', { type: 'button', onclick: importBackup }, icon('upload'), 'Import')),
+        h('button.btn.sm.primary', { type: 'button', onclick: () => { active = 'backup'; rebuild(); } }, icon('upload'), 'Back up or move to another device'),
+        h('button.btn.sm', { type: 'button', onclick: importBackup, title: 'For the .json backups made by older versions' }, 'Import an old .json backup')),
       h('label', 'Update'), h('div.row.wrap',
         h('button.btn.sm', { type: 'button', onclick: hardUpdate }, icon('reload'), 'Update now'),
         h('button.btn.sm', { type: 'button', onclick: freshCopy }, 'Download a fresh copy'),
@@ -279,6 +280,7 @@ export default function create(ctx) {
   });
 
   // ------------------------------------------------------------ Account
+  section('backup', 'Backup', (box) => backupSection(box));
   section('account', 'Account', (box) => accountSection(box, ctx));
 
   section('about', 'About', (box) => {

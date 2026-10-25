@@ -55,6 +55,7 @@ a local web address. Everything is explained in the guides below.
 | [Bibles and hymns](docs/bibles-and-hymns.md) | Bible translations, hymnbooks, shared praise choruses, lyrics search, hymn music |
 | [Stage screen and OBS](docs/stage-and-obs.md) | The Tools tab, stage screens, phones and laptops, live streaming with OBS, Stream Deck buttons |
 | [Banners and AI](docs/banners-and-ai.md) | Banners, editing on the slide, banner music, the optional online AI |
+| [Backup and moving devices](docs/backup.md) | Back up to Google Drive or a file, restore on another PC or phone, switching on Google Drive |
 | [Development](docs/development.md) | Weak computers, the code layout, building, testing, deploying |
 | [Cloud setup](supabase/SETUP.md) | Switching on accounts, statistics and suggestions (maintainer) |
 

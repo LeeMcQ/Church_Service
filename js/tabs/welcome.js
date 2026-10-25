@@ -8,6 +8,7 @@ import { cloud } from '../core/cloud.js';
 import { churchForm } from './church-form.js';
 import { screensPanel } from './screens-panel.js';
 import { signInBox, statsToggle } from './account.js';
+import { restoreButtons } from './backup-ui.js';
 
 const LANGS = [
   ['en', 'English', { 'bible.primary': 'kjv', 'bible.parallel': '', 'hymns.book': 'sda-online' }],
@@ -60,6 +61,7 @@ export function openWelcome({ onClose, only } = {}) {
     if (step === 'church') {
       let lang = settings.v.bible.primary === 'afr53' ? 'af' : settings.v.bible.parallel === 'afr53' ? 'both' : 'en';
       body = h('div.col', { style: { gap: '12px' } },
+        restoreButtons(),
         h('label.muted', 'Language of your services'),
         seg(LANGS.map(([k, label]) => [k, label]), lang, (v) => { lang = v; const L = LANGS.find((x) => x[0] === v); Object.entries(L[2]).forEach(([k, val]) => settings.set(k, val)); }),
         h('p.note', 'Sets the Bible translation and hymnbook that open first. Every Bible and hymnbook stays available.'),

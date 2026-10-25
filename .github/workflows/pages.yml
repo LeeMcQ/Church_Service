@@ -75,7 +75,7 @@ jobs:
       - name: Collect the web app
         run: |
           mkdir -p site
-          cp -r index.html display.html stage.html obs.html privacy.html terms.html companion.html feedback.html admin.html manifest.webmanifest sw.js asset-manifest.json css js vendor fonts icons data site/
+          cp -r index.html display.html stage.html obs.html privacy.html terms.html companion.html feedback.html admin.html oauth.html manifest.webmanifest sw.js asset-manifest.json css js vendor fonts icons data site/
           touch site/.nojekyll
       - name: Add the companion downloads
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
