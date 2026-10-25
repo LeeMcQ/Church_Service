@@ -53,7 +53,7 @@ a local web address. Everything is explained in the guides below.
 | [Getting started](docs/getting-started.md) | Install, working offline, projector setup, the companion, casting, phones, several screens, accounts |
 | [Keyboard and clicker](docs/keyboard-and-clicker.md) | Shortcuts and presentation clickers |
 | [Bibles and hymns](docs/bibles-and-hymns.md) | Bible translations, hymnbooks, shared praise choruses, lyrics search, hymn music |
-| [Stage screen and OBS](docs/stage-and-obs.md) | The Tools tab, stage screens, phones and laptops, live streaming with OBS |
+| [Stage screen and OBS](docs/stage-and-obs.md) | The Tools tab, stage screens, phones and laptops, live streaming with OBS, Stream Deck buttons |
 | [Banners and AI](docs/banners-and-ai.md) | Banners, editing on the slide, banner music, the optional online AI |
 | [Development](docs/development.md) | Weak computers, the code layout, building, testing, deploying |
 | [Cloud setup](supabase/SETUP.md) | Switching on accounts, statistics and suggestions (maintainer) |

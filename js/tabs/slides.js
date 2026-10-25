@@ -102,9 +102,10 @@ export default function create(ctx) {
     info.textContent = deck.count + ' slides' + (deck.size ? ' · ' + fmtBytes(deck.size) : '');
     if ('IntersectionObserver' in window) io = new IntersectionObserver((ents) => ents.forEach((e) => { if (e.isIntersecting) { drawThumb(e.target); io.unobserve(e.target); } }), { root: grid.parentNode, rootMargin: '200px' });
     frames.forEach((f, i) => {
-      const t = h('button.thumb', { type: 'button', 'aria-pressed': String(i === stagedIndex), 'data-i': i, title: 'Slide ' + (i + 1) + ' — double-click to present',
-        onclick: () => { stageAt(i); if (isLiveDeck()) live.go(i); },
-        ondblclick: () => { stageAt(i); live.take(); } });
+      // A tap only puts the slide on Next (the preview). Nothing reaches the projector until Present (F5),
+      // also when this deck is already live, and a quick double tap on a phone does not present either.
+      const t = h('button.thumb', { type: 'button', 'aria-pressed': String(i === stagedIndex), 'data-i': i, title: 'Slide ' + (i + 1) + ' — tap to preview on Next, then Present (F5)',
+        onclick: () => stageAt(i) });
       if (deck.type !== 'pptx' && thumbs[i]) { const u = URL.createObjectURL(thumbs[i]); urls.push(u); t.appendChild(h('img', { src: u, alt: '', loading: 'lazy' })); }
       t.appendChild(h('span.n', String(i + 1)));
       grid.appendChild(t);

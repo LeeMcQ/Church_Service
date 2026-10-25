@@ -186,6 +186,38 @@ def main():
                 assert r == [43], 'books %r' % r
             t_import()
 
+            @check('remote buttons (Stream Deck) control the app')
+            def t_remote():
+                L = lambda: pg.evaluate("import('./js/core/live.js').then(m => ({ live: m.live.cue && m.live.cue.title, i: m.live.index, staged: m.live.staged && m.live.staged.title, blank: m.live.blank }))")
+                pg.evaluate("window.selah.remoteCommand('goto', { q: 'Psalm 23' })"); pg.wait_for_timeout(1200)
+                s1 = L(); assert s1['staged'] and 'Psalm' in s1['staged'], 'goto staged %r' % s1
+                pg.evaluate("window.selah.remoteCommand('present')"); pg.wait_for_timeout(1000)
+                s2 = L(); assert s2['live'] and 'Psalm' in s2['live'], 'present: live %r' % s2
+                pg.evaluate("window.selah.remoteCommand('next')"); pg.wait_for_timeout(500)
+                assert L()['i'] == s2['i'] + 1, 'next did not move'
+                pg.evaluate("window.selah.remoteCommand('black')"); pg.wait_for_timeout(300)
+                assert L()['blank'] == 'black', 'black did not switch on'
+                pg.evaluate("window.selah.remoteCommand('black')"); pg.wait_for_timeout(300)
+                assert not L()['blank'], 'black did not switch off'
+            t_remote()
+
+            @check('a PDF opens on Next and taps never present')
+            def t_pdf():
+                L = lambda: pg.evaluate("import('./js/core/live.js').then(m => ({ live: m.live.cue && m.live.cue.title, i: m.live.index, staged: m.live.staged && m.live.staged.title }))")
+                before = L()['live']
+                pg.evaluate("window.selah.showTab('slides')"); pg.wait_for_timeout(600)
+                pg.locator('.tabpanel:not([hidden]) input[type=file]').first.set_input_files(os.path.join(HERE, 'fixtures', 'deck.pdf'))
+                for _ in range(40):
+                    if L()['staged'] == 'deck': break
+                    pg.wait_for_timeout(250)
+                s = L(); assert s['staged'] == 'deck' and s['live'] == before, 'opening the PDF changed live: %r' % s
+                th = pg.locator('.tabpanel:not([hidden]) button.thumb')
+                th.nth(1).click(); pg.wait_for_timeout(300); th.nth(1).dblclick(); pg.wait_for_timeout(500)
+                assert L()['live'] == before, 'tapping a slide presented it'
+                pg.click('#presentBtn'); pg.wait_for_timeout(1000)
+                s = L(); assert s['live'] == 'deck' and s['i'] == 1, 'Present showed %r' % s
+            t_pdf()
+
             @check('hymn music plays (SoundFont loads)')
             def t_music():
                 r = pg.evaluate("""async () => {

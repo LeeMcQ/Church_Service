@@ -32,16 +32,12 @@ export function importBibleDialog(onDone) {
   // Full index from bible.helloao.org (1,200+ translations, public domain / free).
   const AO = 'https://bible.helloao.org';
   let aoIndex = null;
-  const searchInp = h('input.field', { type: 'search', placeholder: 'Search 1,200+ Bibles (KJV, Afrikaans, Xhosa…)', 'aria-label': 'Search Bibles', oninput: (e) => renderAo(e.target.value) });
-  const searchBox = h('div.col', { style: { gap: '4px', maxHeight: '200px', overflow: 'auto' } });
-  const saBox = h('div.col', { style: { gap: '4px', maxHeight: '240px', overflow: 'auto' } });
+  const searchInp = h('input.field', { type: 'search', placeholder: 'Search: Zulu, Xhosa, Sesotho, Afrikaans, KJV…', 'aria-label': 'Search Bibles', oninput: (e) => renderAo(e.target.value) });
+  const searchBox = h('div.col', { style: { gap: '4px', maxHeight: '320px', overflow: 'auto' } });
+  // One list: southern African Bibles first, then the rest of Africa, then every other language. Tap Add.
   const gets = h('div.col', { style: { gap: '6px' } },
-    h('b', 'Bibles of Africa (southern Africa first)'),
-    h('p.note', 'Every African-language Bible found in the two free Bible libraries (bible.helloao.org and getBible): Afrikaans, isiXhosa, isiZulu, Sesotho, Setswana, Sepedi, Xitsonga, Tshivenda, siSwati, isiNdebele, Shona, Chichewa, Swahili and more. Some are still under copyright and are shared by those libraries with permission: check the licence shown and that your church may use it. Tap Add; it is saved for offline use.'),
-    saBox,
-    h('label', 'Search all Bibles'),
-    searchInp, searchBox,
-    h('p.note', 'Needs internet while adding.'));
+    h('b', 'Find a Bible'), searchInp, searchBox,
+    h('p.note', 'Tap Add: it downloads once and then works offline.'));
   // Second free source: getBible (api.getbible.net), which also carries many African-language Bibles.
   const GB = 'https://api.getbible.net';
   async function loadAo() {
@@ -86,20 +82,19 @@ export function importBibleDialog(onDone) {
     const btn = h('button.btn.sm.primary', { type: 'button' }, 'Add');
     btn.onclick = () => addAo(t, btn);
     return h('div.row', { style: { gap: '6px', alignItems: 'center' } },
-      h('span.grow', h('b', t.abbr), h('span.note', '  ' + t.name + (t.langName ? ' · ' + t.langName : '') + (t.license ? ' · ' + t.license : ''))), btn);
+      h('span.grow', { title: t.license || '' }, h('b', t.name), h('span.note', t.langName ? '  ' + t.langName : '')), btn);
   };
+  const rank = (t) => (isSA(t) ? 0 : isAfrica(t) ? 1 : 2);
   async function renderAo(q) {
-    clear(searchBox); clear(saBox);
-    if (!aoIndex) { searchBox.appendChild(h('p.note', 'Loading Bible list…')); saBox.appendChild(h('p.note', 'Loading Bible list…')); }
+    clear(searchBox);
+    if (!aoIndex) searchBox.appendChild(h('p.note', 'Loading Bible list…'));
     const list = await loadAo();
-    clear(searchBox); clear(saBox);
-    if (!list.length) { const m = 'Could not load the Bible list. Check your connection.'; searchBox.appendChild(h('p.note', m)); saBox.appendChild(h('p.note', m)); return; }
-    const sa = list.filter(isSA).sort((x, y) => (x.langName + x.name).localeCompare(y.langName + y.name));
-    const af = list.filter(isAfrica).sort((x, y) => (x.langName + x.name).localeCompare(y.langName + y.name));
-    if (sa.length || af.length) { sa.concat(af).forEach((t) => saBox.appendChild(row(t))); }
-    else saBox.appendChild(h('p.note', 'No African-language Bibles were found in the Bible lists right now. Use the search below.'));
+    clear(searchBox);
+    if (!list.length) { searchBox.appendChild(h('p.note', 'Could not load the Bible list. Check your connection.')); return; }
     const qq = (q || '').toLowerCase().trim();
-    const hits = list.filter((t) => !qq || t.abbr.toLowerCase().includes(qq) || t.name.toLowerCase().includes(qq) || t.lang.toLowerCase().includes(qq) || t.langName.toLowerCase().includes(qq)).slice(0, 20);
+    const hits = list.filter((t) => !qq || t.abbr.toLowerCase().includes(qq) || t.name.toLowerCase().includes(qq) || t.lang.toLowerCase() === qq || t.langName.toLowerCase().includes(qq))
+      .sort((x, y) => rank(x) - rank(y) || (x.langName + x.name).localeCompare(y.langName + y.name))
+      .slice(0, qq ? 60 : 80);
     if (!hits.length) { searchBox.appendChild(h('p.note', 'No Bible matches “' + q + '”.')); return; }
     hits.forEach((t) => searchBox.appendChild(row(t)));
   }
@@ -131,8 +126,9 @@ export function importBibleDialog(onDone) {
   modal({
     title: 'Add a Bible translation',
     body: h('div.col',
-      h('p.note.warn', 'Many Bibles are copyrighted. The lists below come from free Bible libraries that share them with permission; check the licence shown. NIV, ESV, NKJV and the 1975 Xhosa Bible (Biblica, Crossway, Thomas Nelson, Bible Society of South Africa) are not in those libraries: add them only from a file your church is licensed to use (choose it below).'),
-      gets, presets,
+      gets,
+      h('p.note', { style: { marginTop: '10px' } }, 'Have a Bible file your church is licensed to use (NIV, ESV, NKJV, Xhosa 1975 …)? Choose it here:'),
+      presets,
       file, h('div.form', h('label', 'Short name'), abbr, h('label', 'Full name'), name, h('label', 'Language (book names)'), lang), status),
     actions: [{ label: 'Cancel' }, {
       label: 'Add Bible', primary: true, onclick: async () => {

@@ -76,5 +76,17 @@ export function createQuick({ input, pop, wrap, getTab, showTab }) {
   });
   return {
     focus() { wrap.classList.add('open'); input.focus(); input.select(); },
+    /** Stage (and optionally present) the first match for q, as if typed in the box. Used by remote control. */
+    async run(q, present) {
+      input.value = String(q || '').trim();
+      await suggest();
+      pop.hidden = true;
+      if (!items.length) { input.value = ''; return false; }
+      const it = items[0];
+      input.value = '';
+      await it.run();
+      if (present) await new Promise((r) => setTimeout(r, 60));
+      return it.label;
+    },
   };
 }

@@ -17,12 +17,13 @@ import { openClickerSetup, builtinAction } from './clickerui.js';
 import { hub as stageHub, timerValue } from './core/stagehub.js';
 import { cloud } from './core/cloud.js';
 import { currentLayout } from './core/screens.js';
+import { remote, startRemote, sendStatus } from './core/remotectl.js';
 // Loaded when first needed, to keep start-up quick: OBS control, the first-start setup and the feedback form.
 const lazyWelcome = () => import('./tabs/welcome.js');
 const openFeedback = (c, o) => import('./tabs/account.js').then((m) => m.openFeedback(c, o));
 
 export const VERSION = '1.5.0';
-export const BUILD = '91ab356';
+export const BUILD = '6466d79';
 
 const TABS = [
   { id: 'bible', label: 'Bible', icon: 'bible', file: 'bible.js', load: () => import('./tabs/bible.js') },
@@ -466,6 +467,48 @@ stageHub.onCommand = (op, arg) => {
   else if (op === 'go' && Number.isFinite(+arg)) live.go(+arg);
 };
 
+// Remote control (Stream Deck, Bitfocus Companion, any program) through the companion's /api/control/<op>.
+// A browser may not open a projector window without a click, so "present" needs the projector already open.
+async function remoteCommand(op, m = {}) {
+  const q = String(m.q || m.n || '').slice(0, 200);
+  const needDisplay = () => { if (link.ready) return true; ui.toast('A remote button asked to present, but no projector is open. Press Present once on this PC first.', 'err', 6000); return false; };
+  switch (op) {
+    case 'ping': return;
+    case 'present': if (needDisplay()) await doPresent(); return;
+    case 'goto': case 'show': {
+      if (!q) return;
+      const label = await quick.run(/^\d+$/.test(q) ? 'hymn ' + q : q, op === 'show');
+      if (!label) { ui.toast('Remote: nothing found for “' + q + '”.', 'err', 4000); return; }
+      if (op === 'show' && needDisplay()) await doPresent();
+      return;
+    }
+    case 'plan-next': case 'plan-prev': {
+      const p = await getTab('plan');
+      if (!(await p.step(op === 'plan-next' ? 1 : -1))) ui.toast('Remote: no plan is open.', 'err', 3000);
+      return;
+    }
+    case 'music-toggle': case 'music-stop': case 'music-fade': {
+      const { music } = await import('./core/hymnmusic.js');
+      if (op === 'music-toggle') music.toggle(); else if (op === 'music-stop') music.stop(); else music.fade(3000);
+      return;
+    }
+    case 'go': if (Number.isFinite(+m.i)) live.go(Math.max(0, +m.i - 1)); return; // 1 = first slide
+    default: stageHub.onCommand(op);
+  }
+}
+ctx.remoteCommand = remoteCommand;
+ctx.remote = remote;
+function remoteStatus() {
+  const c = live.cue, s = live.staged;
+  return {
+    live: c ? { title: c.title || '', sub: c.sub || '', tab: c.tab || '', slide: live.index + 1, slides: live.count() } : null,
+    next: s ? { title: s.title || '', sub: s.sub || '', tab: s.tab || '' } : null,
+    blank: live.blank || null,
+    projector: !!link.ready,
+  };
+}
+['live', 'go', 'blank', 'staged'].forEach((ev) => live.on(ev, () => sendStatus()));
+
 // ------------------------------------------------------------ sound output device (desktop)
 let audioSink = '';
 async function listAudioDevices() {
@@ -842,6 +885,10 @@ async function detectCompanion() {
     // Stage screens on the church network (no internet needed) follow this app through the companion.
     // Only the PC running the companion hosts them (a phone used as a remote must not answer as well).
     if (local) stageHub.connectLan(location.origin, settings.v.companion.pin);
+    // Stream Deck / Bitfocus Companion buttons reach this page through the companion (only the PC that runs it).
+    if (local && info.control && new URLSearchParams(location.search).get('remote') !== '1') {
+      startRemote({ origin: location.origin, pin: info.pin || settings.v.companion.pin, onCommand: remoteCommand, status: remoteStatus });
+    }
     const params = new URLSearchParams(location.search);
     if (!local || params.get('remote') === '1') {
       // Opened from a phone on the church network: become a remote for the display there.
@@ -859,7 +906,19 @@ function registerSW() {
       const t = ui.toast(h('span', 'An SDA Sabbath update is ready. ', h('button.btn.sm', { type: 'button', onclick: () => { w.postMessage({ t: 'skip' }); } }, 'Update now')), 'ok', 15000);
       return t;
     };
-    if (reg.waiting && navigator.serviceWorker.controller) ask(reg.waiting);
+    // An update that finished downloading earlier is put in place straight away when the app opens with
+    // nothing on screen (nothing to lose); otherwise the operator is asked.
+    if (reg.waiting && navigator.serviceWorker.controller) {
+      if (!live.cue && !live.staged) reg.waiting.postMessage({ t: 'skip' }); else ask(reg.waiting);
+    }
+    // Phones resume an installed app without reloading it, so the browser never looks for updates by itself:
+    // look whenever the app comes back to the front (at most every 10 minutes), and ask again if one waits.
+    let lastCheck = Date.now();
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return;
+      if (reg.waiting && navigator.serviceWorker.controller && !live.cue) { if (!live.staged) reg.waiting.postMessage({ t: 'skip' }); else ask(reg.waiting); return; }
+      if (Date.now() - lastCheck > 10 * 60000) { lastCheck = Date.now(); reg.update().catch(() => {}); }
+    });
     reg.addEventListener('updatefound', () => {
       const w = reg.installing;
       if (!w) return;

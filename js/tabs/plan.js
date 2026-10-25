@@ -1102,6 +1102,8 @@ export default function create(ctx) {
   const api = {
     el,
     addItem: (ref) => addItem(ref),
+    /** Move to the next (+1) or previous (-1) part of the plan on the Next screen (remote control). */
+    step: async (d) => { await ready; if (!plan) return false; await step(d); return true; },
     onShow() { render(); },
     open() { return null; },
   };

@@ -129,4 +129,31 @@ air, the lower third leaves out the automatic words (the slide already shows the
 **Look:** Classic (dark bar), Light or Minimal (text with shadow only), left or centred, four sizes, accent colour (or the
 projector's), all inside the broadcast-safe area. The tab has a live preview over a checkerboard (= see-through).
 
+## Stream Deck and remote buttons
+
+Like OBS, SDA Sabbath can be driven by buttons: an Elgato Stream Deck, Bitfocus Companion (with a Stream Deck,
+X-keys or a phone), or any program that opens a web address. It needs the **companion** running on the service PC
+and SDA Sabbath opened from it at `http://localhost:7777`. **Tools → Stream → Stream Deck and remote buttons**
+lists every address with a Copy button and a Test button.
+
+| Address (on the service PC) | What it does |
+|---|---|
+| `http://localhost:7777/api/control/next` / `prev` | next / previous slide |
+| `…/black` / `logo` | black screen / logo, on and off |
+| `…/clear`, `…/present` | clear the screen; present what is on Next |
+| `…/goto?q=John%203:16`, `…/goto?q=73` | put a verse or hymn on Next |
+| `…/show?q=73` | put it on Next and present it |
+| `…/plan-next` / `plan-prev` | next / previous part of the plan |
+| `…/music-toggle`, `music-fade`, `music-stop` | hymn music |
+| `…/go?i=3` | go to slide 3 of what is live |
+| `http://localhost:7777/api/status` | JSON: what is live, slide n of m, what is next, black/logo, projector open |
+
+From another computer use the PC's network address and add `?pin=` with the companion's PIN (shown in its window).
+Without the PIN only programs on the service PC itself may press buttons; web pages from other sites never can.
+**Present** needs the projector already open (a browser only opens windows after a click): press Present once.
+
+**Bitfocus Companion:** add the connection *Generic: HTTP Requests*, then on a button choose the action *GET* and
+paste the address. **Elgato Stream Deck app:** install a free web-request plugin from the Marketplace and paste
+the address as a GET request.
+
 [← Back to the README](../README.md)

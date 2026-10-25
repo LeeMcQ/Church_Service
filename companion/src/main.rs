@@ -4,6 +4,8 @@
 //! * Relays commands from a phone remote to the display, and from the display back.
 //! * Streams videos and pictures (with seeking) from the media folder (Videos/Selah; folder name kept for existing installs).
 //! * Converts PowerPoint to PDF with LibreOffice for pixel-exact slides.
+//! * Takes remote-control commands over plain HTTP (/api/control/next …) from a Stream Deck, Bitfocus
+//!   Companion or any program, and passes them to the operator page open on this PC.
 //!
 //! No third-party crates, no installer framework: copy the one file and run it.
 mod ws;
@@ -36,7 +38,7 @@ struct Config {
 }
 
 #[derive(PartialEq, Clone, Copy, Debug)]
-enum Role { Control, Display }
+enum Role { Control, Display, Operator }
 
 struct Client { id: u64, role: Role, room: String, writer: Mutex<TcpStream> }
 
@@ -47,6 +49,8 @@ struct State {
     next_id: AtomicU64,
     assets: HashMap<&'static str, (&'static [u8], bool)>,
     etags: Mutex<HashMap<String, String>>,
+    /// The operator page's last status report (what is live, black, music …), as JSON, for /api/status.
+    status: Mutex<String>,
 }
 
 struct Request {
@@ -442,7 +446,7 @@ fn convert(st: &State, w: &mut TcpStream, req: &Request, reader: &mut BufReader<
 fn api_info(st: &State, w: &mut TcpStream, local: bool) -> io::Result<()> {
     let urls: Vec<String> = lan_ips().iter().map(|ip| json_str(&format!("http://{}:{}", ip, st.port))).collect();
     let body = format!(
-        "{{\"app\":\"selah-companion\",\"version\":{},\"urls\":[{}],\"converter\":{},\"mediaDir\":{},\"pin\":{},\"local\":{}}}",
+        "{{\"app\":\"selah-companion\",\"version\":{},\"urls\":[{}],\"converter\":{},\"mediaDir\":{},\"pin\":{},\"local\":{},\"control\":true}}",
         json_str(VERSION), urls.join(","), st.cfg.soffice.is_some(),
         json_str(&if local { st.cfg.media_dir.to_string_lossy().to_string() } else { String::new() }),
         if local { json_str(&st.cfg.pin) } else { "null".into() }, local);
@@ -452,14 +456,14 @@ fn api_info(st: &State, w: &mut TcpStream, local: bool) -> io::Result<()> {
 // ------------------------------------------------------------------ WebSocket relay
 fn handle_ws(st: Arc<State>, mut stream: TcpStream, mut reader: BufReader<TcpStream>, req: Request, local: bool) {
     let Some(key) = req.headers.get("sec-websocket-key") else { let _ = text(&mut stream, "400 Bad Request", "Not a WebSocket request"); return };
-    let role = if req.query.get("role").map(|r| r == "display").unwrap_or(false) { Role::Display } else { Role::Control };
+    let role = match req.query.get("role").map(|r| r.as_str()) { Some("display") => Role::Display, Some("operator") => Role::Operator, _ => Role::Control };
     let room = req.query.get("room").cloned().unwrap_or_else(|| "main".into());
     let resp = format!("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {}\r\n\r\n", ws::accept_key(key));
     if stream.write_all(resp.as_bytes()).is_err() { return; }
     // Controllers on other devices need the PIN; displays only receive what is shown publicly. A page from
     // another website (its Origin is not this companion) always needs the PIN, whatever it asks to be.
     let foreign = !same_origin(&req);
-    if (role == Role::Control || foreign) && !st.pin_ok(&req, local) {
+    if (role != Role::Display || foreign) && !st.pin_ok(&req, local) {
         let mut p = vec![0x0F, 0xA1];
         p.extend_from_slice(b"wrong pin");
         let _ = ws::write_frame(&mut stream, 0x8, &p);
@@ -471,7 +475,7 @@ fn handle_ws(st: Arc<State>, mut stream: TcpStream, mut reader: BufReader<TcpStr
     let id = st.next_id.fetch_add(1, Ordering::SeqCst);
     let me = Arc::new(Client { id, role, room: room.clone(), writer: Mutex::new(wr) });
     st.clients.lock().unwrap().push(me.clone());
-    println!("  {} connected ({:?}, room {})", if role == Role::Display { "Display" } else { "Controller" }, stream.peer_addr().map(|a| a.ip().to_string()).unwrap_or_default(), room);
+    println!("  {} connected ({:?}, room {})", match role { Role::Display => "Display", Role::Operator => "Operator page", Role::Control => "Controller" }, stream.peer_addr().map(|a| a.ip().to_string()).unwrap_or_default(), room);
     loop {
         match ws::read_msg(&mut reader, MAX_WS_MSG) {
             Ok(ws::Msg::Text(d)) => relay(&st, &me, 0x1, &d),
@@ -483,18 +487,84 @@ fn handle_ws(st: Arc<State>, mut stream: TcpStream, mut reader: BufReader<TcpStr
     }
     st.clients.lock().unwrap().retain(|c| c.id != id);
     let _ = ws::write_frame(&mut *me.writer.lock().unwrap(), 0x8, &[0x03, 0xE8]);
-    println!("  {} disconnected", if role == Role::Display { "Display" } else { "Controller" });
+    println!("  {} disconnected", match role { Role::Display => "Display", Role::Operator => "Operator page", Role::Control => "Controller" });
 }
 
 fn relay(st: &State, from: &Client, op: u8, data: &[u8]) {
+    // The operator page only reports its status (kept for /api/status); it is never relayed to screens.
+    if from.role == Role::Operator {
+        if op == 0x1 && data.len() < 16 * 1024 && data.starts_with(b"{") { *st.status.lock().unwrap() = String::from_utf8_lossy(data).into_owned(); }
+        return;
+    }
     let targets: Vec<Arc<Client>> = st.clients.lock().unwrap().iter()
-        .filter(|c| c.id != from.id && c.room == from.room && c.role != from.role).cloned().collect();
+        .filter(|c| c.id != from.id && c.room == from.room && c.role != from.role && c.role != Role::Operator).cloned().collect();
     let mut dead = Vec::new();
     for t in targets {
         let mut w = t.writer.lock().unwrap();
         if ws::write_frame(&mut *w, op, data).is_err() { dead.push(t.id); }
     }
     if !dead.is_empty() { st.clients.lock().unwrap().retain(|c| !dead.contains(&c.id)); }
+}
+
+// ------------------------------------------------------------------ remote control (Stream Deck, Bitfocus Companion …)
+/// Commands the operator page understands. Anything else is refused here.
+const CONTROL_OPS: &[&str] = &["next", "prev", "black", "logo", "clear", "present", "first", "last", "go", "goto", "show",
+    "plan-next", "plan-prev", "music-toggle", "music-stop", "music-fade", "ping"];
+
+/// A program on this PC (Stream Deck, Bitfocus Companion, curl) may control without the PIN; so may the companion's
+/// own pages. A web page from another site may not: browsers mark its requests with Sec-Fetch-Site / Origin.
+fn control_ok(st: &State, req: &Request, from_this_pc: bool) -> bool {
+    if st.pin_ok(req, false) { return true; }
+    if !from_this_pc || !same_origin(req) { return false; }
+    match req.headers.get("sec-fetch-site").map(|s| s.to_ascii_lowercase()) {
+        None => true,
+        Some(s) => s == "same-origin" || s == "none",
+    }
+}
+
+fn operators(st: &State) -> Vec<Arc<Client>> {
+    st.clients.lock().unwrap().iter().filter(|c| c.role == Role::Operator).cloned().collect()
+}
+
+fn api_control(st: &State, w: &mut TcpStream, req: &Request, from_this_pc: bool) -> io::Result<()> {
+    let json = |w: &mut TcpStream, status: &str, body: String| send(w, status, "application/json", &[("Cache-Control", "no-store".into())], body.as_bytes(), false);
+    if !control_ok(st, req, from_this_pc) {
+        return json(w, "403 Forbidden", "{\"ok\":false,\"error\":\"PIN required: add ?pin=… (the PIN is shown in the companion window)\"}".into());
+    }
+    let op = req.path.trim_start_matches("/api/control").trim_matches('/').to_string();
+    let op = if op.is_empty() { req.query.get("op").cloned().unwrap_or_default() } else { op };
+    if !CONTROL_OPS.contains(&op.as_str()) {
+        return json(w, "404 Not Found", format!("{{\"ok\":false,\"error\":{},\"ops\":[{}]}}", json_str(&format!("Unknown command '{}'", op)),
+            CONTROL_OPS.iter().map(|o| json_str(o)).collect::<Vec<_>>().join(",")));
+    }
+    let ops = operators(st);
+    if ops.is_empty() {
+        return json(w, "503 Service Unavailable", format!("{{\"ok\":false,\"error\":{}}}", json_str(&format!("SDA Sabbath is not open on this PC. Open http://localhost:{}/ first.", st.port))));
+    }
+    let arg = |k: &str| req.query.get(k).map(|v| v.chars().take(200).collect::<String>());
+    let mut msg = format!("{{\"t\":\"cmd\",\"op\":{}", json_str(&op));
+    for k in ["q", "n", "i"] { if let Some(v) = arg(k) { msg.push_str(&format!(",{}:{}", json_str(k), json_str(&v))); } }
+    msg.push('}');
+    let mut sent = 0;
+    for c in ops { if ws::write_frame(&mut *c.writer.lock().unwrap(), 0x1, msg.as_bytes()).is_ok() { sent += 1; } }
+    let status = st.status.lock().unwrap().clone();
+    json(w, "200 OK", format!("{{\"ok\":true,\"op\":{},\"sent\":{},\"status\":{}}}", json_str(&op), sent, if status.is_empty() { "null".into() } else { status }))
+}
+
+fn api_status(st: &State, w: &mut TcpStream, req: &Request, from_this_pc: bool) -> io::Result<()> {
+    if !control_ok(st, req, from_this_pc) { return send(w, "403 Forbidden", "application/json", &[], b"{\"ok\":false,\"error\":\"PIN required\"}", false); }
+    let open = !operators(st).is_empty();
+    let status = st.status.lock().unwrap().clone();
+    let body = format!("{{\"ok\":true,\"open\":{},\"status\":{}}}", open, if status.is_empty() || !open { "null".into() } else { status });
+    send(w, "200 OK", "application/json", &[("Cache-Control", "no-store".into())], body.as_bytes(), false)
+}
+
+/// Read and drop a request body (a POST from a remote-control program), so the connection can be reused.
+fn drain_body(req: &Request, reader: &mut BufReader<TcpStream>) -> io::Result<()> {
+    let n: usize = req.headers.get("content-length").and_then(|v| v.parse().ok()).unwrap_or(0);
+    if n > 64 * 1024 { return Err(io::Error::new(io::ErrorKind::InvalidData, "body too large")); }
+    let mut buf = vec![0u8; n];
+    reader.read_exact(&mut buf)
 }
 
 // ------------------------------------------------------------------ connection loop
@@ -523,6 +593,12 @@ fn handle_conn(st: Arc<State>, stream: TcpStream) {
                     send(&mut w, "200 OK", "application/json", &[("Cache-Control", "no-store".into())], format!("[{}]", items.join(",")).as_bytes(), false)
                 }
             }
+            ("GET", p) if p == "/api/control" || p.starts_with("/api/control/") => api_control(&st, &mut w, &req, from_this_pc),
+            ("POST", p) if p == "/api/control" || p.starts_with("/api/control/") => {
+                if drain_body(&req, &mut reader).is_err() { return; }
+                api_control(&st, &mut w, &req, from_this_pc)
+            }
+            ("GET", "/api/status") => api_status(&st, &mut w, &req, from_this_pc),
             ("POST", "/api/convert") => {
                 if !st.pin_ok(&req, local) { text(&mut w, "403 Forbidden", "PIN required") } else { convert(&st, &mut w, &req, &mut reader) }
             }
@@ -622,7 +698,7 @@ fn main() {
     }
     let Some(listener) = listener else { eprintln!("Could not open port {}. Is SDA Sabbath already running?", cfg.port); std::process::exit(1) };
     let assets: HashMap<&'static str, (&'static [u8], bool)> = ASSETS.iter().map(|(k, v, g)| (*k, (*v, *g))).collect();
-    let st = Arc::new(State { cfg: cfg.clone(), port, clients: Mutex::new(Vec::new()), next_id: AtomicU64::new(1), assets, etags: Mutex::new(HashMap::new()) });
+    let st = Arc::new(State { cfg: cfg.clone(), port, clients: Mutex::new(Vec::new()), next_id: AtomicU64::new(1), assets, etags: Mutex::new(HashMap::new()), status: Mutex::new(String::new()) });
 
     let local_url = format!("http://localhost:{}/", port);
     println!("\n  SDA Sabbath companion {}  ({} files, {:.1} MB built in)", VERSION, ASSETS.len(), ASSET_BYTES as f64 / 1048576.0);
@@ -631,6 +707,7 @@ fn main() {
     for ip in lan_ips() {
         println!("  Phone remote:      http://{}:{}/remote      PIN {}", ip, port, cfg.pin);
         println!("  TV / 2nd screen:   http://{}:{}/display", ip, port);
+        println!("  Stream Deck etc.:  http://{}:{}/api/control/next?pin={}", ip, port, cfg.pin);
     }
     println!("  Media folder:      {}", cfg.media_dir.display());
     println!("  PowerPoint → PDF:  {}", match &cfg.soffice { Some(p) => format!("LibreOffice ({})", p.display()), None => "not available (install LibreOffice for exact slides)".into() });
