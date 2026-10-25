@@ -1,6 +1,6 @@
 {
-"version": "5da10fffdf7b",
-"bytes": 37671266,
+"version": "950458734043",
+"bytes": 37652786,
 "files": [
 "index.html",
 "display.html",
@@ -107,7 +107,6 @@
 "fonts/ss4-latin-400-italic.woff2",
 "fonts/ss4-latin-400-normal.woff2",
 "fonts/ss4-latin-600-normal.woff2",
-"fonts/ss4-latin-ext-400-italic.woff2",
 "fonts/ss4-latin-ext-400-normal.woff2",
 "fonts/ss4-latin-ext-600-normal.woff2",
 "icons/apple-touch-icon.png",
@@ -349,7 +348,7 @@
 "css/stage.css": "35f7e1d869c23da6",
 "css/stagescreen.css": "df8918eb3986dbb0",
 "js/admin-main.js": "527644da6fef8d4c",
-"js/app.js": "e7bf1ca12287aef5",
+"js/app.js": "ab69d7605674209d",
 "js/boot-guard.js": "93fc9bad50db53ff",
 "js/clickerui.js": "ceb58c892b9c95ba",
 "js/companion-page.js": "cbbf466157b2af81",
@@ -439,7 +438,6 @@
 "fonts/ss4-latin-400-italic.woff2": "882b7c150c29f29d",
 "fonts/ss4-latin-400-normal.woff2": "02194deb92d3975d",
 "fonts/ss4-latin-600-normal.woff2": "f2b7e1cf1d277b76",
-"fonts/ss4-latin-ext-400-italic.woff2": "d05b8e57c5d27296",
 "fonts/ss4-latin-ext-400-normal.woff2": "cd757b37ff5e4ee2",
 "fonts/ss4-latin-ext-600-normal.woff2": "351f7c7a0db5732b",
 "icons/apple-touch-icon.png": "dbcdd467fb808cc0",
