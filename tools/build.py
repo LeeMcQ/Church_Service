@@ -4,6 +4,7 @@ Prepare SDA Sabbath for deployment.
 
   python tools/build.py              # list every app file in asset-manifest.json and stamp sw.js
   python tools/build.py --bibles     # also rebuild data/bibles from ./sources (and ./licensed)
+  python tools/build.py --minify     # deploy builds only: shrink js/ and css/ IN PLACE first (needs esbuild)
 
 The service worker downloads everything listed in asset-manifest.json in one go when the app
 is installed, so the whole app (Bibles, hymns, fonts, pdf.js) works offline afterwards.
@@ -121,6 +122,30 @@ def stamp_build():
     return build
 
 
+def minify():
+    """Shrink every app script and stylesheet in place with esbuild (about 60% smaller). Used by the
+    GitHub deploy on its throw-away copy; never run it on your working folder (the code becomes unreadable)."""
+    import shutil
+    esb = shutil.which('esbuild') or os.path.join(ROOT, 'node_modules', '.bin', 'esbuild')
+    if not os.path.exists(esb):
+        raise SystemExit('--minify needs esbuild: npm install --no-save esbuild')
+    if not os.environ.get('CI') and '--force' not in sys.argv:
+        raise SystemExit('--minify rewrites js/ and css/ in place. It runs in the GitHub deploy; add --force to run it here anyway.')
+    before = after = 0
+    for d, ext in (('js', '.js'), ('css', '.css')):
+        for base, _, names in os.walk(os.path.join(ROOT, d)):
+            for n in names:
+                if not n.endswith(ext): continue
+                path = os.path.join(base, n)
+                before += os.path.getsize(path)
+                # One file at a time, no bundling: import paths, file names and the offline list stay the same.
+                # Scripts with import/export are modules; the few classic ones keep their global names.
+                subprocess.check_call([esb, path, '--minify', '--target=es2020', '--legal-comments=none', '--log-level=warning',
+                                       '--allow-overwrite', '--outfile=' + path])
+                after += os.path.getsize(path)
+    print('Minified js/ and css/: %.0f KB -> %.0f KB' % (before / 1024, after / 1024))
+
+
 def main():
     check_app_version()
     check_syntax()
@@ -130,6 +155,8 @@ def main():
     # the files are hashed: otherwise app.js keeps the same hash when only the stamp changes, the service
     # worker reuses the old copy, and About shows the previous build.
     build = stamp_build()
+    if '--minify' in sys.argv:
+        minify()
     files = collect()
     check_offline_safe(files)
     h = hashlib.sha256()

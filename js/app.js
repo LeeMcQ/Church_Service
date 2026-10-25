@@ -15,14 +15,14 @@ import { openPip, pipSupported } from './pip.js';
 import { clicker, actionFor, sigOfKey, sigOfMouse } from './core/clicker.js';
 import { openClickerSetup, builtinAction } from './clickerui.js';
 import { hub as stageHub, timerValue } from './core/stagehub.js';
-import { obs } from './core/obsctl.js';
 import { cloud } from './core/cloud.js';
 import { currentLayout } from './core/screens.js';
-import { openWelcome, needsSetup } from './tabs/welcome.js';
-import { openFeedback } from './tabs/account.js';
+// Loaded when first needed, to keep start-up quick: OBS control, the first-start setup and the feedback form.
+const lazyWelcome = () => import('./tabs/welcome.js');
+const openFeedback = (c, o) => import('./tabs/account.js').then((m) => m.openFeedback(c, o));
 
 export const VERSION = '1.5.0';
-export const BUILD = '943df96';
+export const BUILD = '91ab356';
 
 const TABS = [
   { id: 'bible', label: 'Bible', icon: 'bible', file: 'bible.js', load: () => import('./tabs/bible.js') },
@@ -64,7 +64,7 @@ const ctx = {
   companion: null,
   installPrompt: null,
   stage: stageHub,
-  obs,
+  obs: null, // set once OBS control is loaded (see the end of this file)
 };
 window.selah = ctx; // handy for debugging from the console (name kept for existing scripts)
 
@@ -438,7 +438,9 @@ function stageMenu(anchor) {
 // OBS: a red LIVE / REC mark in the top bar while OBS streams or records (click: Stream tab).
 const obsPill = h('button.obs-pill', { type: 'button', hidden: true, title: 'OBS is live — open Tools → Stream', onclick: () => showTab('stream') });
 stageBtn.after(obsPill);
+let obs = null;
 function paintObsPill() {
+  if (!obs) return;
   const on = obs.state === 'on' && (obs.streaming || obs.recording);
   obsPill.hidden = !on;
   if (!on) return;
@@ -446,7 +448,6 @@ function paintObsPill() {
   const s = Math.max(0, Math.floor((Date.now() - since) / 1000));
   obsPill.textContent = (obs.streaming ? '● LIVE ' : '● REC ') + Math.floor(s / 3600) + ':' + String(Math.floor(s / 60) % 60).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
 }
-obs.on('change', paintObsPill); obs.on('state', paintObsPill);
 setInterval(paintObsPill, 1000);
 stageHub.on('blocked', () => ui.toast('The browser blocked the stage window. Allow pop-ups for this site, then try again.', 'err', 7000));
 stageHub.on('talk', (t) => ui.toast(h('span', h('b', t.from + ': '), t.text, ' ', h('button.btn.sm', { type: 'button', onclick: () => showTab('stage') }, 'Reply')), 'ok', 12000));
@@ -903,10 +904,22 @@ detectCompanion();
 ctx.cloud = cloud;
 cloud.track({ presenting: () => !!link.ready || link.hasMirror(), layout: currentLayout });
 live.on('live', (c) => { if (c && c.tab) cloud.count(c.tab === 'stage' ? 'stage' : c.tab); });
-ctx.openWelcome = (opts) => openWelcome(opts);
-cloud.ready.then(() => { if (needsSetup()) setTimeout(() => openWelcome(), 600); });
+ctx.openWelcome = (opts) => lazyWelcome().then((m) => m.openWelcome(opts));
+// The setup code (and the account screens it uses) is only downloaded when the setup is actually needed.
+cloud.ready.then(() => {
+  const maybe = !settings.v.app.setupDone || (cloud.requireSignIn() && !cloud.user && navigator.onLine !== false);
+  if (maybe) lazyWelcome().then((m) => { if (m.needsSetup()) setTimeout(() => m.openWelcome(), 600); });
+});
 stageHub.start();
-obs.start();
+// OBS control: straight away when it should connect by itself, otherwise a little later in the background.
+const loadObs = () => import('./core/obsctl.js').then((m) => {
+  if (obs) return obs;
+  obs = ctx.obs = m.obs;
+  obs.on('change', paintObsPill); obs.on('state', paintObsPill);
+  obs.start();
+  return obs;
+});
+if (settings.v.stream.obsAuto) loadObs(); else setTimeout(loadObs, 3000);
 // Warm the Hymns tab in the background so "Go to 73" is instant.
 setTimeout(() => getTab('hymns').catch(() => {}), 1500);
 // The order of service also shows on the stage screens: load the Plan tab quietly too.

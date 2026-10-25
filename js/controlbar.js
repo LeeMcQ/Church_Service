@@ -4,7 +4,9 @@ import { icon } from './core/icons.js';
 import { btn } from './core/ui.js';
 import { live, frameCount } from './core/live.js';
 import { bgAudio } from './core/audio.js';
-import { music } from './core/hymnmusic.js';
+// The hymn music engine is loaded a moment after start-up (nothing can play before it is loaded anyway).
+const idle = (f) => (window.requestIdleCallback ? requestIdleCallback(f, { timeout: 2000 }) : setTimeout(f, 800));
+let music = { isPlaying: () => false, state: {}, on() {}, unlock() {}, toggle() {}, fade() {}, stop() {} };
 
 export function createControlBar(el, getTab) {
   const counter = h('span.cb-sub', '');
@@ -115,7 +117,10 @@ export function createControlBar(el, getTab) {
   live.on('live', render);
   live.on('go', updateCounter);
   live.on('blank', updateCounter);
-  music.on('state', () => { if (el.hidden !== !shown()) { renderedFor = undefined; render(); } else renderMusic(false); });
+  idle(() => import('./core/hymnmusic.js').then((m) => {
+    music = m.music;
+    music.on('state', () => { if (el.hidden !== !shown()) { renderedFor = undefined; render(); } else renderMusic(false); });
+  }));
   bgAudio.on('state', (st) => { if (el.hidden !== !shown()) { renderedFor = undefined; render(); } else renderAudio(st); });
   render();
   return { render };

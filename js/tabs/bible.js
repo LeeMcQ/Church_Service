@@ -6,7 +6,7 @@ import { btn, modal, seg, toggle, menu, select, activatable, enter, motionOK, em
 import { EN, SHORT, parseRef, refText } from '../core/books.js';
 import { listTranslations, getInfo, versesFor, verseHtml, verseText, search as bibleSearch } from '../core/bibledata.js';
 import { fitsText } from '../core/render.js';
-import { importBibleDialog } from './bible-import.js';
+const importBibleDialog = (cb) => import('./bible-import.js').then((m) => m.importBibleDialog(cb));
 
 export default function create(ctx) {
   const { settings, live } = ctx;

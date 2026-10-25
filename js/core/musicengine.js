@@ -107,7 +107,7 @@ export class MusicEngine {
       synth.connect(this.gain); this.gain.connect(lim); lim.connect(ctx.destination);
       onProgress && onProgress('Loading instruments (GeneralUser GS)…');
       const idx = await loadIndex();
-      const sf = await (await fetch(url('data/music/' + ((idx && idx.soundfont) || 'hymnal.sf2')))).arrayBuffer();
+      const sf = await (await fetch(url('data/music/' + ((idx && idx.soundfont) || 'hymnal.sf3')))).arrayBuffer();
       await synth.soundBankManager.addSoundBank(sf, 'main');
       await synth.isReady;
       synth.setSystemParameter('interpolationType', 2); // Hermite: SpessaSynth's highest quality

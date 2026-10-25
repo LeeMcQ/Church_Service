@@ -54,14 +54,24 @@ jobs:
     # The web app is published even if a companion build fails (the download page then says so).
     needs: companion
     if: ${{ !cancelled() }}
-    timeout-minutes: 10
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: { python-version: '3.12' }
-      - name: Stamp the offline cache list
-        run: python tools/build.py
+      - name: Shrink the code and stamp the offline cache list
+        run: |
+          npm install --no-save --no-audit --no-fund esbuild@0.24.2
+          python tools/build.py --minify
+      - name: Test before publishing
+        # Opens every page and tab, puts a verse and a hymn live, checks the stage screen, plan files and
+        # Bible import, on the shrunk code that is about to go online. A failure stops the deploy:
+        # the website keeps the last version that passed.
+        run: |
+          pip install --quiet playwright==1.56.0
+          python -m playwright install --with-deps chromium
+          python tests/smoke.py
       - name: Collect the web app
         run: |
           mkdir -p site

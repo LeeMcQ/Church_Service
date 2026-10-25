@@ -5,6 +5,7 @@
 //
 //   npm i spessasynth_core      (once, in any folder on your PATH for node)
 //   node tools/build_hymn_soundfont.mjs <GeneralUser-GS.sf2> <folder with .mid files> [out.sf2]
+//   node tools/compress_soundfont.mjs data/music/hymnal.sf2 data/music/hymnal.sf3   (the app uses the .sf3)
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { BasicMIDI, SoundBankLoader } from 'spessasynth_core';

@@ -1,0 +1,91 @@
+# Bibles and hymns
+
+## Bibles
+
+Built in (public domain): **KJV**, **WEB**, **Afrikaanse Bybel 1933/53**.
+**NIV** (© Biblica) and the **1975 Xhosa Bible** (© Bible Society of South Africa) cannot be shipped
+publicly. Each church adds its own licensed copy:
+
+- **On one device:** Settings → Bibles & hymns → **Add a Bible** (Zefania XML, OSIS XML, JSON, CSV).
+  The `xho75.json` file from Joy in the Journey imports directly.
+- **For your whole installation:** drop the file into `licensed/` and run `python tools/build.py --bibles`
+  (see `licensed/README.md`). The folder is git-ignored, so it never becomes public.
+
+## Hymns
+
+`data/hymns/sda-sample.json` holds sample hymns whose words are public domain, numbered as in the
+1985 SDA Hymnal. Replace or add hymnbooks with **Hymns → ⋯ → Import a hymnbook**:
+
+- JSON (SDA Sabbath format, formerly "Selah"):
+  ```json
+  { "id": "sda-en", "name": "SDA Hymnal", "short": "SDAH", "lang": "en",
+    "hymns": [ { "n": 73, "t": "Holy, Holy, Holy", "a": "Reginald Heber",
+                 "v": [["line 1", "line 2"], ["stanza 2 …"]], "c": ["chorus line 1", "…"] } ] }
+  ```
+- JSON as in the Afrikaans Liedboek site: `[ { "number": 1, "title": "…", "lyrics": "…" } ]`
+  (stanzas separated by an empty line, chorus starting with `Chorus:` / `Koor:` / `Refrain:`).
+- Plain text: each hymn starts with `# 73 Holy, Holy, Holy`, stanzas separated by empty lines.
+
+To ship a hymnbook with the app, put the JSON in `data/hymns/` and list it in `data/hymns/index.json`.
+
+### Shared praise choruses (every church gets new songs)
+
+Choruses that churches share and the maintainer approves join **Praise Choruses** in every copy of SDA Sabbath,
+numbered **CHR 501** and up (marked *Shared*), with their MIDI music when there is one. The app checks for new ones a
+few seconds after it starts (at most every 6 hours, and whenever the internet comes back); **Hymns → ⋯ → Check for new
+shared choruses** checks at once. They work offline afterwards.
+
+**Sharing a chorus:** add it in Praise Choruses (⋯ → Find lyrics online, or New hymn), pick it, and press **Share with all
+churches**. Say whether the words may be shared (public domain, written by your church, or with the writer's permission;
+CCLI songs may not be shared), then **Share on GitHub** opens a ready-filled "Share a praise chorus" issue (a free GitHub
+account is needed; **Copy the song** sends it another way).
+
+**The chorus robot** (`.github/workflows/chorus.yml`, `tools/chorus_bot.py`) answers on the issue within minutes: it tidies the
+words (capitals, spaces, quotes), refuses songs already in SDA Sabbath or not cleared for sharing, flags typos and near-duplicates,
+compares the words with a public lyrics database (LRCLIB) to catch mistakes (and to warn when it is a published song), and looks
+for a MIDI file (a .zip dropped into the issue, or a close title match on BitMidi, flagged for a check). **The maintainer adds the
+label `chorus-approved`** and the robot adds the song to `data/hymns/community/choruses.json`, rebuilds the website and closes
+the issue. To publish songs that pass every check without waiting, set the repository variable `AUTO_PUBLISH_CHORUSES` to `true`.
+
+### Find lyrics online
+
+**Hymns → ⋯ → Find lyrics online** searches public lyric sites (LRCLIB and Lyrics.ovh) for a title, a first line
+or any words (add “by singer” to narrow it). Songs already on the device are shown first. Online results are
+ranked with a match label and a preview, so you can pick the right one; if an AI key is set, **Ask AI to help
+identify** can also suggest which songs the words belong to (the lyrics always come from the lyric sites, never
+from AI). The chosen words are split into stanzas and a chorus (shown as the slides they will become), can be
+corrected, and are kept **offline** in a book (Praise Choruses by default) with **Add and put on Next**.
+If nothing is found, links to other sites and a paste box are offered. Song words belong to their owners: check
+that your church’s CCLI (or other) licence covers showing them.
+
+### Hymn music (offline)
+
+695 hymns of the English SDA Hymnal (1–695) have their accompaniment built in, marked ♪ in the list. The church's
+MIDI files are played by a SoundFont synthesizer inside the browser (SpessaSynth) with the **GeneralUser GS 2.0.3**
+SoundFont and the author's recommended GS reverb (59) and chorus (43, Chorus 3) — the same sound you get from
+Falcosoft MIDI Player with that SoundFont. Nothing is streamed: it works with no internet.
+
+- **Play music** plays the accompaniment for exactly the stanzas you chose to sing: introduction, then one verse of
+  music per stanza, with the real ending on the last one. **Present & play** puts the hymn on the screen and starts
+  the music together; press **M** to play/pause.
+- **Words follow music:** while the hymn is live, the slides change with the music (title during the introduction,
+  each stanza and chorus as it is reached). Press → / ← at any time to take over.
+- **Tempo** (60–140 %), **Key** (±6 semitones), **Instrument** (as arranged, piano, organ, strings, choir), jump to the
+  introduction or any verse, **Fade** and **Stop**. Volume, reverb and chorus are in **Hymns → ⚙ Hymn options**.
+- **Phone as remote:** when a phone controls the church PC through the companion, the music plays on the PC (the
+  display window). Open the display on the PC from `http://localhost:7777` — browsers only allow the synthesizer on
+  `https://` or `localhost`. Click the projector window once at the start so it may play sound.
+- 33 hymns (mostly the short responses 660–695) are through-composed, so they always play as recorded; 25 hymns have
+  fewer verses of music than stanzas, so the verse music is repeated. Hymns 696–698 have no MIDI yet.
+
+To rebuild after changing the MIDI files (put the numbered `.mid` files in `sources/hymn-midi/`):
+
+```
+pip install mido; npm i spessasynth_core                # once
+python tools/build_hymn_music.py sources/hymn-midi     # verse/intro analysis → data/music/index.json + MIDI pack
+node tools/build_hymn_soundfont.mjs path/to/GeneralUser-GS.sf2 sources/hymn-midi   # → data/music/hymnal.sf2
+node tools/compress_soundfont.mjs data/music/hymnal.sf2 data/music/hymnal.sf3   # → the 4 MB file the app uses
+python tools/build.py
+```
+
+[← Back to the README](../README.md)

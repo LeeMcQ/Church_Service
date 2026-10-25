@@ -60,7 +60,7 @@ def main():
     index_path = os.path.join(out_dir, 'index.json')
     index = json.load(open(index_path, encoding='utf-8')) if os.path.exists(index_path) else {}
     index.setdefault('version', 1)
-    index['soundfont'] = 'hymnal.sf2'
+    index['soundfont'] = 'hymnal.sf3'  # made by build_hymn_soundfont.mjs + compress_soundfont.mjs
     index['soundfontName'] = 'GeneralUser GS 2.0.3 by S. Christian Collins (hymnal subset)'
     index.setdefault('books', {})[book] = {'pack': pack, 'hymns': entries}
     with open(index_path, 'w', encoding='utf-8') as fh:

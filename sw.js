@@ -1,6 +1,6 @@
 // SDA Sabbath service worker: installs the whole app (Bibles, hymns, fonts, pdf.js) in one go
 // so it runs with no internet. VERSION is rewritten by tools/build.py on every build.
-const VERSION = '52d2b466e1f6';
+const VERSION = '470b5679833b';
 // Caches are named per address ('selah-/Church_Service/|<version>'), so two apps on the same site
 // (for example this one and an older copy under another folder) never delete each other's offline files.
 const SCOPE = new URL(self.registration.scope).pathname;
@@ -68,7 +68,7 @@ self.addEventListener('install', (event) => {
     const hashes = man.hashes || {};
     const older = (await appCaches()).filter((k) => k !== CACHE).concat(await legacyOwn());
     // A file whose content did not change is copied from the previous version's cache, so an
-    // update only downloads what is new (the instruments and hymn music are 18 MB).
+    // update only downloads what is new (the instruments and hymn music are about 6 MB).
     async function unchanged(f) {
       const want = hashes[f];
       if (!want) return null;

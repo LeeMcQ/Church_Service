@@ -7,7 +7,7 @@ import { btn, seg, toggle, toast, confirmBox } from '../core/ui.js';
 import { db, persistStorage } from '../core/db.js';
 import { createStage } from '../core/render.js';
 import { listTranslations, deleteImported, resetCaches } from '../core/bibledata.js';
-import { importBibleDialog } from './bible-import.js';
+const importBibleDialog = (cb) => import('./bible-import.js').then((m) => m.importBibleDialog(cb));
 import { listScreens } from '../core/link.js';
 import { sanitizeImportedSettings, exportableSettings } from '../core/settings.js';
 import { churchForm } from './church-form.js';
@@ -329,7 +329,7 @@ export default function create(ctx) {
   }
   async function freshCopy() {
     if (!(await reallyOnline())) { toast('No internet: the offline copy is kept. Connect first.', 'err', 6000); return; }
-    if (!(await confirmBox('Download a fresh copy?', 'Only if the app misbehaves: this removes the stored app files and downloads them again (about 36 MB). Your plans, hymns, banners and settings stay. Keep the internet on until it finishes.', 'Download again', true))) return;
+    if (!(await confirmBox('Download a fresh copy?', 'Only if the app misbehaves: this removes the stored app files and downloads them again (about 24 MB). Your plans, hymns, banners and settings stay. Keep the internet on until it finishes.', 'Download again', true))) return;
     try {
       // Only this app's worker and files: another app on the same site keeps its own offline copy.
       const regs = 'serviceWorker' in navigator ? (await navigator.serviceWorker.getRegistrations()).filter((r) => location.href.indexOf(r.scope) === 0) : [];
