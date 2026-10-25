@@ -226,7 +226,7 @@ export async function parseBibleFile(file) {
     } else if (j && j.books) { // nested
       Object.assign(meta, { name: j.fullName || j.name, abbr: j.translation, lang: j.languageCode, license: j.license });
       j.books.forEach((bk, i) => {
-        const b = bookNo(bk.number || bk.name) || i + 1;
+        const b = bookNo(bk.nr || bk.number || bk.name) || i + 1;
         if (Array.isArray(bk.chapters) && Array.isArray(bk.chapters[0])) bk.chapters.forEach((ch, ci) => ch.forEach((t, vi) => put(b, ci + 1, vi + 1, t)));
         else (bk.chapters || []).forEach((ch) => (ch.verses || []).forEach((vs) => put(b, ch.chapter, vs.verse, vs.text)));
       });
