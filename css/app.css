@@ -1099,3 +1099,16 @@ a.btn { text-decoration: none; }
 .scr-row .scr-ic { flex: none; opacity: .8; }
 .scr-row select { max-width: 260px; }
 .scr-on { color: var(--next); font-size: var(--fs-xs); font-weight: 700; }
+/* First-start setup */
+.welcome { position: fixed; inset: 0; z-index: 900; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(6px); display: flex; align-items: flex-start; justify-content: center; overflow-y: auto; padding: 32px 16px; }
+.welcome-card { width: min(860px, 100%); background: var(--panel, var(--sunk)); border: 1px solid var(--line); border-radius: 16px; padding: 24px 28px; box-shadow: 0 20px 60px rgba(0,0,0,.35); display: flex; flex-direction: column; gap: 14px; }
+.welcome-card h2 { margin: 6px 0 0; font-size: 1.6rem; }
+.welcome-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.05rem; }
+.welcome-dots { display: flex; gap: 6px; margin-top: 12px; }
+.welcome-dots span { width: 28px; height: 5px; border-radius: 3px; background: var(--line); }
+.welcome-dots span.done { background: color-mix(in srgb, var(--next) 55%, var(--line)); }
+.welcome-dots span.on { background: var(--next); }
+.welcome-nav { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+.welcome-keys { display: grid; gap: 8px; }
+.welcome-keys kbd { display: inline-block; min-width: 92px; text-align: center; padding: 3px 8px; margin-right: 10px; border: 1px solid var(--line); border-radius: 6px; font: inherit; font-weight: 700; }
+@media (max-width: 600px) { .welcome-card { padding: 18px 16px; } .welcome { padding: 12px 8px; } }

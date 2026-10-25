@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en-ZA">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self' https://*.supabase.co https://*.supabase.in; style-src 'self' 'unsafe-inline'; img-src 'self' data:; base-uri 'self'; form-action 'none'; object-src 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#161c28">
+<title>Statistics – SDA Sabbath</title>
+<link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+<style>
+  :root { color-scheme: light dark; --bg:#f6f5f1; --fg:#1d2330; --muted:#5a6475; --line:#d9d6cc; --card:#fff; --accent:#2b7f3e; --bar:#1f4068; --warn:#b45309; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#141a25; --fg:#e9e4d8; --muted:#a3acbd; --line:#2f3b52; --card:#1b2332; --accent:#46a758; --bar:#7aa7e0; --warn:#f0b429; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1200px; margin: 0 auto; padding: 20px 16px 60px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; } h2 { font-size: 1.1rem; margin: 0 0 10px; }
+  .muted { color: var(--muted); } a { color: var(--bar); }
+  .kpis { display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 16px 0; }
+  .kpi, .card { background: var(--card); border:1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .kpi b { display:block; font-size: 1.7rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
+  .kpi span { color: var(--muted); font-size: .85rem; }
+  .grid2 { display:grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 12px; margin-bottom: 12px; }
+  table { width:100%; border-collapse: collapse; font-size: .9rem; } th, td { text-align:left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; } td.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .scroll { max-height: 420px; overflow: auto; }
+  button, input, select, textarea { font: inherit; }
+  button { cursor: pointer; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--fg); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  input, select, textarea { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
+  .row { display:flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .fb { border-bottom: 1px solid var(--line); padding: 10px 0; } .fb p { white-space: pre-wrap; margin: 4px 0; }
+  .tag { display:inline-block; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); font-size: .78rem; }
+  .tag.new { border-color: var(--warn); color: var(--warn); }
+  svg text { fill: var(--muted); font-size: 10px; }
+  .hbar { display:flex; align-items:center; gap: 8px; margin: 3px 0; } .hbar i { display:block; height: 10px; background: var(--bar); border-radius: 3px; }
+  .hbar span:first-child { width: 120px; flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+</head>
+<body>
+<main>
+  <div class="row" style="justify-content:space-between"><div><h1>SDA Sabbath statistics</h1><div class="muted" id="who"></div></div>
+    <div class="row"><a href="./">Open SDA Sabbath</a><button id="reload" type="button">Refresh</button><button id="out" type="button" hidden>Sign out</button></div></div>
+  <div id="app"><p class="muted">Loading…</p></div>
+</main>
+<script type="module" src="js/admin-main.js"></script>
+</body>
+</html>

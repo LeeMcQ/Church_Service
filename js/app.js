@@ -16,9 +16,13 @@ import { clicker, actionFor, sigOfKey, sigOfMouse } from './core/clicker.js';
 import { openClickerSetup, builtinAction } from './clickerui.js';
 import { hub as stageHub, timerValue } from './core/stagehub.js';
 import { obs } from './core/obsctl.js';
+import { cloud } from './core/cloud.js';
+import { currentLayout } from './core/screens.js';
+import { openWelcome, needsSetup } from './tabs/welcome.js';
+import { openFeedback } from './tabs/account.js';
 
 export const VERSION = '1.5.0';
-export const BUILD = 'd344f50';
+export const BUILD = '4ff043b';
 
 const TABS = [
   { id: 'bible', label: 'Bible', icon: 'bible', file: 'bible.js', load: () => import('./tabs/bible.js') },
@@ -531,7 +535,8 @@ ctx.promptInstall = promptInstall;
 const installBtn = ui.btn('download', 'Install SDA Sabbath on this device', promptInstall, { cls: 'sm' });
 installBtn.hidden = true;
 const helpBtn = ui.btn('kbd', 'Keyboard shortcuts (?)', () => showHelp(), { cls: 'sm' });
-topIcons.append(searchBtn, installBtn, helpBtn);
+const feedbackBtn = ui.btn('msg', 'Comments and suggestions', () => openFeedback(ctx), { cls: 'sm' });
+topIcons.append(searchBtn, installBtn, feedbackBtn, helpBtn);
 
 // Church logo in the top-right corner (replaces any browser cast icon visually).
 const churchLogo = h('img.church-logo', { alt: 'Church logo', src: 'icons/favicon.svg' });
@@ -894,6 +899,12 @@ if ('launchQueue' in window) {
 }
 registerSW();
 detectCompanion();
+// Account, usage statistics and the first-start setup (all optional; see js/core/cloud.js).
+ctx.cloud = cloud;
+cloud.track({ presenting: () => !!link.ready || link.hasMirror(), layout: currentLayout });
+live.on('live', (c) => { if (c && c.tab) cloud.count(c.tab === 'stage' ? 'stage' : c.tab); });
+ctx.openWelcome = (opts) => openWelcome(opts);
+cloud.ready.then(() => { if (needsSetup()) setTimeout(() => openWelcome(), 600); });
 stageHub.start();
 obs.start();
 // Warm the Hymns tab in the background so "Go to 73" is instant.

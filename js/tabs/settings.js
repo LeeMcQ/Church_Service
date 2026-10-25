@@ -1,4 +1,5 @@
 // Settings: how the screen looks, displays, Bibles, the app itself, and what's coming next.
+import { accountSection, openFeedback } from './account.js';
 import { screensPanel } from './screens-panel.js';
 import { h, clear, uid, fmtBytes, download, readText, scrubUrls, debounce } from '../core/util.js';
 import { icon } from '../core/icons.js';
@@ -277,6 +278,9 @@ export default function create(ctx) {
       h('label.switch', { title: 'Not available yet' }, h('input', { type: 'checkbox', disabled: true }), h('span', 'Show live captions (not available yet)'))));
   });
 
+  // ------------------------------------------------------------ Account
+  section('account', 'Account', (box) => accountSection(box, ctx));
+
   section('about', 'About', (box) => {
     // Version, build and the offline copy in use: what to quote when reporting a problem.
     const offline = h('span.mono', '…');
@@ -289,6 +293,9 @@ export default function create(ctx) {
         const t = 'SDA Sabbath ' + ctx.VERSION + ' · build ' + (ctx.BUILD || '—') + ' · offline ' + offline.textContent + ' · ' + location.host + location.pathname + ' · ' + navigator.userAgent;
         if (navigator.clipboard) navigator.clipboard.writeText(t).then(() => toast('Version details copied.', 'ok'), () => {});
       } }, icon('copy'), h('span', 'Copy version details'))));
+    box.append(h('div.row.wrap', { style: { margin: '10px 0' } },
+      h('button.btn', { type: 'button', onclick: () => openFeedback(ctx) }, icon('msg'), h('span', 'Comments and suggestions')),
+      h('button.btn', { type: 'button', onclick: () => ctx.openWelcome && ctx.openWelcome() }, icon('reload'), h('span', 'Run the setup again'))));
     box.append(h('p', 'SDA Sabbath — a free, offline church presenter made for Seventh-day Adventist media teams.'),
       h('p.note', { style: { marginTop: '8px' } }, 'Bibles: KJV (public domain), World English Bible (public domain), Afrikaanse Bybel 1933/53. Fonts: Atkinson Hyperlegible Next and Source Serif 4 (SIL Open Font License). PDF rendering: pdf.js (Apache 2.0). ZIP reading: fflate (MIT). QR codes: qrcode-generator (MIT). Stage link: Trystero and noble-secp256k1 (MIT). Sample hymn words are in the public domain.'),
       h('p.note', { style: { marginTop: '8px' } }, h('a', { href: 'privacy.html', target: '_blank', rel: 'noopener' }, 'Privacy notice'), ' · ', h('a', { href: 'terms.html', target: '_blank', rel: 'noopener' }, 'Terms of use'), ' · ', h('a', { href: 'vendor/VERSIONS.md', target: '_blank', rel: 'noopener' }, 'Third-party code')),

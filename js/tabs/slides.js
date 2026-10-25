@@ -1,6 +1,7 @@
 // Slides tab: PDF, PowerPoint, pictures, and links (Google Slides, etc.).
 // Local files are converted once and kept offline. Links can be imported as PDF
 // (when publicly shared) or presented live from the web.
+import { cloud } from '../core/cloud.js';
 import { h, clear, uid, fmtBytes } from '../core/util.js';
 import { icon } from '../core/icons.js';
 import { btn, dropzone, menu, toast, confirmBox, promptBox, seg, emptyState } from '../core/ui.js';
@@ -36,6 +37,7 @@ export default function create(ctx) {
     { label: 'Move slide earlier', icon: 'up', onclick: () => moveSlide(-1) },
     { label: 'Move slide later', icon: 'down', onclick: () => moveSlide(1) },
     { label: 'Present from this slide', icon: 'present', onclick: () => { stageAt(stagedIndex); live.take(); } },
+    ...(deck && deck.google ? [{ label: 'Update from Google Slides', icon: 'reload', onclick: updateFromGoogle }] : []),
     { label: 'Rename deck', icon: 'edit', onclick: renameDeck },
     { label: 'Add to the service plan', icon: 'plan', onclick: addToPlan },
     { label: 'Delete deck', icon: 'trash', onclick: deleteDeck },
@@ -174,9 +176,10 @@ export default function create(ctx) {
     if (newId) await selectDeck(newId);
   }
 
-  async function importPdf(file, name) {
+  async function importPdf(file, name, opts = {}) {
     const { renderPdf } = await import('../lib/pdf.js');
-    const id = uid();
+    const id = opts.id || uid();
+    const old = opts.id ? await db.get('files', opts.id).catch(() => null) : null;
     let count = 0;
     showProgress('Preparing ' + (name || file.name) + '…', 0);
     await renderPdf(file, Object.assign(box(), {
@@ -187,7 +190,9 @@ export default function create(ctx) {
         showProgress('Preparing ' + (name || file.name) + ' — page ' + count + ' of ' + n, count / n);
       },
     }));
-    await db.put('files', id, { id, kind: 'deck', type: 'pdf', name: (name || file.name).replace(/\.(pdf|pptx)$/i, ''), count, size: file.size, added: Date.now() });
+    // Updating a deck in place (Google Slides): pages left over from a longer old version go.
+    if (old && old.count > count) for (let i = count; i < old.count; i++) await db.del('renders', id + '/' + i).catch(() => {});
+    await db.put('files', id, Object.assign({}, old || {}, { id, kind: 'deck', type: 'pdf', name: (name || file.name).replace(/\.(pdf|pptx)$/i, ''), count, size: file.size, added: old ? old.added : Date.now(), updated: Date.now() }, opts.extra || {}));
     toast((name || file.name) + ': ' + count + ' slides ready offline.', 'ok');
     deck = { id };
   }
@@ -235,8 +240,38 @@ export default function create(ctx) {
     return m ? m[1] : null;
   }
 
+  // Google does not let a web page download a deck itself, so the SDA Sabbath cloud fetches it (when set up);
+  // the direct download is tried too (it works in some browsers and on the companion).
+  let googleError = '';
+  async function googleDeck(gid) {
+    googleError = '';
+    const pdf = (b) => b && b.size > 1000 && (b.type === 'application/pdf' || !b.type || /pdf|octet/.test(b.type));
+    if (cloud.enabled()) {
+      try { const b = await cloud.slidesExport(gid, 'pdf'); if (pdf(b)) return b; } catch (e) { googleError = e.message; }
+    }
+    try {
+      const r = await fetch('https://docs.google.com/presentation/d/' + gid + '/export/pdf', { mode: 'cors' });
+      if (r.ok) { const b = await r.blob(); if (pdf(b)) return b; }
+    } catch (e) { /* not allowed from this page */ }
+    if (!googleError) googleError = cloud.enabled() ? 'Could not download the slides.' : 'Added as a live link (needs internet). For slides that work offline and step with Next, the SDA Sabbath cloud must be set up, or download the deck as PDF (File → Download → PDF) and add the file.';
+    if (/not shared/i.test(googleError)) googleError = 'These slides are not shared. In Google Slides press Share → General access → “Anyone with the link”, then add the link again.';
+    return null;
+  }
+  async function updateFromGoogle() {
+    if (!deck || !deck.google) return;
+    showProgress('Downloading the latest version from Google Slides…', 0.15);
+    const blob = await googleDeck(deck.google);
+    if (!blob) { showProgress(null); toast(googleError, 'err', 8000); return; }
+    const keep = deck.id;
+    await importPdf(new File([blob], deck.name + '.pdf', { type: 'application/pdf' }), deck.name, { id: keep, extra: { google: deck.google, type: 'pdf' } });
+    showProgress(null);
+    await loadLibrary();
+    await selectDeck(keep);
+    toast('Updated from Google Slides.', 'ok');
+  }
+
   async function addFromLink() {
-    const raw = await promptBox('Add slides from a link', 'Paste a Google Slides, PowerPoint Online, or other slides link', '');
+    const raw = await promptBox('Add slides from a link', 'Paste the Google Slides link (Share → “Anyone with the link” → Copy link), or another slides link', '');
     if (!raw) return;
     const url = raw.trim();
     if (!/^https?:\/\//i.test(url)) { toast('That does not look like a web link.', 'err'); return; }
@@ -251,25 +286,18 @@ export default function create(ctx) {
     const id = uid();
     const gid = googleSlidesId(url);
     if (gid) {
-      // Try public PDF export first (works when the deck is shared “Anyone with the link”).
-      const pdfUrl = 'https://docs.google.com/presentation/d/' + gid + '/export/pdf';
-      showProgress('Trying Google Slides PDF export…', 0.2);
-      try {
-        const r = await fetch(pdfUrl, { mode: 'cors' });
-        if (r.ok) {
-          const blob = await r.blob();
-          if (blob.type === 'application/pdf' || blob.size > 1000) {
-            const file = new File([blob], 'Google Slides.pdf', { type: 'application/pdf' });
-            await importPdf(file, 'Google Slides');
-            toast('Google Slides imported as offline PDF.', 'ok');
-            return;
-          }
-        }
-      } catch (e) { console.warn('gs-pdf', e); }
-      // Fallback: present live via the published/embed view.
+      const name = (await promptBox('Name these slides', 'A short name for the library', 'Google Slides')) || 'Google Slides';
+      showProgress('Downloading from Google Slides…', 0.15);
+      const blob = await googleDeck(gid);
+      if (blob) {
+        await importPdf(new File([blob], name + '.pdf', { type: 'application/pdf' }), name, { extra: { google: gid, link: url } });
+        toast('“' + name + '” is ready offline. Changed it in Google Slides? Use ⋯ → Update from Google Slides.', 'ok', 7000);
+        return;
+      }
+      // Fallback: present live via the embed view (needs internet; slides change with the clicker inside Google's player).
       const embed = 'https://docs.google.com/presentation/d/' + gid + '/embed?start=false&loop=false&delayms=3000';
-      await db.put('files', id, { id, kind: 'deck', type: 'web', name: 'Google Slides', count: 1, url: embed, added: Date.now() });
-      toast('Google Slides added as a live link. Share the deck as “Anyone with the link” for offline PDF import.', 'ok', 8000);
+      await db.put('files', id, { id, kind: 'deck', type: 'web', name, count: 1, url: embed, google: gid, link: url, added: Date.now() });
+      toast(googleError || 'Added as a live Google Slides link (needs internet).', googleError ? 'err' : 'ok', 9000);
       deck = { id };
       return;
     }
