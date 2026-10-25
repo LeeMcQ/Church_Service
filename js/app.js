@@ -22,7 +22,7 @@ import { openWelcome, needsSetup } from './tabs/welcome.js';
 import { openFeedback } from './tabs/account.js';
 
 export const VERSION = '1.5.0';
-export const BUILD = '3fb5ad7';
+export const BUILD = 'f66de61';
 
 const TABS = [
   { id: 'bible', label: 'Bible', icon: 'bible', file: 'bible.js', load: () => import('./tabs/bible.js') },

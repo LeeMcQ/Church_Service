@@ -29,26 +29,19 @@ export function importBibleDialog(onDone) {
   const PRESETS = [['NIV', 'New International Version'], ['ESV', 'English Standard Version'], ['NKJV', 'New King James Version']];
   const presets = h('div.row.wrap', { style: { gap: '6px' } }, h('span.note', 'Quick fill:'),
     PRESETS.map(([a, n]) => h('button.btn.sm', { type: 'button', onclick: () => { abbr.value = a; name.value = n; lang.value = 'en'; } }, a)));
-  // Where the Bible files can be downloaded. The button saves the file to the Downloads folder;
-  // then choose it below. (Check that your church may use the translation.)
-  const RAW = 'https://raw.githubusercontent.com/Amosamevor/bible-json/main/versions/en/';
-  const PAGE = 'https://github.com/Amosamevor/Bible-json/tree/main/versions/en';
-  const GET = [['NIV', 'NEW INTERNATIONAL VERSION.json'], ['ESV', 'ENGLISH STANDARD VERSION.json'], ['NKJV', 'NEW KING JAMES VERSION.json']];
   // Full index from bible.helloao.org (1,200+ translations, public domain / free).
   const AO = 'https://bible.helloao.org';
   let aoIndex = null;
   const searchInp = h('input.field', { type: 'search', placeholder: 'Search 1,200+ Bibles (KJV, Afrikaans, Xhosa…)', 'aria-label': 'Search Bibles', oninput: (e) => renderAo(e.target.value) });
   const searchBox = h('div.col', { style: { gap: '4px', maxHeight: '200px', overflow: 'auto' } });
+  const saBox = h('div.col', { style: { gap: '4px', maxHeight: '240px', overflow: 'auto' } });
   const gets = h('div.col', { style: { gap: '6px' } },
-    h('b', 'Download a Bible file'),
-    h('div.row.wrap', { style: { gap: '6px' } }, GET.map(([a, f]) => {
-      const bt = h('button.btn.sm', { type: 'button' }, a + ' (download)');
-      bt.onclick = () => downloadOne(a, f, bt);
-      return bt;
-    })),
+    h('b', 'Bibles of southern Africa'),
+    h('p.note', 'Afrikaans, isiXhosa, isiZulu, Sesotho, Setswana, Sepedi, Xitsonga, Tshivenda, siSwati, isiNdebele, Shona, Chichewa and more: public-domain and free Bibles. Tap Add; it is saved for offline use.'),
+    saBox,
     h('label', 'Search all Bibles'),
     searchInp, searchBox,
-    h('p.note', 'Needs internet. The file is saved to Downloads; then choose it below. Public-domain and free Bibles only.'));
+    h('p.note', 'Needs internet while adding. Public-domain and free Bibles only.'));
   async function loadAo() {
     if (aoIndex) return aoIndex;
     try {
@@ -57,65 +50,62 @@ export function importBibleDialog(onDone) {
       const d = await r.json();
       aoIndex = (d.translations || []).map((t) => ({
         id: t.id, abbr: t.shortName || t.id, name: t.englishName || t.name || t.id,
-        lang: t.language || '', link: t.completeTranslationApiLink || ('/api/' + t.id + '/complete.json'),
+        lang: t.language || '', langName: t.languageEnglishName || t.languageName || '', link: t.completeTranslationApiLink || ('/api/' + t.id + '/complete.json'),
       }));
     } catch (e) { aoIndex = []; }
     return aoIndex;
   }
+  // Southern African languages (ISO 639-3 codes, plus a name fallback for odd codes).
+  const SA_CODES = new Set(['afr', 'xho', 'zul', 'sot', 'tsn', 'nso', 'tso', 'ven', 'ssw', 'nbl', 'nde', 'sna', 'nya', 'her', 'ndo', 'kua', 'loz', 'toi', 'bem', 'tum', 'kmb', 'umb', 'lue', 'kwn', 'tn', 'st', 'xh', 'zu', 'ts', 've', 'ss', 'nr', 'sn', 'ny', 'af']);
+  const SA_NAME = /afrikaans|xhosa|zulu|sotho|tswana|pedi|tsonga|venda|swati|swazi|ndebele|shona|chichewa|nyanja|herero|oshiwambo|ovambo|lozi|tonga|bemba|kwanyama|ndonga|himba|nama|damara/i;
+  const isSA = (t) => SA_CODES.has(String(t.lang).toLowerCase()) || SA_NAME.test(t.langName + ' ' + t.name);
+  const langOf = (t) => { const c = String(t.lang).toLowerCase(); return c === 'afr' || c === 'af' ? 'af' : c === 'xho' || c === 'xh' ? 'xh' : c === 'zul' || c === 'zu' ? 'zu' : /afrikaans/i.test(t.langName) ? 'af' : /xhosa/i.test(t.langName) ? 'xh' : /zulu/i.test(t.langName) ? 'zu' : 'en'; };
+  const row = (t) => {
+    const btn = h('button.btn.sm.primary', { type: 'button' }, 'Add');
+    btn.onclick = () => addAo(t, btn);
+    return h('div.row', { style: { gap: '6px', alignItems: 'center' } },
+      h('span.grow', h('b', t.abbr), h('span.note', '  ' + t.name + (t.langName ? ' · ' + t.langName : ''))), btn);
+  };
   async function renderAo(q) {
-    clear(searchBox);
-    if (!aoIndex) searchBox.appendChild(h('p.note', 'Loading Bible list…'));
+    clear(searchBox); clear(saBox);
+    if (!aoIndex) { searchBox.appendChild(h('p.note', 'Loading Bible list…')); saBox.appendChild(h('p.note', 'Loading Bible list…')); }
     const list = await loadAo();
-    clear(searchBox);
-    if (!list.length) { searchBox.appendChild(h('p.note', 'Could not load the Bible list. Check your connection.')); return; }
+    clear(searchBox); clear(saBox);
+    if (!list.length) { const m = 'Could not load the Bible list. Check your connection.'; searchBox.appendChild(h('p.note', m)); saBox.appendChild(h('p.note', m)); return; }
+    const sa = list.filter(isSA).sort((x, y) => (x.langName + x.name).localeCompare(y.langName + y.name));
+    if (sa.length) sa.forEach((t) => saBox.appendChild(row(t)));
+    else saBox.appendChild(h('p.note', 'No southern African Bibles are in the free list right now. Use the search below.'));
     const qq = (q || '').toLowerCase().trim();
-    const hits = list.filter((t) => !qq || t.abbr.toLowerCase().includes(qq) || t.name.toLowerCase().includes(qq) || t.lang.includes(qq)).slice(0, 20);
+    const hits = list.filter((t) => !qq || t.abbr.toLowerCase().includes(qq) || t.name.toLowerCase().includes(qq) || t.lang.toLowerCase().includes(qq) || t.langName.toLowerCase().includes(qq)).slice(0, 20);
     if (!hits.length) { searchBox.appendChild(h('p.note', 'No Bible matches “' + q + '”.')); return; }
-    hits.forEach((t) => {
-      const row = h('div.row', { style: { gap: '6px', alignItems: 'center' } },
-        h('span.grow', h('b', t.abbr), h('span.note', '  ' + t.name)),
-        h('button.btn.sm', { type: 'button', onclick: (e) => downloadAo(t, e.target) }, 'Download'));
-      searchBox.appendChild(row);
-    });
+    hits.forEach((t) => searchBox.appendChild(row(t)));
   }
-  async function downloadAo(t, bt) {
-    bt.disabled = true; const old = bt.textContent; bt.textContent = 'Downloading…';
+  // One tap: download from the free Bible list, convert and save for offline use.
+  async function addAo(t, bt) {
+    bt.disabled = true; const old = bt.textContent; bt.textContent = 'Adding…';
     try {
-      // Prefer the simple format if the API offers it (smaller, flatter).
-      const link = t.link.replace('/complete.json', '/complete.simple.json');
-      let r = await fetch(AO + link);
+      const ab = String(t.abbr || t.id).trim().toUpperCase().slice(0, 8);
+      const id = 'imp-' + ab.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const existing = await listTranslations(true);
+      if (existing.some((x) => x.id === id && x.src !== 'imported')) throw new Error('already built in');
+      const simple = t.link.replace('/complete.json', '/complete.simple.json');
+      let r = await fetch(AO + simple);
       if (!r.ok) r = await fetch(AO + t.link);
       if (!r.ok) throw new Error('HTTP ' + r.status);
-      const blob = await r.blob();
-      const u = URL.createObjectURL(blob);
-      const aEl = h('a', { href: u, download: t.abbr + '.json' });
-      document.body.appendChild(aEl); aEl.click(); aEl.remove();
-      setTimeout(() => URL.revokeObjectURL(u), 10000);
-      bt.textContent = 'Saved';
-      abbr.value = t.abbr; name.value = t.name; lang.value = (t.lang || '').startsWith('af') ? 'af' : 'en';
+      const parsed = await parseBibleFile(new File([await r.blob()], ab + '.json', { type: 'application/json' }));
+      await saveImported({ id, abbr: ab, name: t.name, lang: langOf(t), license: 'Public domain / free (bible.helloao.org)' }, parsed);
+      closeModal();
+      toast(ab + ' added and available offline.', 'ok');
+      if (onDone) onDone(id);
+      return;
     } catch (e) { bt.textContent = 'Failed: ' + e.message; }
-    setTimeout(() => { bt.disabled = false; bt.textContent = old; }, 3000);
+    setTimeout(() => { bt.disabled = false; bt.textContent = old; }, 3500);
   }
   renderAo('');
-  async function downloadOne(a, f, bt) {
-    bt.disabled = true; const old = bt.textContent; bt.textContent = 'Downloading…';
-    try {
-      const r = await fetch(RAW + encodeURIComponent(f));
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      const blob = await r.blob();
-      const u = URL.createObjectURL(blob);
-      const aEl = h('a', { href: u, download: a + '.json' });
-      document.body.appendChild(aEl); aEl.click(); aEl.remove();
-      setTimeout(() => URL.revokeObjectURL(u), 10000);
-      bt.textContent = a + ' saved';
-      abbr.value = a; name.value = PRESETS.find((x) => x[0] === a)?.[1] || a; lang.value = 'en';
-    } catch (e) { bt.textContent = 'Failed'; }
-    setTimeout(() => { bt.disabled = false; bt.textContent = old; }, 2500);
-  }
   modal({
     title: 'Add a Bible translation',
     body: h('div.col',
-      h('p.note.warn', 'Only add translations your church is licensed to use. NIV is © Biblica, ESV is © Crossway, NKJV is © Thomas Nelson, and the 1975 Xhosa Bible is © Bible Society of South Africa. The app cannot include them; choose a file you are licensed to use (see Supported below).'),
+      h('p.note.warn', 'The Bibles listed here are public domain or free to use. NIV, ESV, NKJV and the 1975 Xhosa Bible are copyrighted (Biblica, Crossway, Thomas Nelson, Bible Society of South Africa) and cannot be included: add those only from a file your church is licensed to use (choose it below).'),
       gets, presets,
       file, h('div.form', h('label', 'Short name'), abbr, h('label', 'Full name'), name, h('label', 'Language (book names)'), lang), status),
     actions: [{ label: 'Cancel' }, {

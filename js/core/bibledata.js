@@ -143,6 +143,7 @@ export async function search(id, query, { limit = 200, onProgress, signal } = {}
 
 // ---------------------------------------------------------------- import
 
+const USFM = 'GEN EXO LEV NUM DEU JOS JDG RUT 1SA 2SA 1KI 2KI 1CH 2CH EZR NEH EST JOB PSA PRO ECC SNG ISA JER LAM EZK DAN HOS JOL AMO OBA JON MIC NAM HAB ZEP HAG ZEC MAL MAT MRK LUK JHN ACT ROM 1CO 2CO GAL EPH PHP COL 1TH 2TH 1TI 2TI TIT PHM HEB JAS 1PE 2PE 1JN 2JN 3JN JUD REV'.split(' ');
 function langNames(lang) { return lang === 'af' ? AF : lang === 'xh' ? XH : EN; }
 
 /** Parse any supported Bible file into {meta, books: Map(b -> chapters[][])} */
@@ -203,28 +204,31 @@ export async function parseBibleFile(file) {
     if (j && j.verses) { // flat (Joy in the Journey / bible-api style)
       Object.assign(meta, j.metadata || {});
       j.verses.forEach((x) => put(bookNo(x.book || x.book_name), x.chapter, x.verse, x.text));
+    } else if (j && j.books && j.books[0] && j.books[0].chapters && j.books[0].chapters[0] && j.books[0].chapters[0].chapter && typeof j.books[0].chapters[0].chapter === 'object') {
+      // bible.helloao.org complete.json: books[].chapters[].chapter.content[]. Books carry a USFM id (GEN, MAT …),
+      // which is used first, so a New Testament only Bible lands on the right books.
+      Object.assign(meta, { name: (j.translation && j.translation.englishName) || j.name, abbr: (j.translation && j.translation.shortName) || '', lang: (j.translation && j.translation.language) || '' });
+      j.books.forEach((bk, i) => {
+        const u = USFM.indexOf(String(bk.id || '').toUpperCase()) + 1;
+        const b = u || bookNo(bk.name || bk.id) || (j.books.length === 66 ? i + 1 : 0);
+        (bk.chapters || []).forEach((chWrap) => {
+          const ch = chWrap.chapter || chWrap;
+          const c = ch.number || 1;
+          const walk = (items) => (items || []).forEach((item) => {
+            if (item && item.type === 'verse' && item.number) {
+              const t = Array.isArray(item.content) ? item.content.map((x) => (typeof x === 'string' ? x : (x && x.text) || '')).join(' ') : String(item.content || '');
+              put(b, c, item.number, t);
+            }
+          });
+          walk(ch.content);
+        });
+      });
     } else if (j && j.books) { // nested
       Object.assign(meta, { name: j.fullName || j.name, abbr: j.translation, lang: j.languageCode, license: j.license });
       j.books.forEach((bk, i) => {
         const b = bookNo(bk.number || bk.name) || i + 1;
         if (Array.isArray(bk.chapters) && Array.isArray(bk.chapters[0])) bk.chapters.forEach((ch, ci) => ch.forEach((t, vi) => put(b, ci + 1, vi + 1, t)));
         else (bk.chapters || []).forEach((ch) => (ch.verses || []).forEach((vs) => put(b, ch.chapter, vs.verse, vs.text)));
-      });
-    } else if (j && j.books && j.books[0] && j.books[0].chapters && j.books[0].chapters[0] && j.books[0].chapters[0].chapter) {
-      // bible.helloao.org complete.json: books[].chapters[].chapter.content[]
-      Object.assign(meta, { name: (j.translation && j.translation.englishName) || j.name, abbr: (j.translation && j.translation.shortName) || '', lang: (j.translation && j.translation.language) || '' });
-      j.books.forEach((bk, i) => {
-        const b = bookNo(bk.name || bk.id) || i + 1;
-        (bk.chapters || []).forEach((chWrap) => {
-          const ch = chWrap.chapter || chWrap;
-          const c = ch.number || 1;
-          (ch.content || []).forEach((item) => {
-            if (item.type === 'verse' && item.number) {
-              const t = Array.isArray(item.content) ? item.content.join(' ') : String(item.content || '');
-              put(b, c, item.number, t);
-            }
-          });
-        });
       });
     } else if (Array.isArray(j) && j[0] && j[0].chapters) { // thiagobodruk
       j.forEach((bk, i) => bk.chapters.forEach((ch, ci) => ch.forEach((t, vi) => put(i + 1, ci + 1, vi + 1, t))));
