@@ -84,6 +84,33 @@ export function importBibleDialog(onDone) {
     return h('div.row', { style: { gap: '6px', alignItems: 'center' } },
       h('span.grow', { title: t.license || '' }, h('b', t.name), h('span.note', t.langName ? '  ' + t.langName : '')), btn);
   };
+  // Search that forgives spelling: strips accents and Bantu prefixes (isiXhosa = Xhosa) and tolerates a typo.
+  const ALIAS = { xhose: 'xhosa', xosa: 'xhosa', khosa: 'xhosa', xh: 'xho', zulu: 'zulu', isizulu: 'zulu', sesotho: 'sotho', setswana: 'tswana', sepedi: 'pedi', 'northern sotho': 'pedi', tshivenda: 'venda', xitsonga: 'tsonga', siswati: 'swati', isindebele: 'ndebele', chishona: 'shona', chichewa: 'nyanja', afrikaans: 'afrikaans', afrikans: 'afrikaans', afrikaan: 'afrikaans' };
+  const strip = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const unprefix = (w) => w.replace(/^(isi|ses|se|si|tshi|xi|chi|oshi|ki|ci|ik|ichi|otji|oci)(?=[a-z]{3,})/, '');
+  const words = (x) => strip(x).split(/[^a-z0-9]+/).filter(Boolean).map(unprefix);
+  const canon = (qq) => { const k = strip(qq).trim(); return ALIAS[k] || ALIAS[unprefix(k)] || unprefix(k); };
+  const hay = (t) => strip([t.abbr, t.name, t.lang, t.langName].join(' '));
+  function matches(t, qq) {
+    const c = canon(qq), h2 = hay(t);
+    return h2.includes(strip(qq).trim()) || h2.includes(c) || words(t.name + ' ' + t.langName).some((w) => w === c || w.startsWith(c));
+  }
+  function lev(a, b, max) {
+    if (Math.abs(a.length - b.length) > max) return max + 1;
+    let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= a.length; i++) {
+      const cur = [i]; let best = i;
+      for (let j = 1; j <= b.length; j++) { cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); if (cur[j] < best) best = cur[j]; }
+      if (best > max) return max + 1;
+      prev = cur;
+    }
+    return prev[b.length];
+  }
+  function fuzzyMatch(t, qq) {
+    const c = canon(qq); if (c.length < 3) return false;
+    const max = c.length >= 7 ? 2 : 1;
+    return words(t.name + ' ' + t.langName + ' ' + t.abbr).some((w) => w.length >= 3 && lev(w.slice(0, c.length + 1), c, max) <= max || lev(w, c, max) <= max);
+  }
   const rank = (t) => (isSA(t) ? 0 : isAfrica(t) ? 1 : 2);
   async function renderAo(q) {
     clear(searchBox);
@@ -92,10 +119,14 @@ export function importBibleDialog(onDone) {
     clear(searchBox);
     if (!list.length) { searchBox.appendChild(h('p.note', 'Could not load the Bible list. Check your connection.')); return; }
     const qq = (q || '').toLowerCase().trim();
-    const hits = list.filter((t) => !qq || t.abbr.toLowerCase().includes(qq) || t.name.toLowerCase().includes(qq) || t.lang.toLowerCase() === qq || t.langName.toLowerCase().includes(qq))
+    let hits = list.filter((t) => !qq || matches(t, qq));
+    let fuzzy = false;
+    if (qq && !hits.length) { hits = list.filter((t) => fuzzyMatch(t, qq)); fuzzy = hits.length > 0; }
+    hits = hits
       .sort((x, y) => rank(x) - rank(y) || (x.langName + x.name).localeCompare(y.langName + y.name))
       .slice(0, qq ? 60 : 80);
-    if (!hits.length) { searchBox.appendChild(h('p.note', 'No Bible matches “' + q + '”.')); return; }
+    if (!hits.length) { searchBox.appendChild(h('p.note', 'No Bible matches “' + q + '”. Try the language name (Xhosa, Zulu, Sesotho …) or leave the box empty to browse.')); return; }
+    if (fuzzy) searchBox.appendChild(h('p.note', 'No exact match for “' + q + '”. Closest results:'));
     hits.forEach((t) => searchBox.appendChild(row(t)));
   }
   // One tap: download from the free Bible list, convert and save for offline use.
