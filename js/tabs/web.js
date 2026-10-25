@@ -37,7 +37,7 @@ export default function create(ctx) {
   const modeSeg = seg([['mirror', 'Mirror a tab'], ['embed', 'Embed page']], mode, (v) => { mode = v; render(); });
 
   const el = h('section',
-    h('div.toolbar', h('h2', 'Web'), modeSeg, url, h('button.btn.primary', { type: 'button', onclick: () => go() }, 'Go')),
+    h('div.toolbar.web-bar', h('h2', 'Web'), modeSeg, url, h('button.btn.primary', { type: 'button', onclick: () => go() }, 'Go')),
     body);
 
   function render() {

@@ -15,7 +15,7 @@ export default function create(ctx) {
   let info = null, trList = [], noFocus = false;
 
   // ------------------------------------------------------------ toolbar
-  const refInput = h('input.field', { type: 'search', placeholder: 'John 3:16-18', style: { width: '200px' }, 'aria-label': 'Bible reference',
+  const refInput = h('input.field.ref-in', { type: 'search', placeholder: 'John 3:16-18', style: { width: '200px' }, 'aria-label': 'Bible reference',
     onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); goRef(refInput.value, e.ctrlKey || e.metaKey); } } });
   // Focus that we set ourselves stays quiet until the operator types or clicks.
   ['keydown', 'pointerdown', 'blur'].forEach((ev) => refInput.addEventListener(ev, () => refInput.classList.remove('quiet-focus')));

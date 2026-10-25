@@ -16,7 +16,8 @@
   main { max-width: 46rem; margin: 0 auto; padding: 24px 16px 64px; }
   h1 { font-size: 1.9rem; line-height:1.2; margin: .4em 0 .2em; } h2 { font-size: 1.25rem; margin: 1.8em 0 .4em; padding-top:.6em; border-top:1px solid var(--line); }
   a { color: var(--accent); } .muted { color: var(--muted); } nav a { margin-right: 1rem; }
-  table { border-collapse: collapse; width:100%; font-size:.95rem; } th, td { text-align:left; vertical-align: top; padding:.5em .6em; border-bottom:1px solid var(--line); }
+  table { border-collapse: collapse; width:100%; font-size:.95rem; } th, td { text-align:left; vertical-align: top; padding:.5em .6em; border-bottom:1px solid var(--line); overflow-wrap: anywhere; }
+  @media (max-width: 480px) { table { font-size: .85rem; } th, td { padding: .45em .35em; } }
   th { color: var(--muted); font-weight:600; }
 </style>
 </head>

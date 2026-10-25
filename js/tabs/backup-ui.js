@@ -146,7 +146,7 @@ export function backupSection(box) {
 export function restoreButtons() {
   const wrap = h('div.row.wrap');
   const box = h('div');
-  wrap.append(h('button.btn', { type: 'button', onclick: () => { modal({ title: 'Restore a backup', wide: true, body: box, actions: [{ label: 'Close' }] }); backupSection(box); } },
+  wrap.append(h('button.btn.wrap-text', { type: 'button', onclick: () => { modal({ title: 'Restore a backup', wide: true, body: box, actions: [{ label: 'Close' }] }); backupSection(box); } },
     icon('download'), h('span', 'Moving from another device? Restore a backup')));
   return wrap;
 }

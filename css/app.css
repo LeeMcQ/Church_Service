@@ -932,7 +932,7 @@ button.se-sw[aria-pressed="true"] { outline: 2px solid var(--focus, #2f6fe0); ou
 .se-chk { gap: 6px; color: var(--text) !important; }
 .se-card h4 { margin: 0 0 6px; }
 /* slides strip */
-.bn-strip { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; align-items: stretch; }
+.bn-strip { flex: none; display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; align-items: stretch; }
 .bn-strip-it { position: relative; flex: none; width: 116px; border: 2px solid var(--line); border-radius: 6px; background: #000; cursor: pointer; outline: none; }
 .bn-strip-it[aria-selected="true"] { border-color: #4a86e8; }
 .bn-strip-it:focus-visible { box-shadow: 0 0 0 2px var(--focus, #2f6fe0); }
@@ -1112,3 +1112,93 @@ a.btn { text-decoration: none; }
 .welcome-keys { display: grid; gap: 8px; }
 .welcome-keys kbd { display: inline-block; min-width: 92px; text-align: center; padding: 3px 8px; margin-right: 10px; border: 1px solid var(--line); border-radius: 6px; font: inherit; font-weight: 700; }
 @media (max-width: 600px) { .welcome-card { padding: 18px 16px; } .welcome { padding: 12px 8px; } }
+
+/* ---------- Touch screens: fingers need bigger targets (about 40 px) ---------- */
+@media (pointer: coarse) {
+  .btn.sm { min-height: 38px; }
+  .btn.sm.icon, .btn.icon { min-width: 38px; min-height: 38px; }
+  .chip { min-height: 36px; }
+  .seg button { height: 38px; }
+  .switch input[type=checkbox] { min-width: 40px; }
+  .se-tb { min-width: 38px; min-height: 38px; }
+}
+
+/* ---------- Narrow phones (360 px and similar) ---------- */
+@media (max-width: 380px) { .topbar .brand { display: none; } } /* 360 px phones: room for Present while live */
+@media (max-width: 420px) {
+  .toolbar h2 { font-size: 17px; }
+  .toolbar .ref-in { min-width: 70px; }
+  .topbar .fb-btn { display: none; } /* Comments and suggestions: Settings → About / Account */
+  .topbar { gap: 4px; padding: 0 6px; }
+  .disp-btn { padding: 0 8px; }
+  .disp-btn .lbl-s { max-width: 64px; }
+}
+@media (max-width: 760px) {
+  /* Settings: the section buttons are one row that scrolls sideways, not four rows beside the title. */
+  .row.wrap.set-nav { flex-wrap: nowrap; }
+  .set-nav > * { flex: none; }
+  /* The Bible reference box keeps a usable width next to the icons (the row scrolls sideways if needed). */
+  .toolbar .field.grow { min-width: 84px; }
+  .toolbar .ref-in { flex: 1 1 90px; min-width: 84px; width: auto !important; }
+  .toolbar select.field { min-width: 64px; }
+  /* Web page: the address gets a full row of its own. */
+  .toolbar.web-bar { flex-wrap: wrap; overflow: visible; row-gap: 6px; }
+  .toolbar.web-bar .field.grow { flex: 1 1 200px; min-width: 0; }
+  /* Choices like Idea / Something is wrong / Thanks / Other wrap instead of running off the screen. */
+  .modal .seg { flex-wrap: wrap; max-width: 100%; }
+  .modal .seg button { flex: 1 1 auto; }
+}
+
+/* ---------- Phones held sideways (landscape, low screen) ----------
+   The bottom tab bar and the stacked monitors would leave almost no room, so a landscape phone gets the
+   PC layout made compact: a slim scrolling rail on the left (every tab), the tab in the middle, and the
+   Next / Live monitors in a narrow column on the right. */
+@media (orientation: landscape) and (max-height: 500px) {
+  :root { --top-h: 50px; --rail-w: 62px; --mon-w: clamp(170px, 25vw, 250px); --tab-h: 0px; }
+  .app, .app.no-monitors { grid-template-columns: var(--rail-w) minmax(0, 1fr) var(--mon-w); grid-template-rows: var(--top-h) minmax(0, 1fr) auto; grid-template-areas: "top top top" "rail work mon" "bar bar bar"; }
+  .app.rail-right { grid-template-columns: var(--mon-w) minmax(0, 1fr) var(--rail-w); grid-template-areas: "top top top" "mon work rail" "bar bar bar"; }
+  .app.no-monitors, .app.tab-settings { grid-template-columns: var(--rail-w) minmax(0, 1fr) 0; }
+  .app.rail-right.no-monitors, .app.rail-right.tab-settings { grid-template-columns: 0 minmax(0, 1fr) var(--rail-w); }
+  .app.tab-settings .monitors { display: none; }
+  .topbar { gap: 6px; padding: 0 8px; }
+  .brand span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .present { height: 40px; min-width: 0; flex: 0 1 220px; padding: 2px 10px; }
+  .present kbd, .present .pi { display: none; }
+  .quick { flex: 1 1 140px; min-width: 0; }
+  .stage-btn .lbl, .disp-btn .lbl { display: none; }
+  .disp-btn .lbl-s { display: inline; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* The rail: every tab, in a column that scrolls. */
+  .rail-nav { flex-direction: column; }
+  .rail { flex-direction: column; padding: 4px; gap: 2px; border: 0; border-right: 1px solid var(--line); overflow-x: hidden; overflow-y: auto; }
+  .rail-right .rail { border-right: 0; border-left: 1px solid var(--line); }
+  .rail button, .rail button.more-tab { display: flex; flex: none; order: 0 !important; padding: 5px 0 4px; gap: 2px; font-size: 10px; }
+  .rail button svg.i { width: 20px; height: 20px; }
+  .rail button .lbl-long { display: none; } .rail button .lbl-short { display: inline; }
+  .rail button[aria-selected="true"]::before { left: -4px; right: auto; top: 8px; bottom: 8px; width: 3px; height: auto; border-radius: 0 3px 3px 0; }
+  .rail .rail-gap { display: block; flex: 1 0 4px; }
+  .rail-nav .rail-more { display: none; }
+  /* The monitors: a narrow column, Next above Live. */
+  .monitors { display: flex; flex-direction: column; padding: 6px; gap: 6px; border: 0; border-left: 1px solid var(--line); overflow-y: auto; min-height: 0; height: auto; }
+  .monitors > section { flex: none; min-width: 0; }
+  html.mon-idle .monitors { height: auto; padding: 6px; }
+  html.mon-idle .monitors > section { display: block; }
+  html.mon-idle .mon-strip { display: none; }
+  .monitors .mon-actions { display: flex; }
+  .monitors .mon-actions .btn { flex: 1 1 0; min-width: 0; padding: 0; justify-content: center; }
+  .monitors .mon-actions .btn span { display: none; } /* icons only: the column is narrow */
+  .row.wrap.set-nav { flex-wrap: nowrap; overflow-x: auto; }
+  .set-nav > * { flex: none; white-space: nowrap; }
+  .monitors .mon-frames, .monitors .mon-extra { display: none; }
+  .mon-h { font-size: 11px; margin-bottom: 3px; }
+  /* Tabs keep the phone's one-scrolling-page layout, but a bit denser. */
+  .toolbar { padding-top: 6px; padding-bottom: 6px; }
+  .modal-back { padding: 0; align-items: flex-end; }
+  .modal { max-height: 96vh; }
+  .ctrlbar { padding: 4px 8px; flex-wrap: nowrap; }
+  /* One row for the control bar: the stanza / translation buttons scroll sideways in the middle. */
+  .ctrlbar .cb-type { order: 0; flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .ctrlbar .cb-type::-webkit-scrollbar { display: none; }
+  .ctrlbar .cb-live { flex: 0 1 200px; }
+}
+/* A long button label may wrap instead of running out of its box (narrow phones). */
+.btn.wrap-text { white-space: normal; height: auto; min-height: 38px; padding-top: 6px; padding-bottom: 6px; text-align: left; max-width: 100%; }

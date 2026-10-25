@@ -20,7 +20,7 @@ export default function create(ctx) {
   const setD = (k) => (v) => settings.set('display.' + k, v);
   const el = h('section');
   const scroll = h('div.scroll.pad', { style: { flex: '1' } });
-  const nav = h('div.row.wrap');
+  const nav = h('div.row.wrap.set-nav');
   el.append(h('div.toolbar', h('h2', 'Settings'), h('div.grow'), nav), scroll);
 
   const sections = [];

@@ -247,6 +247,26 @@ def main():
                 assert r > 0.05, 'no sound (peak %.3f)' % r
             t_music()
 
+            @check('phones: nothing runs off the screen (portrait and landscape)')
+            def t_phone():
+                bad_tabs = []
+                for (w, hh) in [(360, 740), (844, 390), (740, 360)]:
+                    c2 = b.new_context(viewport={'width': w, 'height': hh}, is_mobile=True, has_touch=True, service_workers='block')
+                    p2 = c2.new_page(); e2 = []
+                    p2.on('pageerror', lambda e: e2.append(str(e)[:120]))
+                    p2.goto(base + 'index.html'); p2.wait_for_timeout(800)
+                    p2.evaluate("import('./js/core/settings.js').then(m => m.settings.set('app.setupDone', true))")
+                    p2.reload(); p2.wait_for_selector('#presentBtn'); p2.wait_for_timeout(1200)
+                    for t in TABS:
+                        p2.evaluate('id => window.selah.showTab(id)', t); p2.wait_for_timeout(350)
+                        over = p2.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth')
+                        present = p2.evaluate("(() => { const r = document.getElementById('presentBtn').getBoundingClientRect(); return r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1; })()")
+                        if over > 1 or not present: bad_tabs.append('%dx%d %s (%dpx wider%s)' % (w, hh, t, over, '' if present else ', Present off screen'))
+                    assert not e2, '%dx%d: %s' % (w, hh, e2[0])
+                    c2.close()
+                assert not bad_tabs, '; '.join(bad_tabs[:4])
+            t_phone()
+
             @check('no errors on the main page')
             def t_clean():
                 assert not errs, '; '.join(errs[:3])

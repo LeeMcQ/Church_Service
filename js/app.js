@@ -23,7 +23,7 @@ const lazyWelcome = () => import('./tabs/welcome.js');
 const openFeedback = (c, o) => import('./tabs/account.js').then((m) => m.openFeedback(c, o));
 
 export const VERSION = '1.5.0';
-export const BUILD = 'c7ffab9';
+export const BUILD = 'f6d3f3b';
 
 const TABS = [
   { id: 'bible', label: 'Bible', icon: 'bible', file: 'bible.js', load: () => import('./tabs/bible.js') },
@@ -579,7 +579,7 @@ ctx.promptInstall = promptInstall;
 const installBtn = ui.btn('download', 'Install SDA Sabbath on this device', promptInstall, { cls: 'sm' });
 installBtn.hidden = true;
 const helpBtn = ui.btn('kbd', 'Keyboard shortcuts (?)', () => showHelp(), { cls: 'sm' });
-const feedbackBtn = ui.btn('msg', 'Comments and suggestions', () => openFeedback(ctx), { cls: 'sm' });
+const feedbackBtn = ui.btn('msg', 'Comments and suggestions', () => openFeedback(ctx), { cls: 'sm fb-btn' });
 topIcons.append(searchBtn, installBtn, feedbackBtn, helpBtn);
 
 // Church logo in the top-right corner (replaces any browser cast icon visually).
