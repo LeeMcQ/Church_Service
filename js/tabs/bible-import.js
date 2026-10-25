@@ -3,6 +3,7 @@
 import { h, clear } from '../core/util.js';
 import { modal, toast, closeModal } from '../core/ui.js';
 import { parseBibleFile, saveImported, listTranslations } from '../core/bibledata.js';
+import { CORPUS, CORPUS_BASE } from '../core/biblecorpus.js';
 
 export function importBibleDialog(onDone) {
   const file = h('input', { type: 'file', accept: '.json,.xml,.csv,.tsv,.txt' });
@@ -40,12 +41,12 @@ export function importBibleDialog(onDone) {
     h('p.note', 'Tap Add: it downloads once and then works offline.'));
   // Second free source: getBible (api.getbible.net), which also carries many African-language Bibles.
   const GB = 'https://api.getbible.net';
-  let srcInfo = { ao: 0, gb: 0, aoErr: '', gbErr: '' };
+  let srcInfo = { ao: 0, gb: 0, bc: 0, aoErr: '', gbErr: '' };
   async function loadAo() {
     if (aoIndex) return aoIndex;
     const out = [];
     const seen = new Set();
-    srcInfo = { ao: 0, gb: 0, aoErr: '', gbErr: '' };
+    srcInfo = { ao: 0, gb: 0, bc: 0, aoErr: '', gbErr: '' };
     try {
       const r = await fetch(AO + '/api/available_translations.json');
       if (!r.ok) throw new Error(r.status);
@@ -69,6 +70,14 @@ export function importBibleDialog(onDone) {
         if (!seen.has(key)) { seen.add(key); out.push(o); srcInfo.gb++; }
       });
     } catch (e) { srcInfo.gbErr = String(e.message || e); }
+    // Third source: the multilingual Bible corpus on GitHub (the Xhosa Bible in Joy in the Journey comes from here).
+    // Its list is built in, so these always show; the Bible itself downloads when Add is pressed.
+    CORPUS.forEach(([file, iso, lang, kind, abbr, mb]) => {
+      out.push({ src: 'bc', id: abbr, abbr, name: lang + (kind === 'nt' ? ' New Testament' : kind === 'part' ? ' (parts of the Bible)' : ' Bible'),
+        lang: iso, langName: lang, mb, license: 'Bible corpus (github.com/christos-c/bible-corpus); the translation keeps its own copyright',
+        link: CORPUS_BASE + encodeURIComponent(file) });
+      srcInfo.bc++;
+    });
     aoIndex = out;
     return aoIndex;
   }
@@ -84,7 +93,7 @@ export function importBibleDialog(onDone) {
     const btn = h('button.btn.sm.primary', { type: 'button' }, 'Add');
     btn.onclick = () => addAo(t, btn);
     return h('div.row', { style: { gap: '6px', alignItems: 'center' } },
-      h('span.grow', { title: t.license || '' }, h('b', t.name), h('span.note', t.langName ? '  ' + t.langName : '')), btn);
+      h('span.grow', { title: t.license || '' }, h('b', t.name), h('span.note', (t.langName ? '  ' + t.langName : '') + (t.src === 'bc' ? ' · Bible corpus, ' + t.mb + ' MB' : ''))), btn);
   };
   // Search that forgives spelling: strips accents and Bantu prefixes (isiXhosa = Xhosa) and tolerates a typo.
   const ALIAS = { xhose: 'xhosa', xosa: 'xhosa', khosa: 'xhosa', xh: 'xho', zulu: 'zulu', isizulu: 'zulu', sesotho: 'sotho', setswana: 'tswana', sepedi: 'pedi', 'northern sotho': 'pedi', tshivenda: 'venda', xitsonga: 'tsonga', siswati: 'swati', isindebele: 'ndebele', chishona: 'shona', chichewa: 'nyanja', afrikaans: 'afrikaans', afrikans: 'afrikaans', afrikaan: 'afrikaans' };
@@ -129,9 +138,9 @@ export function importBibleDialog(onDone) {
       .slice(0, qq ? 60 : 80);
     if (!hits.length) {
       const bad = [srcInfo.aoErr && 'bible.helloao.org', srcInfo.gbErr && 'getBible'].filter(Boolean);
-      searchBox.appendChild(h('p.note', 'No Bible matches “' + q + '”. The free lists hold ' + list.length + ' Bibles (' + srcInfo.ao + ' from bible.helloao.org, ' + srcInfo.gb + ' from getBible)'
+      searchBox.appendChild(h('p.note', 'No Bible matches “' + q + '”. The lists hold ' + list.length + ' Bibles (' + srcInfo.ao + ' from bible.helloao.org, ' + srcInfo.gb + ' from getBible, ' + srcInfo.bc + ' from the Bible corpus)'
         + (bad.length ? '; ' + bad.join(' and ') + ' could not be reached, check your connection and reopen this window' : '; this language is not in them')
-        + '. Most Xhosa, Zulu and Sesotho Bibles are copyrighted (Bible Society of South Africa): get the file from the Bible Society or your church, then choose the file in the form below the list.'));
+        + '. If you have the Bible as a file (from the Bible Society or your church), choose it in the form below the list.'));
       return;
     }
     if (fuzzy) searchBox.appendChild(h('p.note', 'No exact match for “' + q + '”. Closest results:'));
@@ -147,13 +156,14 @@ export function importBibleDialog(onDone) {
       if (existing.some((x) => x.id === id && x.src !== 'imported')) throw new Error('already built in');
       let r;
       if (t.src === 'gb') r = await fetch(GB + t.link);
+      else if (t.src === 'bc') r = await fetch(t.link);
       else {
         r = await fetch(AO + t.link.replace('/complete.json', '/complete.simple.json'));
         if (!r.ok) r = await fetch(AO + t.link);
       }
       if (!r.ok) throw new Error('HTTP ' + r.status);
-      const parsed = await parseBibleFile(new File([await r.blob()], ab + '.json', { type: 'application/json' }));
-      await saveImported({ id, abbr: ab, name: t.name, lang: langOf(t), license: (t.src === 'gb' ? 'getBible' : 'bible.helloao.org') + (t.license ? ', ' + t.license : '') }, parsed);
+      const parsed = await parseBibleFile(new File([await r.blob()], ab + (t.src === 'bc' ? '.xml' : '.json'), { type: t.src === 'bc' ? 'application/xml' : 'application/json' }));
+      await saveImported({ id, abbr: ab, name: t.name, lang: langOf(t), license: t.src === 'bc' ? t.license : (t.src === 'gb' ? 'getBible' : 'bible.helloao.org') + (t.license ? ', ' + t.license : '') }, parsed);
       closeModal();
       toast(ab + ' added and available offline.', 'ok');
       if (onDone) onDone(id);

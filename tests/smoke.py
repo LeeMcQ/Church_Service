@@ -186,6 +186,23 @@ def main():
                 assert r == [43], 'books %r' % r
             t_import()
 
+            @check('Bible corpus: Xhosa listed and CES XML imports')
+            def t_corpus():
+                xml = ('<?xml version="1.0" ?><cesDoc version="4"><cesHeader><fileDesc><titleStmt><h.title>Bible(XHO)</h.title></titleStmt></fileDesc>'
+                       '<profileDesc><langUsage><language id="xh" iso639="xho">Xhosa</language></langUsage></profileDesc></cesHeader><text><body>'
+                       '<div id="b.JOH" type="book"><div id="b.JOH.3" type="chapter">'
+                       + ''.join("<seg id='b.JOH.3.%d' type='verse'>Ivesi %d</seg>" % (n, n) for n in range(1, 120))
+                       + '</div></div></body></text></cesDoc>')
+                r = pg.evaluate("""async (txt) => {
+                  const m = await import('./js/core/bibledata.js');
+                  const c = await import('./js/core/biblecorpus.js');
+                  const p = await m.parseBibleFile(new File([txt], 't.xml'));
+                  return { books: [...p.books.keys()], v16: p.books.get(43)[2][15], xho: c.CORPUS.some((x) => x[1] === 'xho') };
+                }""", xml)
+                assert r['books'] == [43] and r['v16'] == 'Ivesi 16', 'parsed %r' % r
+                assert r['xho'], 'Xhosa missing from the corpus list'
+            t_corpus()
+
             @check('remote buttons (Stream Deck) control the app')
             def t_remote():
                 L = lambda: pg.evaluate("import('./js/core/live.js').then(m => ({ live: m.live.cue && m.live.cue.title, i: m.live.index, staged: m.live.staged && m.live.staged.title, blank: m.live.blank }))")

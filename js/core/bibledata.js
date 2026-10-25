@@ -144,6 +144,8 @@ export async function search(id, query, { limit = 200, onProgress, signal } = {}
 // ---------------------------------------------------------------- import
 
 const USFM = 'GEN EXO LEV NUM DEU JOS JDG RUT 1SA 2SA 1KI 2KI 1CH 2CH EZR NEH EST JOB PSA PRO ECC SNG ISA JER LAM EZK DAN HOS JOL AMO OBA JON MIC NAM HAB ZEP HAG ZEC MAL MAT MRK LUK JHN ACT ROM 1CO 2CO GAL EPH PHP COL 1TH 2TH 1TI 2TI TIT PHM HEB JAS 1PE 2PE 1JN 2JN 3JN JUD REV'.split(' ');
+// Book ids used by the multilingual Bible corpus (CES XML).
+const CES = 'GEN EXO LEV NUM DEU JOS JDG RUT 1SA 2SA 1KI 2KI 1CH 2CH EZR NEH EST JOB PSA PRO ECC SON ISA JER LAM EZE DAN HOS JOE AMO OBA JON MIC NAH HAB ZEP HAG ZEC MAL MAT MAR LUK JOH ACT ROM 1CO 2CO GAL EPH PHI COL 1TH 2TH 1TI 2TI TIT PHM HEB JAM 1PE 2PE 1JO 2JO 3JO JUD REV'.split(' ');
 function langNames(lang) { return lang === 'af' ? AF : lang === 'xh' ? XH : EN; }
 
 /** Parse any supported Bible file into {meta, books: Map(b -> chapters[][])} */
@@ -198,7 +200,17 @@ export async function parseBibleFile(file) {
           } else if (n.nodeType === 3 && cur && !skipped(n)) buf += n.nodeValue;
         }
       }
-    } else throw new Error('Unknown XML Bible format (supported: Zefania, OSIS).');
+    } else if (root.nodeName === 'cesDoc' || doc.getElementsByTagName('seg').length) { // CES (christos-c/bible-corpus): <seg id="b.GEN.1.1">
+      const t = doc.getElementsByTagName('h.title')[0];
+      if (t) meta.name = t.textContent.trim();
+      const lg = doc.querySelector('langUsage language');
+      if (lg) meta.lang = lg.getAttribute('id') || lg.getAttribute('iso639') || '';
+      for (const sg of doc.getElementsByTagName('seg')) {
+        const id = (sg.getAttribute('id') || '').split('.');
+        if (id.length < 4) continue;
+        put(CES.indexOf(id[1].toUpperCase()) + 1, parseInt(id[2], 10), parseInt(id[3], 10), sg.textContent);
+      }
+    } else throw new Error('Unknown XML Bible format (supported: Zefania, OSIS, CES).');
   } else if (trimmed[0] === '{' || trimmed[0] === '[') {
     const j = JSON.parse(text);
     if (j && j.verses) { // flat (Joy in the Journey / bible-api style)

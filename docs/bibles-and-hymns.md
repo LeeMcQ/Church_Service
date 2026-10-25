@@ -6,8 +6,14 @@ Built in (public domain): **KJV**, **WEB**, **Afrikaanse Bybel 1933/53**.
 **NIV** (© Biblica) and the **1975 Xhosa Bible** (© Bible Society of South Africa) cannot be shipped
 publicly. Each church adds its own licensed copy:
 
-- **On one device:** Settings → Bibles & hymns → **Add a Bible** (Zefania XML, OSIS XML, JSON, CSV).
-  The `xho75.json` file from Joy in the Journey imports directly.
+- **On one device:** Settings → Bibles & hymns → **Add a Bible**. Search the list and press **Add**, or choose a
+  file (Zefania XML, OSIS XML, CES XML, JSON, CSV). The `xho75.json` file from Joy in the Journey imports directly.
+- The list in **Add a Bible** draws on three sources: bible.helloao.org, getBible, and the multilingual
+  [Bible corpus](https://github.com/christos-c/bible-corpus) by Christodoulopoulos and Steedman (about 100
+  languages, including the full Xhosa, Shona, Somali, Amharic and Malagasy Bibles and the Zulu, Swahili, Ewe,
+  Wolof and Dinka New Testaments). The corpus is where the Xhosa Bible in Joy in the Journey comes from. Its
+  catalogue is in `js/core/biblecorpus.js`; each translation keeps its own copyright (the Xhosa text is
+  © Bible Society of South Africa).
 - **For your whole installation:** drop the file into `licensed/` and run `python tools/build.py --bibles`
   (see `licensed/README.md`). The folder is git-ignored, so it never becomes public.
 
