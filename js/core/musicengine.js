@@ -9,6 +9,7 @@
 // through the companion (so the sound comes out of the PC). No dependency on the control UI.
 import { emitter } from './util.js';
 import { buildArrangement, parseSMF, syllables } from '../lib/smf.js';
+import { ROOMS, churchImpulse } from './churchreverb.js';
 
 const ROOT = new URL('../../', import.meta.url).href;
 const url = (p) => new URL(p, ROOT).href;
@@ -66,6 +67,46 @@ async function midiBytes(book, entry) {
   return files[entry.f];
 }
 
+// ------------------------------------------------------------------ high-quality sound pack
+// data/music/hq.sf3 (18 MB): a recorded concert grand (Salamander) and a recorded pipe organ (GrandOrgue demo).
+// It is not part of the offline install; it downloads the first time it is switched on and is kept in its own
+// cache, which app updates leave alone, so it downloads once per device.
+const HQ_FILE = 'data/music/hq.sf3';
+const HQ_CACHE = 'sda-sabbath-sounds-v1';
+export const HQ_MB = 18;
+/** 'on' / 'off', or 'auto': on for PCs and laptops, off for phones and slow devices (decided by the device that plays). */
+export function hqFor(v) {
+  if (v === true || v === 'on') return true;
+  if (v === false || v === 'off' || v == null) return false;
+  const mem = navigator.deviceMemory || 4, cores = navigator.hardwareConcurrency || 4;
+  const phone = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  return !phone && mem > 2 && cores > 2;
+}
+export async function hqStored() {
+  try { return !!(await (await caches.open(HQ_CACHE)).match(url(HQ_FILE))); } catch (e) { return false; }
+}
+export async function hqRemove() { try { await caches.delete(HQ_CACHE); } catch (e) { /* */ } }
+async function hqBytes(onProgress) {
+  let cache = null;
+  try { cache = await caches.open(HQ_CACHE); const hit = await cache.match(url(HQ_FILE)); if (hit) return hit.arrayBuffer(); } catch (e) { /* no Cache API: download each time */ }
+  const res = await fetch(url(HQ_FILE), { cache: 'no-store' });
+  if (!res.ok) throw new Error('Could not download the high-quality sounds (' + res.status + ').');
+  const total = +res.headers.get('content-length') || HQ_MB * 1048576;
+  const parts = []; let got = 0;
+  const rd = res.body && res.body.getReader ? res.body.getReader() : null;
+  if (rd) {
+    for (;;) {
+      const { done, value } = await rd.read();
+      if (done) break;
+      parts.push(value); got += value.length;
+      onProgress && onProgress('Downloading high-quality instruments (once): ' + Math.min(99, Math.round(got / total * 100)) + '%');
+    }
+  } else parts.push(new Uint8Array(await res.arrayBuffer()));
+  const buf = await new Blob(parts).arrayBuffer();
+  if (cache) { try { await cache.put(url(HQ_FILE), new Response(buf, { headers: { 'Content-Type': 'application/octet-stream' } })); } catch (e) { /* storage full: still plays this time */ } }
+  return buf;
+}
+
 // ------------------------------------------------------------------ engine
 export class MusicEngine {
   constructor() {
@@ -105,6 +146,10 @@ export class MusicEngine {
       const lim = ctx.createDynamicsCompressor();
       lim.threshold.value = -1.5; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.002; lim.release.value = 0.2;
       synth.connect(this.gain); this.gain.connect(lim); lim.connect(ctx.destination);
+      // Church echo: synth → convolver (the room) → wet level → the same volume control, beside the dry sound.
+      this.conv = ctx.createConvolver();
+      this.wet = ctx.createGain(); this.wet.gain.value = 0;
+      synth.connect(this.conv); this.conv.connect(this.wet); this.wet.connect(this.gain);
       onProgress && onProgress('Loading instruments (GeneralUser GS)…');
       const idx = await loadIndex();
       const sf = await (await fetch(url('data/music/' + ((idx && idx.soundfont) || 'hymnal.sf3')))).arrayBuffer();
@@ -124,13 +169,25 @@ export class MusicEngine {
     try { await this._initP; } catch (e) { this._initP = null; throw e; }
   }
 
-  /** fx: {reverb, chorus} GS levels 0-127 (Falcosoft recommendation 59 / 43). */
+  /** fx: {reverb, chorus} GS levels 0-127 (Falcosoft recommendation 59 / 43), room: 'off' | 'small' | 'church' |
+   *  'large' (the church echo replaces the synthesizer's own reverb), hq: high-quality instruments, natural: bool. */
   applyEffects(fx) {
-    if (fx) this.fx = fx;
+    if (fx) this.fx = Object.assign({}, this.fx || {}, fx);
     const s = this.synth;
     if (!s) return;
-    const rev = this.fx && this.fx.reverb != null ? this.fx.reverb : 59;
-    const cho = this.fx && this.fx.chorus != null ? this.fx.chorus : 43;
+    const room = ROOMS[(this.fx && this.fx.room) || 'off'] || null;
+    if (room && this.conv) {
+      const key = this.fx.room + '@' + this.ctx.sampleRate;
+      if (this._roomKey !== key) {
+        const [l, r] = churchImpulse(this.ctx.sampleRate, room);
+        const b = this.ctx.createBuffer(2, l.length, this.ctx.sampleRate);
+        b.copyToChannel(l, 0); b.copyToChannel(r, 1);
+        this.conv.buffer = b; this._roomKey = key;
+      }
+      this.wet.gain.setTargetAtTime(room.wet, this.ctx.currentTime, 0.05);
+    } else if (this.wet) this.wet.gain.setTargetAtTime(0, this.ctx.currentTime, 0.05);
+    const rev = room ? 0 : this.fx && this.fx.reverb != null ? this.fx.reverb : 59;
+    const cho = this.fx && this.fx.chorus != null ? (room ? Math.round(this.fx.chorus / 2) : this.fx.chorus) : 43;
     s.setSystemParameter('reverbLock', false); s.setSystemParameter('chorusLock', false);
     s.systemExclusive(gs([0x01, 0x30], [0x04]));   // reverb: Hall 2 (GS default)
     s.systemExclusive(gs([0x01, 0x33], [rev]));    // reverb level (Falcosoft recommendation: 59)
@@ -138,7 +195,29 @@ export class MusicEngine {
     s.systemExclusive(gs([0x01, 0x3a], [cho]));    // chorus level (Falcosoft recommendation: 43)
     // Lock them: otherwise each new song's reset would restore the GS defaults (64 / 64).
     s.setSystemParameter('reverbLock', true); s.setSystemParameter('chorusLock', true);
+    if (this.fx && this.fx.hq != null) this.setHQ(hqFor(this.fx.hq)).catch((e) => this.emit('notice', e.message));
   }
+
+  /** Switch the high-quality instruments on or off (downloads them the first time). */
+  async setHQ(on, onProgress) {
+    if (!this.synth) return;
+    if (this._hqP) await this._hqP.catch(() => {});
+    if (on === !!this._hq) return;
+    this._hqP = (async () => {
+      const mgr = this.synth.soundBankManager;
+      if (on) {
+        const buf = await hqBytes(onProgress);
+        await mgr.addSoundBank(buf, 'hq');
+        mgr.priorityOrder = ['hq', 'main'];   // its piano and organ win over GeneralUser GS's
+        this._hq = true;
+      } else {
+        await mgr.deleteSoundBank('hq');
+        this._hq = false;
+      }
+    })();
+    try { await this._hqP; } finally { this._hqP = null; }
+  }
+  get hq() { return !!this._hq; }
 
   _meta(d) {
     const ev = d && d.event;
@@ -172,9 +251,15 @@ export class MusicEngine {
     if (this.ctx.state !== 'running') await this.ctx.resume();
     const smf = parseSMF(await midiBytes(req.book, entry));
     const segs = req.segs && req.segs.length ? req.segs : [{ from: 0, to: entry.last != null ? entry.last + 1 : smf.events.reduce((m, e) => Math.max(m, e.tick), 0) + 1, label: 'Hymn', kind: 'all', slide: null }];
-    this.arr = buildArrangement(smf, segs, { channels: channelMap(req.instrument) });
+    this.arr = buildArrangement(smf, segs, { channels: channelMap(req.instrument), humanize: !(req.fx && req.fx.natural === false) });
     this.req = req;
-    if (req.fx) this.applyEffects(req.fx);
+    if (req.fx) {
+      const { hq, ...rest } = req.fx;
+      this.applyEffects(rest);
+      this.fx.hq = hq;
+      // Wait for the high-quality instruments before the first note; if they cannot load, play the standard ones.
+      try { await this.setHQ(hqFor(hq), onProgress); } catch (e) { this.emit('notice', e.message + ' Playing the standard sounds.'); }
+    }
     // Light mode (old PCs, 1–2 GB phones): linear interpolation and fewer voices, ~25% less CPU.
     this.synth.setSystemParameter('interpolationType', req.light ? 0 : 2);
     this.synth.setSystemParameter('voiceCap', req.light ? 96 : 256);

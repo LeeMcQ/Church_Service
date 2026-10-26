@@ -122,7 +122,7 @@ export function makeClock(tempos, tpq) {
  * channels: optional {ch: {program}|{mute:true}} instrument override.
  * Returns { bytes, duration, sections:[{label, start, end}], marks:[{sec, slide}] }.
  */
-export function buildArrangement(smf, segs, { channels = null, leadBeats = 1, splitLeadBeats = 0.5 } = {}) {
+export function buildArrangement(smf, segs, { channels = null, leadBeats = 1, splitLeadBeats = 0.5, humanize = false } = {}) {
   const tpq = smf.tpq;
   const ev = smf.events;
   const out = [];
@@ -207,6 +207,7 @@ export function buildArrangement(smf, segs, { channels = null, leadBeats = 1, sp
   // a little room for the last chord's release and the reverb tail
   const tail = Math.round(tpq * 1.5);
   out.push({ type: 'meta', meta: 0x01, data: [0x20], tick: pos + tail, prio: 3, order: order++ });
+  if (humanize) humanizeNotes(out, tpq);
   const bytes = writeSMF(tpq, out);
   outTempos.sort((a, b) => a.tick - b.tick);
   const clock = makeClock(outTempos, tpq);
@@ -216,6 +217,30 @@ export function buildArrangement(smf, segs, { channels = null, leadBeats = 1, sp
     sections: sections.map((s) => ({ label: s.label, kind: s.kind, stanza: s.stanza, start: clock(s.startTick), end: clock(s.endTick) })),
     marks: marks.map((m) => ({ sec: clock(Math.max(0, m.tick)), slide: m.slide })).sort((a, b) => a.sec - b.sec),
   };
+}
+
+/**
+ * Makes the files sound played rather than typed in: hymn MIDI files often strike every note of a chord equally hard.
+ * On the keyboard part (channels 0 and 1, which hold soprano, alto, tenor and bass) the melody (top note of each chord)
+ * sings out, the bass stays firm and the inner voices sit back; every note also gets a small, repeatable variation.
+ * Timing is not touched, so the words on screen stay in step.
+ */
+export function humanizeNotes(events, tpq) {
+  const win = Math.max(1, Math.round(tpq / 24));
+  const ons = events.filter((e) => e.type === 'ch' && e.hi === 0x90 && e.d2 > 0 && e.ch !== 9);
+  const hash = (a, b) => { let h = Math.imul(a ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(b + 0x632be5ab, 0xc2b2ae35); h ^= h >>> 13; h = Math.imul(h, 0x27d4eb2f); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+  const kb = ons.filter((e) => e.ch === 0 || e.ch === 1).sort((a, b) => a.tick - b.tick);
+  for (let i = 0; i < kb.length;) {
+    let j = i; while (j < kb.length && kb[j].tick - kb[i].tick <= win) j++;
+    const chord = kb.slice(i, j);
+    if (chord.length > 1) {
+      let top = chord[0], low = chord[0];
+      for (const e of chord) { if (e.d1 > top.d1) top = e; if (e.d1 < low.d1) low = e; }
+      for (const e of chord) e.d2 += e === top ? 10 : e === low ? 2 : -8;
+    }
+    i = j;
+  }
+  for (const e of ons) e.d2 = Math.max(1, Math.min(127, Math.round(e.d2 + (hash(e.tick, e.d1 + 128 * e.ch) - 0.5) * 8)));
 }
 
 /** Rough English/Afrikaans syllable count, used to place slide changes inside a section. */

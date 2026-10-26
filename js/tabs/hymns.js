@@ -5,7 +5,7 @@ import { icon } from '../core/icons.js';
 import { btn, modal, seg, toggle, menu, toast, confirmBox, closeModal, enter, emptyState, keepInView } from '../core/ui.js';
 import { db } from '../core/db.js';
 import { fitsText } from '../core/render.js';
-import { music, INSTRUMENTS } from '../core/hymnmusic.js';
+import { music, INSTRUMENTS, hqFor, hqStored, hqRemove, HQ_MB } from '../core/hymnmusic.js';
 import { fmtTime } from '../core/util.js';
 import * as ai from '../core/ai.js';
 import { findSongs, lyricsOf, songFromPlain, songText, sourceLinks, matchLabel, splitQuery, findMidi, fetchMidi } from '../core/lyrics.js';
@@ -395,6 +395,19 @@ export default function create(ctx) {
 
   function optionsDialog() {
     const s = S();
+    // What "High quality" means on this device, and whether the 18 MB download is already here.
+    const hqNote = h('p.note');
+    const paintHQ = async () => {
+      const v = S().musicHQ || 'auto';
+      const on = hqFor(v), have = await hqStored();
+      clear(hqNote);
+      hqNote.append(on
+        ? 'Recorded concert grand piano and church pipe organ. ' + (have ? 'Downloaded on this device.' : 'Downloads once (' + HQ_MB + ' MB) when the next hymn starts, then works offline.')
+        : (v === 'auto' ? 'Automatic: high quality on PCs and laptops; standard sounds on phones (smaller and lighter). ' : 'Standard sounds (GeneralUser GS). '));
+      if (have) hqNote.append(' ', h('button.btn.ghost.sm', { type: 'button', onclick: async () => { await hqRemove(); paintHQ(); toast('High-quality sounds removed from this device.'); } }, 'Remove download'));
+      if (music.where === 'display') hqNote.append(' The church PC plays the music and uses its own setting for Automatic.');
+    };
+    paintHQ();
     const set = (k) => (v) => { settings.set('hymns.' + k, v); if (hymn) { restage(); syncLive(); } };
     modal({
       title: 'Hymn options',
@@ -407,10 +420,14 @@ export default function create(ctx) {
         h('label', 'Hymn title line'), seg([['bottom', 'Bottom'], ['top', 'Top'], ['none', 'Hidden']], s.refPos, set('refPos')),
         h('h3', { style: { gridColumn: '1 / -1', marginTop: '10px' } }, 'Music'),
         h('label', 'Volume'), slider(0, 2, 0.05, s.musicVolume == null ? 1.3 : s.musicVolume, (v) => Math.round(v / 1.3 * 100) + '%', (v) => music.setVolume(v)),
+        h('label', 'Instruments'), seg([['auto', 'Automatic'], ['on', 'High quality'], ['off', 'Standard']], s.musicHQ || 'auto', (v) => { settings.set('hymns.musicHQ', v); music.applyEffects(); paintHQ(); }),
+        h('label', ''), hqNote,
+        h('label', 'Church echo'), seg([['off', 'Off'], ['small', 'Small room'], ['church', 'Church'], ['large', 'Large church']], s.musicRoom || 'church', (v) => { settings.set('hymns.musicRoom', v); music.applyEffects(); }),
+        h('label', 'Natural playing'), toggle('Melody sings out, inner parts softer, every note a little different', s.musicNatural !== false, (v) => { settings.set('hymns.musicNatural', v); }, 'Hymn files often strike every note equally hard. Takes effect from the next hymn.'),
         h('label', 'Reverb'), slider(0, 127, 1, s.musicReverb == null ? 59 : s.musicReverb, (v) => String(v), (v) => { settings.set('hymns.musicReverb', v); music.applyEffects(); }),
         h('label', 'Chorus effect'), slider(0, 127, 1, s.musicChorus == null ? 43 : s.musicChorus, (v) => String(v), (v) => { settings.set('hymns.musicChorus', v); music.applyEffects(); }),
-        h('label', ''), h('p.note', 'Reverb 59 and chorus 43 are the levels GeneralUser GS’s author recommends for Falcosoft MIDI Player. ',
-          h('button.btn.sm', { type: 'button', onclick: () => { settings.set('hymns.musicReverb', 59); settings.set('hymns.musicChorus', 43); music.applyEffects(); closeModal(); optionsDialog(); } }, 'Use recommended')),
+        h('label', ''), h('p.note', 'Reverb is used when Church echo is off (59 and chorus 43 are the levels GeneralUser GS’s author recommends). ',
+          h('button.btn.sm', { type: 'button', onclick: () => { settings.set('hymns.musicReverb', 59); settings.set('hymns.musicChorus', 43); settings.set('hymns.musicRoom', 'church'); settings.set('hymns.musicHQ', 'auto'); settings.set('hymns.musicNatural', true); music.applyEffects(); closeModal(); optionsDialog(); } }, 'Use recommended')),
         h('label', 'Music plays on'), seg([['auto', 'Automatic'], ['here', 'This device'], ['display', 'The display']], s.musicOutput || 'auto', (v) => settings.set('hymns.musicOutput', v)),
         h('label', ''), h('p.note', 'Automatic: on this device, except when this phone controls the church PC through the companion — then the PC plays it.')),
       actions: [{ label: 'Done', primary: true }],
@@ -860,6 +877,7 @@ export default function create(ctx) {
     if (playingThis() && !musicStatus) musicInfo.textContent = (st.section != null && st.sections[st.section] ? st.sections[st.section].label + '   ' : '') + fmtTime(st.time) + ' / ' + fmtTime(st.dur);
   });
   music.on('progress', (msg) => { musicStatus = msg; if (!el.hidden) renderMusic(); });
+  music.on('notice', (msg) => toast(msg, 'err', 6000));
   // Words follow the music: the arrangement carries markers where each slide begins.
   music.on('slide', ({ key, slide }) => {
     if (S().musicFollow === false) return;

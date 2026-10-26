@@ -68,5 +68,7 @@ a local web address. Everything is explained in the guides below.
 - pdf.js (Apache 2.0), fflate (MIT), qrcode-generator (MIT), SpessaSynth (Apache 2.0), Trystero and noble-secp256k1 (MIT).
 - GeneralUser GS 2.0.3 SoundFont by S. Christian Collins — free to use and modify
   (`data/music/GeneralUser-GS-LICENSE.txt`, https://www.schristiancollins.com).
+- High-quality hymn sounds (`data/music/hq.sf3`, optional download): Salamander Grand Piano V3 by Alexander Holm
+  (CC BY 3.0) and the GrandOrgue demo pipe organ, recordings by Lars Palo (CC BY-SA 2.5) — `data/music/HQ-SOUNDS-LICENSE.txt`.
 - Hymn MIDI files: supplied by the church for its own services.
 - SDA Sabbath code: MIT.

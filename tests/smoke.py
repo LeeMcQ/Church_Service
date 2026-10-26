@@ -287,6 +287,30 @@ def main():
                 assert r > 0.05, 'no sound (peak %.3f)' % r
             t_music()
 
+            @check('high-quality piano and organ, church echo')
+            def t_music_hq():
+                r = pg.evaluate("""async () => {
+                  const m = await import('./js/core/musicengine.js');
+                  await m.hqRemove();
+                  const e = new m.MusicEngine(); e.unlock(); await e.init();
+                  const an = e.ctx.createAnalyser(); an.fftSize = 2048; e.gain.connect(an);
+                  const peakFor = async (instrument) => {
+                    await e.play({ book: 'sda-online', n: 73, instrument, fx: { hq: 'on', room: 'church', natural: true } });
+                    await new Promise((r) => setTimeout(r, 3500));
+                    const buf = new Float32Array(an.fftSize); let peak = 0;
+                    for (let k = 0; k < 20; k++) { an.getFloatTimeDomainData(buf); for (const x of buf) peak = Math.max(peak, Math.abs(x)); await new Promise((r) => setTimeout(r, 50)); }
+                    e.stop(); return peak;
+                  };
+                  const piano = await peakFor('piano'), organ = await peakFor('organ');
+                  const banks = e.synth.soundBankManager.priorityOrder;
+                  return { piano, organ, hq: e.hq, banks, stored: await m.hqStored(), wet: e.wet.gain.value, ir: e.conv.buffer && e.conv.buffer.duration };
+                }""")
+                assert r['hq'] and r['banks'][0] == 'hq', 'sound pack not in use: %r' % r
+                assert r['stored'], 'sound pack not kept for offline use'
+                assert r['piano'] > 0.05 and r['organ'] > 0.05, 'no sound: %r' % r
+                assert r['ir'] and r['ir'] > 1.5 and r['wet'] > 0.1, 'church echo not on: %r' % r
+            t_music_hq()
+
             @check('phones: nothing runs off the screen (portrait and landscape)')
             def t_phone():
                 bad_tabs = []

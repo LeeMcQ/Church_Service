@@ -80,12 +80,28 @@ Falcosoft MIDI Player with that SoundFont. Nothing is streamed: it works with no
 - **Words follow music:** while the hymn is live, the slides change with the music (title during the introduction,
   each stanza and chorus as it is reached). Press → / ← at any time to take over.
 - **Tempo** (60–140 %), **Key** (±6 semitones), **Instrument** (as arranged, piano, organ, strings, choir), jump to the
-  introduction or any verse, **Fade** and **Stop**. Volume, reverb and chorus are in **Hymns → ⚙ Hymn options**.
+  introduction or any verse, **Fade** and **Stop**. Volume, sound quality, church echo, reverb and chorus are in
+  **Hymns → ⚙ Hymn options**.
 - **Phone as remote:** when a phone controls the church PC through the companion, the music plays on the PC (the
   display window). Open the display on the PC from `http://localhost:7777` — browsers only allow the synthesizer on
   `https://` or `localhost`. Click the projector window once at the start so it may play sound.
 - 33 hymns (mostly the short responses 660–695) are through-composed, so they always play as recorded; 25 hymns have
   fewer verses of music than stanzas, so the verse music is repeated. Hymns 696–698 have no MIDI yet.
+
+#### Sound quality (Hymns → ⚙ Hymn options → Music)
+
+- **Instruments → High quality:** a recorded concert grand piano (Salamander Grand Piano, Yamaha C5) and a recorded
+  church pipe organ (Montre 8', Prestant 4', Bourdon 8' from the GrandOrgue demo organ) replace the standard piano and
+  organ. The hymnal's own arrangements, which use an electric piano, play on the grand piano too. It is an 18 MB
+  download the first time (then offline, kept across app updates). **Automatic** switches it on for PCs and laptops
+  and leaves phones on the standard 4 MB sounds; when a phone is the remote, the church PC decides.
+- **Church echo:** the sound of a church (small room, church or large church) instead of the synthesizer's reverb.
+  It is calculated in the app, so it costs no download.
+- **Natural playing:** the melody (top note of each chord) sings out, the inner parts sit back and every note varies a
+  little, instead of every note being struck equally hard. The timing is not changed, so the words stay in step.
+
+To rebuild the sound pack: `node tools/build_hq_soundfont.mjs <SalamanderGrandPiano clone> <GrandOrgue demo folder>`
+(details at the top of the script).
 
 To rebuild after changing the MIDI files (put the numbered `.mid` files in `sources/hymn-midi/`):
 

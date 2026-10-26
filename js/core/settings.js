@@ -22,6 +22,8 @@ export const DEFAULTS = {
     // Hymn music (MIDI accompaniment through GeneralUser GS)
     musicIntro: true, musicFollow: true, musicInstrument: 'arranged', musicTempo: 100, musicKey: 0, musicVolume: 1.3,
     musicReverb: 59, musicChorus: 43, musicOutput: 'auto',
+    // Sound quality: recorded piano and pipe organ (18 MB download, 'auto' = on for PCs), church echo, natural playing
+    musicHQ: 'auto', musicRoom: 'church', musicNatural: true,
   },
   slides: { fit: 'contain', autoSec: 8, quality: 0.9 },
   video: { volume: 1, autoNext: true, repeat: 'off', fit: 'contain' },
