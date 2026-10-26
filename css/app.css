@@ -1202,3 +1202,54 @@ a.btn { text-decoration: none; }
 }
 /* A long button label may wrap instead of running out of its box (narrow phones). */
 .btn.wrap-text { white-space: normal; height: auto; min-height: 38px; padding-top: 6px; padding-bottom: 6px; text-align: left; max-width: 100%; }
+
+/* ---- Phones, also with Android's larger page zoom (a 412 px phone at 130 % is a 317 px page) ---- */
+@media (max-width: 760px) {
+  /* Settings: title on its own line, the section buttons scroll sideways underneath; the page itself never scrolls sideways. */
+  .toolbar.set-bar { flex-wrap: wrap; overflow: visible; row-gap: 6px; }
+  .toolbar.set-bar > .grow { display: none; }
+  .toolbar.set-bar .set-nav { flex: 1 1 100%; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .toolbar.set-bar .set-nav::-webkit-scrollbar { display: none; }
+  /* Plan: the tab button already says Plan, so the bar keeps the plan, back, Next part and more. */
+  .toolbar.plan-top > h2, .toolbar.plan-top > .grow { display: none; }
+  .toolbar.plan-top select.field { flex: 1 1 0; min-width: 0; max-width: none; }
+  /* Choices such as the screen layouts wrap instead of making the page wider than the phone. */
+  .scroll .seg, .card .seg, .scr-panel .seg { flex-wrap: wrap; max-width: 100%; }
+  .scroll .seg button, .card .seg button, .scr-panel .seg button { flex: 1 1 auto; }
+  /* Bible: the tab button already says Bible; the reference box gets the room instead. */
+  .toolbar.bible-bar > h2 { display: none; }
+  .card, .scr-panel, .scr-row, .scr-row > .grow { min-width: 0; }
+}
+@media (max-width: 560px) {
+  /* Plan parts: number, picture and the full title on top; the buttons get their own row underneath. */
+  .plan-item { grid-template-columns: 28px 48px minmax(0, 1fr); gap: 6px 10px; margin: 6px 8px; padding: 8px 10px; }
+  .plan-item .pi-tile { width: 48px; height: 38px; }
+  .plan-item .pi-tile-t { max-width: 44px; }
+  .plan-item > .pi-act { grid-column: 1 / -1; justify-content: flex-end; }
+  .plan-item .pi-act .btn { min-height: 38px; }
+  .plan-item .pi-t .trunc { white-space: normal; overflow: visible; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+}
+@media (max-width: 380px) {
+  .toolbar.bible-bar { gap: 6px; }
+  .toolbar.bible-bar .ref-in { min-width: 66px; flex-basis: 66px; }
+  .toolbar.bible-bar select.field { min-width: 58px; }
+}
+@media (max-width: 420px) {
+  .toolbar.webpc-bar > h2 { display: none; }       /* the More menu already says Web & PC */
+  .toolbar > .seg { min-width: 0; overflow-x: auto; scrollbar-width: none; }   /* long choice rows scroll instead of being cut off */
+  .toolbar > .seg::-webkit-scrollbar { display: none; }
+  .toolbar > .seg > button { flex: none; }
+}
+/* Narrow phones and the narrow landscape column: banner settings stack (label above control) and their choices wrap. */
+@media (max-width: 420px), (orientation: landscape) and (max-height: 500px) {
+  .bn-editor .bn-form { grid-template-columns: minmax(0, 1fr); gap: 4px 0; }
+  .bn-editor .bn-form > * { min-width: 0; }
+  .bn-editor .bn-form .seg, .bn-editor .bn-form .row { flex-wrap: wrap; max-width: 100%; }
+  .bn-editor .bn-form .seg button { flex: 1 1 auto; }
+}
+@media (max-width: 420px) {
+  .eq { gap: 2px; }
+  .eq label { min-width: 0; }
+  .eq input[type=range] { width: 20px; }
+}
+@media (max-width: 760px) { .tabpanel .toolbar { flex-shrink: 0; } } /* a long page never squashes the bar above it */

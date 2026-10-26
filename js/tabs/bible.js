@@ -32,7 +32,7 @@ export default function create(ctx) {
   [['kjv', 'KJV'], ['web', 'WEB'], ['afr53', 'AFR']].forEach(([v, a]) => trSel.appendChild(h('option', { value: v }, a)));
   trSel.value = st.tr;
   parSel.appendChild(h('option', { value: '' }, 'No second'));
-  const toolbar = h('div.toolbar', h('h2', 'Bible'), refInput, trSel, h('span.faint.hide-sm', { 'aria-hidden': 'true' }, '+'), parSel, h('div.grow'), searchBtn, optsBtn, moreBtn);
+  const toolbar = h('div.toolbar.bible-bar', h('h2', 'Bible'), refInput, trSel, h('span.faint.hide-sm', { 'aria-hidden': 'true' }, '+'), parSel, h('div.grow'), searchBtn, optsBtn, moreBtn);
   const hist = h('div.bible-hist');
 
   // ------------------------------------------------------------ browse panes

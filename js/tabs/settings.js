@@ -21,7 +21,7 @@ export default function create(ctx) {
   const el = h('section');
   const scroll = h('div.scroll.pad', { style: { flex: '1' } });
   const nav = h('div.row.wrap.set-nav');
-  el.append(h('div.toolbar', h('h2', 'Settings'), h('div.grow'), nav), scroll);
+  el.append(h('div.toolbar.set-bar', h('h2', 'Settings'), h('div.grow'), nav), scroll);
 
   const sections = [];
   const section = (id, title, build) => { sections.push({ id, title, build }); };

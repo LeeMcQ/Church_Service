@@ -290,15 +290,22 @@ def main():
             @check('phones: nothing runs off the screen (portrait and landscape)')
             def t_phone():
                 bad_tabs = []
-                for (w, hh) in [(360, 740), (844, 390), (740, 360)]:
+                for (w, hh) in [(320, 640), (360, 740), (844, 390), (740, 360)]:  # 320: a 412 px phone with Android's page zoom at 130 %
                     c2 = b.new_context(viewport={'width': w, 'height': hh}, is_mobile=True, has_touch=True, service_workers='block')
                     p2 = c2.new_page(); e2 = []
                     p2.on('pageerror', lambda e: e2.append(str(e)[:120]))
                     p2.goto(base + 'index.html'); p2.wait_for_timeout(800)
                     p2.evaluate("import('./js/core/settings.js').then(m => m.settings.set('app.setupDone', true))")
                     p2.reload(); p2.wait_for_selector('#presentBtn'); p2.wait_for_timeout(1200)
+                    p2.evaluate("window.selah.showTab('plan')"); p2.wait_for_timeout(300)
+                    for q in ['Closing prayer', 'hymn 135', 'John 3:16']:   # parts with buttons, so the plan rows are tested too
+                        bx = p2.locator('.tabpanel:not([hidden]) input.field').first; bx.fill(q); bx.press('Enter'); p2.wait_for_timeout(300)
                     for t in TABS:
                         p2.evaluate('id => window.selah.showTab(id)', t); p2.wait_for_timeout(350)
+                        # A tab's page area must not be wider than the phone (toolbars and button rows may scroll sideways on purpose).
+                        inner = p2.evaluate("""() => [...document.querySelectorAll('.tabpanel:not([hidden]) .scroll, .tabpanel:not([hidden]) .plan-list, .tabpanel:not([hidden]) .split')]
+                          .filter((e) => e.clientWidth && e.scrollWidth > e.clientWidth + 2).map((e) => e.className + ' ' + (e.scrollWidth - e.clientWidth) + 'px')""")
+                        if inner: bad_tabs.append('%dx%d %s: %s' % (w, hh, t, inner[0]))
                         over = p2.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth')
                         present = p2.evaluate("(() => { const r = document.getElementById('presentBtn').getBoundingClientRect(); return r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1; })()")
                         if over > 1 or not present: bad_tabs.append('%dx%d %s (%dpx wider%s)' % (w, hh, t, over, '' if present else ', Present off screen'))

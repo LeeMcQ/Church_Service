@@ -86,7 +86,7 @@ export default function create(ctx) {
 
   const listEl = h('div');
   const el = h('section',
-    h('div.toolbar', h('h2', 'Plan'), planSel, h('div.grow'), prevBtn, nextBtn, moreBtn),
+    h('div.toolbar.plan-top', h('h2', 'Plan'), planSel, h('div.grow'), prevBtn, nextBtn, moreBtn),
     tabBar,
     h('div.toolbar.plan-addbar', addWrap, mediaBtn),
     h('div.scroll', { style: { flex: '1' } }, listEl));
