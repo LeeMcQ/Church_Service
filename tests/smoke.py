@@ -186,6 +186,29 @@ def main():
                 assert r == [43], 'books %r' % r
             t_import()
 
+            @check('Bible formats of all three sources read correctly')
+            def t_formats():
+                vs = range(1, 120)
+                # bible.helloao.org complete.simple.json (verse text in "text")
+                simple = {'translation': {'shortName': 'S', 'englishName': 'S', 'language': 'eng'}, 'books': [{'id': 'JHN', 'name': 'John', 'order': 43, 'chapters': [
+                    {'chapter': {'number': 3, 'content': [{'type': 'heading', 'text': 'H'}, {'type': 'line_break'}] + [{'type': 'verse', 'number': n, 'text': 'Simple %d' % n, 'footnotes': []} for n in vs]}}]}]}
+                # bible.helloao.org complete.json (verse content[] with formatted text and footnote markers)
+                full = {'translation': {'shortName': 'F', 'englishName': 'F', 'language': 'eng'}, 'books': [{'id': 'JHN', 'name': 'John', 'order': 43, 'chapters': [
+                    {'chapter': {'number': 3, 'content': [{'type': 'verse', 'number': n, 'content': ['Full', {'text': str(n), 'wordsOfJesus': True}, {'noteId': 1}]} for n in vs]}}]}]}
+                # getBible v2 {abbr}.json
+                gb = {'translation': 'G', 'abbreviation': 'g', 'lang': 'en', 'language': 'English', 'books': [{'nr': 43, 'name': 'John', 'chapters': [
+                    {'chapter': 3, 'name': 'John 3', 'verses': [{'chapter': 3, 'verse': n, 'name': 'John 3:%d' % n, 'text': 'Get %d ' % n} for n in vs]}]}]}
+                r = pg.evaluate("""async (files) => {
+                  const m = await import('./js/core/bibledata.js');
+                  const out = [];
+                  for (const f of files) { const p = await m.parseBibleFile(new File([f], 'x.json')); out.push([[...p.books.keys()], p.books.get(43)[2][15]]); }
+                  return out;
+                }""", [json.dumps(simple), json.dumps(full), json.dumps(gb)])
+                assert r[0] == [[43], 'Simple 16'], 'helloao simple %r' % r[0]
+                assert r[1] == [[43], 'Full 16'], 'helloao complete %r' % r[1]
+                assert r[2] == [[43], 'Get 16'], 'getBible %r' % r[2]
+            t_formats()
+
             @check('Bible corpus: Xhosa listed and CES XML imports')
             def t_corpus():
                 xml = ('<?xml version="1.0" ?><cesDoc version="4"><cesHeader><fileDesc><titleStmt><h.title>Bible(XHO)</h.title></titleStmt></fileDesc>'

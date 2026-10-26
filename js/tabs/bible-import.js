@@ -4,6 +4,7 @@ import { h, clear } from '../core/util.js';
 import { modal, toast, closeModal } from '../core/ui.js';
 import { parseBibleFile, saveImported, listTranslations } from '../core/bibledata.js';
 import { CORPUS, CORPUS_BASE } from '../core/biblecorpus.js';
+import { GETBIBLE } from '../core/biblegetbible.js';
 
 export function importBibleDialog(onDone) {
   const file = h('input', { type: 'file', accept: '.json,.xml,.csv,.tsv,.txt' });
@@ -30,57 +31,60 @@ export function importBibleDialog(onDone) {
   const PRESETS = [['NIV', 'New International Version'], ['ESV', 'English Standard Version'], ['NKJV', 'New King James Version']];
   const presets = h('div.row.wrap', { style: { gap: '6px' } }, h('span.note', 'Quick fill:'),
     PRESETS.map(([a, n]) => h('button.btn.sm', { type: 'button', onclick: () => { abbr.value = a; name.value = n; lang.value = 'en'; } }, a)));
-  // Full index from bible.helloao.org (1,200+ translations, public domain / free).
+  // Three sources, searched together. Each one's list loads on its own, so a slow or blocked source never hides the
+  // others. getBible and the Bible corpus have built-in lists, so they always show; bible.helloao.org needs its live list.
   const AO = 'https://bible.helloao.org';
-  let aoIndex = null;
-  const searchInp = h('input.field', { type: 'search', placeholder: 'Search: Zulu, Xhosa, Sesotho, Afrikaans, KJV…', 'aria-label': 'Search Bibles', oninput: (e) => renderAo(e.target.value) });
-  const searchBox = h('div.col', { style: { gap: '4px', maxHeight: '320px', overflow: 'auto' } });
-  // One list: southern African Bibles first, then the rest of Africa, then every other language. Tap Add.
-  const gets = h('div.col', { style: { gap: '6px' } },
-    h('b', 'Find a Bible'), searchInp, searchBox,
-    h('p.note', 'Tap Add: it downloads once and then works offline.'));
-  // Second free source: getBible (api.getbible.net), which also carries many African-language Bibles.
   const GB = 'https://api.getbible.net';
-  let srcInfo = { ao: 0, gb: 0, bc: 0, aoErr: '', gbErr: '' };
-  async function loadAo() {
-    if (aoIndex) return aoIndex;
-    const out = [];
-    const seen = new Set();
-    srcInfo = { ao: 0, gb: 0, bc: 0, aoErr: '', gbErr: '' };
-    try {
-      const r = await fetch(AO + '/api/available_translations.json');
-      if (!r.ok) throw new Error(r.status);
-      const d = await r.json();
-      (d.translations || []).forEach((t) => {
-        const o = { src: 'ao', id: t.id, abbr: t.shortName || t.id, name: t.englishName || t.name || t.id, lang: t.language || '',
-          langName: t.languageEnglishName || t.languageName || '', license: t.licenseUrl ? 'licence: ' + String(t.licenseUrl).replace(/^https?:\/\//, '').slice(0, 40) : '',
-          link: t.completeTranslationApiLink || ('/api/' + t.id + '/complete.json') };
-        seen.add((o.abbr + '|' + o.langName).toLowerCase()); out.push(o); srcInfo.ao++;
-      });
-    } catch (e) { srcInfo.aoErr = String(e.message || e); }
-    try {
-      const r = await fetch(GB + '/v2/translations.json');
-      if (!r.ok) throw new Error(r.status);
-      const d = await r.json();
-      Object.keys(d || {}).forEach((k) => {
-        const t = d[k] || {};
-        const o = { src: 'gb', id: t.abbreviation || k, abbr: t.abbreviation || k, name: t.translation || k, lang: t.lang || '', langName: t.language || '',
-          license: t.distribution_license ? 'licence: ' + String(t.distribution_license).slice(0, 40) : '', link: '/v2/' + encodeURIComponent(t.abbreviation || k) + '.json' };
-        const key = (o.abbr + '|' + o.langName).toLowerCase();
-        if (!seen.has(key)) { seen.add(key); out.push(o); srcInfo.gb++; }
-      });
-    } catch (e) { srcInfo.gbErr = String(e.message || e); }
-    // Third source: the multilingual Bible corpus on GitHub (the Xhosa Bible in Joy in the Journey comes from here).
-    // Its list is built in, so these always show; the Bible itself downloads when Add is pressed.
-    CORPUS.forEach(([file, iso, lang, kind, abbr, mb]) => {
-      out.push({ src: 'bc', id: abbr, abbr, name: lang + (kind === 'nt' ? ' New Testament' : kind === 'part' ? ' (parts of the Bible)' : ' Bible'),
-        lang: iso, langName: lang, mb, license: 'Bible corpus (github.com/christos-c/bible-corpus); the translation keeps its own copyright',
-        link: CORPUS_BASE + encodeURIComponent(file) });
-      srcInfo.bc++;
-    });
-    aoIndex = out;
-    return aoIndex;
+  const SRC = {
+    ao: { label: 'Free Use Bible API', site: 'bible.helloao.org', items: [], state: 'loading', note: '' },
+    gb: { label: 'getBible', site: 'api.getbible.net', items: [], state: 'loading', note: '' },
+    bc: { label: 'Bible corpus', site: 'github.com/christos-c/bible-corpus', items: [], state: 'ok', note: '' },
+  };
+  let filter = 'all';
+  const searchInp = h('input.field', { type: 'search', placeholder: 'Search: Zulu, Xhosa, Sesotho, Afrikaans, KJV…', 'aria-label': 'Search Bibles', oninput: () => renderAo() });
+  const chips = h('div.row.wrap.src-chips', { style: { gap: '6px' }, role: 'group', 'aria-label': 'Bible sources' });
+  const searchBox = h('div.col', { style: { gap: '4px', maxHeight: '320px', overflow: 'auto' } });
+  const gets = h('div.col', { style: { gap: '6px' } },
+    h('b', 'Find a Bible'), searchInp, chips, searchBox,
+    h('p.note', 'Tap Add: it downloads once and then works offline.'));
+  const withTimeout = (url, ms) => { const c = new AbortController(); const t = setTimeout(() => c.abort(), ms); return fetch(url, { signal: c.signal }).finally(() => clearTimeout(t)); };
+
+  function fromAo(t) {
+    return { src: 'ao', id: t.id, abbr: t.shortName || t.id, name: t.englishName || t.name || t.id, lang: t.language || '',
+      langName: t.languageEnglishName || t.languageName || '', license: t.licenseUrl ? 'licence: ' + String(t.licenseUrl).replace(/^https?:\/\//, '').slice(0, 40) : '',
+      complete: t.completeTranslationApiLink || '', simple: t.simpleCompleteTranslationApiLink || '', books: t.listOfBooksApiLink || ('/api/' + t.id + '/books.json') };
   }
+  const fromGb = (abbr, name, lang, language, lic) => ({ src: 'gb', id: abbr, abbr, name, lang, langName: language, license: lic ? 'licence: ' + lic : '', link: '/v2/' + encodeURIComponent(abbr) + '.json' });
+  SRC.bc.items = CORPUS.map(([file, iso, lang, kind, abbr, mb]) => ({ src: 'bc', id: abbr, abbr, name: lang + (kind === 'nt' ? ' New Testament' : kind === 'part' ? ' (parts of the Bible)' : ' Bible'),
+    lang: iso, langName: lang, mb, license: 'Bible corpus (github.com/christos-c/bible-corpus); the translation keeps its own copyright', link: CORPUS_BASE + encodeURIComponent(file) }));
+  SRC.gb.items = GETBIBLE.map((r) => fromGb(...r));
+
+  async function loadSource(k) {
+    const s = SRC[k];
+    s.state = 'loading'; s.note = ''; renderAo();
+    try {
+      if (k === 'ao') {
+        const r = await withTimeout(AO + '/api/available_translations.json', 20000);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const d = await r.json();
+        s.items = (d.translations || []).map(fromAo);
+        if (!s.items.length) throw new Error('empty list');
+      } else if (k === 'gb') {
+        const r = await withTimeout(GB + '/v2/translations.json', 20000);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const d = await r.json();
+        const live = Object.keys(d || {}).map((key) => { const t = d[key] || {}; return fromGb(t.abbreviation || key, t.translation || key, t.lang || '', t.language || '', String(t.distribution_license || '').slice(0, 40)); });
+        if (live.length) s.items = live;
+      }
+      s.state = 'ok';
+    } catch (e) {
+      s.state = k === 'gb' ? 'ok' : 'err';   // getBible falls back to its built-in list
+      s.note = k === 'gb' ? 'built-in list (api.getbible.net did not answer; Add still needs it)' : (e.name === 'AbortError' ? 'it took too long' : e.name === 'TypeError' ? 'no connection, or the site blocked the request' : String(e.message || e));
+    }
+    renderAo();
+  }
+
+
   // African languages: southern ones first (ISO 639-3 / 639-1 codes, plus a name check for odd codes).
   const SOUTH = new Set(['afr', 'xho', 'zul', 'sot', 'tsn', 'nso', 'tso', 'ven', 'ssw', 'nbl', 'nde', 'sna', 'nya', 'her', 'ndo', 'kua', 'loz', 'toi', 'bem', 'tum', 'kmb', 'umb', 'lue', 'kwn', 'af', 'xh', 'zu', 'st', 'tn', 'ts', 've', 'ss', 'nr', 'sn', 'ny', 'nd']);
   const NORTH = new Set(['swa', 'swh', 'amh', 'yor', 'ibo', 'hau', 'som', 'orm', 'gaz', 'tir', 'lin', 'kin', 'run', 'mlg', 'plt', 'wol', 'aka', 'twi', 'ewe', 'gaa', 'ful', 'fuv', 'lug', 'kik', 'kam', 'luo', 'kon', 'lua', 'sw', 'am', 'yo', 'ig', 'ha', 'so', 'om', 'ti', 'ln', 'rw', 'rn', 'mg', 'wo', 'ak', 'tw', 'ee', 'ff', 'lg', 'ki', 'kg', 'cjk', 'tig', 'ara', 'arz', 'kab', 'ber', 'tzm', 'zgh', 'bam', 'ses', 'dag', 'efi', 'ibb', 'ijo', 'kpe', 'men', 'tem', 'vai', 'sag', 'ktu', 'mos', 'gur', 'dyu', 'bci', 'ctu', 'nym', 'mas', 'kln', 'luy', 'meru', 'mer', 'kdj', 'tuk', 'lgg', 'ach', 'alz', 'teo', 'rub', 'sna']);
@@ -93,9 +97,8 @@ export function importBibleDialog(onDone) {
     const btn = h('button.btn.sm.primary', { type: 'button' }, 'Add');
     btn.onclick = () => addAo(t, btn);
     return h('div.row', { style: { gap: '6px', alignItems: 'center' } },
-      h('span.grow', { title: t.license || '' }, h('b', t.name), h('span.note', (t.langName ? '  ' + t.langName : '') + (t.src === 'bc' ? ' · Bible corpus, ' + t.mb + ' MB' : ''))), btn);
+      h('span.grow', { title: t.license || '' }, h('b', t.name), h('span.note', (t.langName ? '  ' + t.langName : '') + ' · ' + SRC[t.src].label + (t.mb ? ', ' + t.mb + ' MB' : ''))), btn);
   };
-  // Search that forgives spelling: strips accents and Bantu prefixes (isiXhosa = Xhosa) and tolerates a typo.
   const ALIAS = { xhose: 'xhosa', xosa: 'xhosa', khosa: 'xhosa', xh: 'xho', zulu: 'zulu', isizulu: 'zulu', sesotho: 'sotho', setswana: 'tswana', sepedi: 'pedi', 'northern sotho': 'pedi', tshivenda: 'venda', xitsonga: 'tsonga', siswati: 'swati', isindebele: 'ndebele', chishona: 'shona', chichewa: 'nyanja', afrikaans: 'afrikaans', afrikans: 'afrikaans', afrikaan: 'afrikaans' };
   const strip = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const unprefix = (w) => w.replace(/^(isi|ses|se|si|tshi|xi|chi|oshi|ki|ci|ik|ichi|otji|oci)(?=[a-z]{3,})/, '');
@@ -123,55 +126,107 @@ export function importBibleDialog(onDone) {
     return words(t.name + ' ' + t.langName + ' ' + t.abbr).some((w) => w.length >= 3 && lev(w.slice(0, c.length + 1), c, max) <= max || lev(w, c, max) <= max);
   }
   const rank = (t) => (isSA(t) ? 0 : isAfrica(t) ? 1 : 2);
-  async function renderAo(q) {
+  function paintChips() {
+    clear(chips);
+    const all = SRC.ao.items.length + SRC.gb.items.length + SRC.bc.items.length;
+    const chip = (key, text) => h('button.btn.sm' + (filter === key ? '.primary' : ''), { type: 'button', 'aria-pressed': String(filter === key), onclick: () => { filter = key; renderAo(); } }, text);
+    chips.append(chip('all', 'All sources (' + all + ')'));
+    Object.keys(SRC).forEach((k) => {
+      const s = SRC[k];
+      chips.append(chip(k, s.label + ' (' + (s.state === 'loading' ? '…' : s.state === 'err' ? '!' : s.items.length) + ')'));
+    });
+    Object.keys(SRC).forEach((k) => {
+      const s = SRC[k];
+      if (s.state === 'err') chips.append(h('span.note', { style: { width: '100%' } }, s.label + ' (' + s.site + ') could not be reached: ' + s.note + '. ',
+        h('button.btn.ghost.sm', { type: 'button', onclick: () => loadSource(k) }, 'Try again')));
+      else if (s.note) chips.append(h('span.note', { style: { width: '100%' } }, s.label + ': ' + s.note + '.'));
+    });
+  }
+  function renderAo() {
+    paintChips();
     clear(searchBox);
-    if (!aoIndex) searchBox.appendChild(h('p.note', 'Loading Bible list…'));
-    const list = await loadAo();
-    clear(searchBox);
-    if (!list.length) { searchBox.appendChild(h('p.note', 'Could not load the Bible list. Check your connection.')); return; }
-    const qq = (q || '').toLowerCase().trim();
+    const q = searchInp.value || '';
+    const qq = q.toLowerCase().trim();
+    const keys = filter === 'all' ? Object.keys(SRC) : [filter];
+    const list = keys.flatMap((k) => SRC[k].items);
     let hits = list.filter((t) => !qq || matches(t, qq));
     let fuzzy = false;
     if (qq && !hits.length) { hits = list.filter((t) => fuzzyMatch(t, qq)); fuzzy = hits.length > 0; }
     hits = hits
-      .sort((x, y) => rank(x) - rank(y) || (x.langName + x.name).localeCompare(y.langName + y.name))
-      .slice(0, qq ? 60 : 80);
+      .sort((x, y) => rank(x) - rank(y) || (x.langName + x.name).localeCompare(y.langName + y.name) || x.src.localeCompare(y.src))
+      .slice(0, qq ? 150 : 100);
     if (!hits.length) {
-      const bad = [srcInfo.aoErr && 'bible.helloao.org', srcInfo.gbErr && 'getBible'].filter(Boolean);
-      searchBox.appendChild(h('p.note', 'No Bible matches “' + q + '”. The lists hold ' + list.length + ' Bibles (' + srcInfo.ao + ' from bible.helloao.org, ' + srcInfo.gb + ' from getBible, ' + srcInfo.bc + ' from the Bible corpus)'
-        + (bad.length ? '; ' + bad.join(' and ') + ' could not be reached, check your connection and reopen this window' : '; this language is not in them')
-        + '. If you have the Bible as a file (from the Bible Society or your church), choose it in the form below the list.'));
+      const waiting = keys.some((k) => SRC[k].state === 'loading');
+      searchBox.appendChild(h('p.note', waiting ? 'Loading the Bible lists…'
+        : 'No Bible matches “' + q + '” in ' + (filter === 'all' ? 'the three sources' : SRC[filter].label) + '. If you have the Bible as a file (from the Bible Society or your church), choose it in the form below the list.'));
       return;
     }
     if (fuzzy) searchBox.appendChild(h('p.note', 'No exact match for “' + q + '”. Closest results:'));
     hits.forEach((t) => searchBox.appendChild(row(t)));
   }
-  // One tap: download from the free Bible list, convert and save for offline use.
+
+  // helloao: the whole Bible in one file when the site offers it, otherwise chapter by chapter.
+  async function aoDownload(t, say) {
+    for (const link of [t.simple, t.complete, '/api/' + t.id + '/complete.json']) {
+      if (!link) continue;
+      try { const r = await fetch(AO + link); if (r.ok) return await r.blob(); } catch (e) { /* try the next */ }
+    }
+    const r = await fetch(AO + t.books);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const bl = await r.json();
+    const jobs = [];
+    (bl.books || []).forEach((b) => { for (let c = b.firstChapterNumber || 1; c <= (b.lastChapterNumber || b.numberOfChapters || 0); c++) jobs.push([b, c]); });
+    const books = new Map();
+    let done = 0, i = 0;
+    async function worker() {
+      while (i < jobs.length) {
+        const [b, c] = jobs[i++];
+        let ok = false;
+        for (let tries = 0; tries < 3 && !ok; tries++) {
+          try {
+            const rr = await fetch(AO + '/api/' + encodeURIComponent(t.id) + '/' + encodeURIComponent(b.id) + '/' + c + '.json');
+            if (rr.ok) { const d = await rr.json(); if (!books.has(b.id)) books.set(b.id, { id: b.id, name: b.name, order: b.order, chapters: [] }); books.get(b.id).chapters.push({ chapter: d.chapter }); ok = true; }
+          } catch (e) { /* retry */ }
+        }
+        say('Adding… ' + Math.round((++done / jobs.length) * 100) + '%');
+      }
+    }
+    await Promise.all(Array.from({ length: 8 }, worker));
+    const out = { translation: { shortName: t.abbr, englishName: t.name, language: t.lang }, books: [...books.values()].sort((a, b) => a.order - b.order) };
+    out.books.forEach((b) => b.chapters.sort((x, y) => x.chapter.number - y.chapter.number));
+    return new Blob([JSON.stringify(out)], { type: 'application/json' });
+  }
+
+  // One tap: download, convert and save for offline use.
   async function addAo(t, bt) {
     bt.disabled = true; const old = bt.textContent; bt.textContent = 'Adding…';
+    const say = (x) => { bt.textContent = x; };
     try {
       const ab = String(t.abbr || t.id).trim().toUpperCase().slice(0, 8);
-      const id = 'imp-' + ab.toLowerCase().replace(/[^a-z0-9]/g, '');
+      // The source goes into the id, so the same short name from two sources (XHO, SHONA …) never overwrites the other.
+      const id = 'imp-' + ab.toLowerCase().replace(/[^a-z0-9]/g, '') + (t.src === 'ao' ? '' : '-' + t.src);
       const existing = await listTranslations(true);
       if (existing.some((x) => x.id === id && x.src !== 'imported')) throw new Error('already built in');
-      let r;
-      if (t.src === 'gb') r = await fetch(GB + t.link);
-      else if (t.src === 'bc') r = await fetch(t.link);
+      let blob;
+      if (t.src === 'ao') blob = await aoDownload(t, say);
       else {
-        r = await fetch(AO + t.link.replace('/complete.json', '/complete.simple.json'));
-        if (!r.ok) r = await fetch(AO + t.link);
+        const r = await fetch(t.src === 'gb' ? GB + t.link : t.link);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        blob = await r.blob();
       }
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      const parsed = await parseBibleFile(new File([await r.blob()], ab + (t.src === 'bc' ? '.xml' : '.json'), { type: t.src === 'bc' ? 'application/xml' : 'application/json' }));
-      await saveImported({ id, abbr: ab, name: t.name, lang: langOf(t), license: t.src === 'bc' ? t.license : (t.src === 'gb' ? 'getBible' : 'bible.helloao.org') + (t.license ? ', ' + t.license : '') }, parsed);
+      say('Saving…');
+      const parsed = await parseBibleFile(new File([blob], ab + (t.src === 'bc' ? '.xml' : '.json'), { type: t.src === 'bc' ? 'application/xml' : 'application/json' }));
+      await saveImported({ id, abbr: ab, name: t.name, lang: langOf(t), license: t.src === 'bc' ? t.license : SRC[t.src].site + (t.license ? ', ' + t.license : '') }, parsed);
       closeModal();
       toast(ab + ' added and available offline.', 'ok');
       if (onDone) onDone(id);
       return;
-    } catch (e) { bt.textContent = 'Failed: ' + e.message; }
-    setTimeout(() => { bt.disabled = false; bt.textContent = old; }, 3500);
+    } catch (e) { bt.textContent = 'Failed: ' + (e.name === 'TypeError' ? 'no connection to ' + SRC[t.src].site : e.message); }
+    setTimeout(() => { bt.disabled = false; bt.textContent = old; }, 4000);
   }
-  renderAo('');
+  renderAo();
+  loadSource('ao');
+  loadSource('gb');
   modal({
     title: 'Add a Bible translation',
     body: h('div.col',

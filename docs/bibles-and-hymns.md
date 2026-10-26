@@ -8,12 +8,15 @@ publicly. Each church adds its own licensed copy:
 
 - **On one device:** Settings → Bibles & hymns → **Add a Bible**. Search the list and press **Add**, or choose a
   file (Zefania XML, OSIS XML, CES XML, JSON, CSV). The `xho75.json` file from Joy in the Journey imports directly.
-- The list in **Add a Bible** draws on three sources: bible.helloao.org, getBible, and the multilingual
+- The list in **Add a Bible** searches three sources together (buttons above the results show each source and its
+  count, and filter to one source): bible.helloao.org (Free Use Bible API), getBible, and the multilingual
   [Bible corpus](https://github.com/christos-c/bible-corpus) by Christodoulopoulos and Steedman (about 100
   languages, including the full Xhosa, Shona, Somali, Amharic and Malagasy Bibles and the Zulu, Swahili, Ewe,
   Wolof and Dinka New Testaments). The corpus is where the Xhosa Bible in Joy in the Journey comes from. Its
   catalogue is in `js/core/biblecorpus.js`; each translation keeps its own copyright (the Xhosa text is
-  © Bible Society of South Africa).
+  © Bible Society of South Africa). getBible's list is also built in (`js/core/biblegetbible.js`), so it shows
+  even when api.getbible.net is slow; bible.helloao.org's list loads live, and a Bible from it downloads in one
+  file or, when the site has no single file, chapter by chapter.
 - **For your whole installation:** drop the file into `licensed/` and run `python tools/build.py --bibles`
   (see `licensed/README.md`). The folder is git-ignored, so it never becomes public.
 

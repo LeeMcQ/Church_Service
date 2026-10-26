@@ -228,7 +228,10 @@ export async function parseBibleFile(file) {
           const c = ch.number || 1;
           const walk = (items) => (items || []).forEach((item) => {
             if (item && item.type === 'verse' && item.number) {
-              const t = Array.isArray(item.content) ? item.content.map((x) => (typeof x === 'string' ? x : (x && x.text) || '')).join(' ') : String(item.content || '');
+              // complete.json: content[] of strings and {text}/{heading}/{lineBreak}/{noteId}; complete.simple.json: text
+              const t = typeof item.text === 'string' ? item.text
+                : Array.isArray(item.content) ? item.content.map((x) => (typeof x === 'string' ? x : x && typeof x.text === 'string' ? x.text : x && x.lineBreak ? ' ' : '')).join(' ')
+                  : String(item.content || '');
               put(b, c, item.number, t);
             }
           });
