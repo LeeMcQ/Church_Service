@@ -10,6 +10,7 @@
 import { emitter } from './util.js';
 import { buildArrangement, parseSMF, syllables } from '../lib/smf.js';
 import { ROOMS, churchImpulse } from './churchreverb.js';
+import { CACHE_NS } from './storens.js';
 
 const ROOT = new URL('../../', import.meta.url).href;
 const url = (p) => new URL(p, ROOT).href;
@@ -72,7 +73,8 @@ async function midiBytes(book, entry) {
 // It is not part of the offline install; it downloads the first time it is switched on and is kept in its own
 // cache, which app updates leave alone, so it downloads once per device.
 const HQ_FILE = 'data/music/hq.sf3';
-const HQ_CACHE = 'sda-sabbath-sounds-v1';
+const HQ_CACHE = CACHE_NS + 'sounds-v1';           // this app's own name (storens.js)
+const HQ_CACHE_OLD = 'sda-sabbath-sounds-v1';      // its first name: moved over once
 export const HQ_MB = 18;
 /** 'on' / 'off', or 'auto': on for PCs and laptops, off for phones and slow devices (decided by the device that plays). */
 export function hqFor(v) {
@@ -83,11 +85,19 @@ export function hqFor(v) {
   return !phone && mem > 2 && cores > 2;
 }
 export async function hqStored() {
+  try { if ((await caches.keys()).includes(HQ_CACHE_OLD)) return true; } catch (e) { /* */ }
   try { return !!(await (await caches.open(HQ_CACHE)).match(url(HQ_FILE))); } catch (e) { return false; }
 }
-export async function hqRemove() { try { await caches.delete(HQ_CACHE); } catch (e) { /* */ } }
+export async function hqRemove() { try { await caches.delete(HQ_CACHE); await caches.delete(HQ_CACHE_OLD); } catch (e) { /* */ } }
 async function hqBytes(onProgress) {
   let cache = null;
+  try {   // a download kept under the first name: move it (no second 18 MB download)
+    if ((await caches.keys()).includes(HQ_CACHE_OLD)) {
+      const hit = await (await caches.open(HQ_CACHE_OLD)).match(url(HQ_FILE));
+      if (hit) await (await caches.open(HQ_CACHE)).put(url(HQ_FILE), hit);
+      await caches.delete(HQ_CACHE_OLD);
+    }
+  } catch (e) { /* */ }
   try { cache = await caches.open(HQ_CACHE); const hit = await cache.match(url(HQ_FILE)); if (hit) return hit.arrayBuffer(); } catch (e) { /* no Cache API: download each time */ }
   const res = await fetch(url(HQ_FILE), { cache: 'no-store' });
   if (!res.ok) throw new Error('Could not download the high-quality sounds (' + res.status + ').');

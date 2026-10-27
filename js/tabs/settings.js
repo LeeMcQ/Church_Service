@@ -1,5 +1,6 @@
 // Settings: how the screen looks, displays, Bibles, the app itself, and what's coming next.
 import { accountSection, openFeedback } from './account.js';
+import { lsKey } from '../core/storens.js';
 import { backupSection } from './backup-ui.js';
 import { screensPanel } from './screens-panel.js';
 import { h, clear, uid, fmtBytes, download, readText, scrubUrls, debounce } from '../core/util.js';
@@ -371,7 +372,7 @@ export default function create(ctx) {
           // keep this device's AI key; never take one from a file
           const clean = sanitizeImportedSettings(d.settings);
           clean.ai = Object.assign({}, clean.ai || {}, { apiKey: (settings.v.ai && settings.v.ai.apiKey) || '' });
-          localStorage.setItem('selah.settings.v1', JSON.stringify(clean));
+          localStorage.setItem(lsKey('settings.v1'), JSON.stringify(clean));
         }
         const okId = (x) => x && typeof x === 'object' && (typeof x.id === 'string' || typeof x.id === 'number');
         for (const p of (Array.isArray(d.plans) ? d.plans : []).filter(okId)) await db.put('plans', p.id, scrubUrls(p));

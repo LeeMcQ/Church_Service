@@ -6,7 +6,11 @@
 //   hymnbooks imported / edited hymnbooks: id -> {id, name, lang, hymns}
 //   plans     service plans: id -> {id, name, items, updated}
 
-const NAME = 'selah'; // storage name kept from the app's first name, so existing plans and hymnbooks stay
+import { DB_NAME, lsKey } from './storens.js';
+
+// Named after this app's address folder (storens.js): another app on the same website (SDA_Sabbath) has its own.
+const NAME = DB_NAME;
+const OLD_NAME = 'selah'; // the name shared with SDA_Sabbath before; copied from once, never changed or deleted
 const VERSION = 1;
 const STORES = ['kv', 'files', 'renders', 'bibles', 'hymnbooks', 'plans'];
 let dbp = null;
@@ -22,6 +26,61 @@ function useMemory(why) {
   return null;
 }
 
+/** Open the old shared database only if it exists (opening a missing one would create an empty one that would
+ *  break the other app). Resolves to the database or null. */
+async function openOld() {
+  try {
+    if (indexedDB.databases) {
+      const list = await indexedDB.databases();
+      if (!list.some((d) => d.name === OLD_NAME)) return null;
+    }
+  } catch (e) { /* fall through */ }
+  return new Promise((resolve) => {
+    let req;
+    try { req = indexedDB.open(OLD_NAME); } catch (e) { resolve(null); return; }
+    let created = false;
+    req.onupgradeneeded = () => { created = true; try { req.transaction.abort(); } catch (e) { /* */ } };
+    req.onsuccess = () => { if (created) { try { req.result.close(); } catch (e) { /* */ } resolve(null); } else resolve(req.result); };
+    req.onerror = () => resolve(null);
+    req.onblocked = () => resolve(null);
+  });
+}
+
+/** First start after the separation: copy the plans, hymnbooks, Bibles, slides and media saved under the old
+ *  shared name into this app's own database, a few records at a time (videos can be large). */
+async function copyFromOld(d) {
+  const flag = lsKey('separated.db');
+  try { if (localStorage.getItem(flag)) return; } catch (e) { return; }
+  const old = await openOld();
+  if (old) {
+    try { window.dispatchEvent(new CustomEvent('selah-migrate', { detail: { start: true } })); } catch (e) { /* */ }
+    try {
+      for (const store of STORES) {
+        if (!old.objectStoreNames.contains(store)) continue;
+        const keys = await wrap(old.transaction(store, 'readonly').objectStore(store).getAllKeys());
+        for (let i = 0; i < keys.length; i += 20) {
+          const part = keys.slice(i, i + 20);
+          const rt = old.transaction(store, 'readonly').objectStore(store);
+          const vals = await Promise.all(part.map((k) => wrap(rt.get(k))));
+          await new Promise((resolve, reject) => {
+            const t = d.transaction(store, 'readwrite'); const s = t.objectStore(store);
+            part.forEach((k, j) => { if (vals[j] !== undefined) s.put(vals[j], k); });
+            t.oncomplete = resolve; t.onerror = () => reject(t.error); t.onabort = () => reject(t.error);
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Copying the old data was not finished', e);
+      try { window.dispatchEvent(new CustomEvent('selah-migrate', { detail: { error: String(e && e.message || e) } })); } catch (er) { /* */ }
+      try { old.close(); } catch (er) { /* */ }
+      return;   // no flag: tried again next start (records already copied are simply written again)
+    }
+    try { old.close(); } catch (e) { /* */ }
+    try { window.dispatchEvent(new CustomEvent('selah-migrate', { detail: { done: true } })); } catch (e) { /* */ }
+  }
+  try { localStorage.setItem(flag, new Date().toISOString()); } catch (e) { /* */ }
+}
+
 function open() {
   if (dbp) return dbp;
   dbp = new Promise((resolve) => {
@@ -32,7 +91,7 @@ function open() {
       const d = req.result;
       STORES.forEach((s) => { if (!d.objectStoreNames.contains(s)) d.createObjectStore(s); });
     };
-    req.onsuccess = () => { clearTimeout(timer); resolve(req.result); };
+    req.onsuccess = () => { clearTimeout(timer); copyFromOld(req.result).catch(() => {}).then(() => resolve(req.result)); };
     req.onerror = () => { clearTimeout(timer); resolve(useMemory(req.error && req.error.message)); };
     req.onblocked = () => console.warn('Database upgrade waiting for another SDA Sabbath tab to close.');
   });

@@ -4,6 +4,7 @@
 //   cast    – Presentation API (Chromecast / wireless display from Chrome)
 //   socket  – SDA Sabbath companion on the LAN (TV browser or second PC shows display.html?via=ws)
 import { emitter, h, APP_SCOPE } from './util.js';
+import { lsKey } from './storens.js';
 import { createEncoder, createDecoder } from './wire.js';
 import { settings } from './settings.js';
 
@@ -338,12 +339,12 @@ link.stopLabel = () => ({ cast: 'Stop casting', window: 'Close the display windo
 // announces itself; cast: reconnect by its id). If the app is really closed, the display window closes itself
 // a few seconds later (display-main.js) and a cast TV goes black after a short wait.
 window.addEventListener('pagehide', () => {
-  if (link.kind === 'cast' && castConn) { try { sessionStorage.setItem('selah.castId', castConn.id); } catch (e) { /* */ } }
+  if (link.kind === 'cast' && castConn) { try { sessionStorage.setItem(lsKey('castId'), castConn.id); } catch (e) { /* */ } }
 });
 // After a reload: take over the cast that was running.
 (async () => {
   let id = null;
-  try { id = sessionStorage.getItem('selah.castId'); sessionStorage.removeItem('selah.castId'); } catch (e) { /* */ }
+  try { id = sessionStorage.getItem(lsKey('castId')); sessionStorage.removeItem(lsKey('castId')); } catch (e) { /* */ }
   if (!id || !link.canCast()) return;
   try {
     const req = new PresentationRequest([new URL('display.html?via=cast', location.href).href]);

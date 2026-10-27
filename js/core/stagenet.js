@@ -9,8 +9,10 @@
 // Messages use the same wire format as the projector link (wire.js): pictures are sent once per
 // device and referenced afterwards.
 import { createEncoder, createDecoder } from './wire.js';
+import { lsKey } from './storens.js';
 
-export const APP_ID = 'sda-sabbath-stage-v1';
+// Its own network name: a phone on another app's stage page (SDA_Sabbath) can never join this app's stage rooms.
+export const APP_ID = 'church-service-stage-v1';
 // No 0/O, 1/I/L, 2/Z, 5/S, 8/B: easy to read out loud and to type on a phone.
 const CODE_CHARS = 'ACDEFGHJKMNPQRTUVWXY34679';
 export const CODE_LEN = 6;
@@ -57,7 +59,7 @@ const frame = (kind, bytes) => { const out = new Uint8Array(bytes.length + 1); o
  */
 export async function joinStageRoom(code, { host = false, turn = null, relays = null, onMessage, onJoin, onLeave, onError } = {}) {
   const { joinRoom, selfId } = await load();
-  const cfg = { appId: APP_ID, password: 'sda-sabbath-stage:' + code };
+  const cfg = { appId: APP_ID, password: 'church-service-stage:' + code };
   if (!host) cfg.passive = true;
   if (turn) cfg.turnConfig = turn;
   if (relays) cfg.relayConfig = { urls: relays, redundancy: relays.length };
@@ -111,7 +113,7 @@ const unb64u = (s) => Uint8Array.from(atob(String(s).replace(/-/g, '+').replace(
 const ALG = { name: 'ECDSA', namedCurve: 'P-256' };
 const SIG = { name: 'ECDSA', hash: 'SHA-256' };
 const te2 = new TextEncoder();
-const challengeBytes = (nonce) => te2.encode('sda-sabbath-stage-host:' + nonce);
+const challengeBytes = (nonce) => te2.encode('church-service-stage-host:' + nonce);
 export const canVerify = () => !!(self.crypto && crypto.subtle);
 export async function fingerprint(pub) { return b64u(await crypto.subtle.digest('SHA-256', unb64u(pub))).slice(0, 22); }
 /** store: {get() -> saved|null, set(saved)}. Returns {priv, pub, fp}. */
@@ -138,7 +140,7 @@ export async function verifyHost(pub, sig, nonce, wantFp) {
     return (await crypto.subtle.verify(SIG, key, unb64u(sig), challengeBytes(nonce))) ? fp : null;
   } catch (e) { return null; }
 }
-const HOSTS_KEY = 'selah.stage.hosts';
+const HOSTS_KEY = lsKey('stage.hosts');
 const readHosts = () => { try { return JSON.parse(localStorage.getItem(HOSTS_KEY) || '{}') || {}; } catch (e) { return {}; } };
 const writeHosts = (o) => { try { localStorage.setItem(HOSTS_KEY, JSON.stringify(o)); } catch (e) { /* private mode */ } };
 export function forgetHost(code) { const o = readHosts(); delete o[code]; writeHosts(o); }

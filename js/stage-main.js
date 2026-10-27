@@ -8,6 +8,7 @@
 //   ?via=lan     the SDA Sabbath companion on the church network (works without internet)
 //   #c=CODE      phones, tablets and laptops anywhere: the room code (or QR code) from the media desk
 import { h, clear, pad2, uid, APP_SCOPE } from './core/util.js';
+import { lsKey } from './core/storens.js';
 import { icon } from './core/icons.js';
 import { createStage, fitBody, sanitizeSlideHtml } from './core/render.js';
 import { createEncoder, createDecoder } from './core/wire.js';
@@ -25,7 +26,7 @@ const root = document.getElementById('ss');
 if (PREVIEW) root.classList.add('preview');
 
 // ------------------------------------------------------------ this device's own choices
-const LKEY = 'selah.stage.local';
+const LKEY = lsKey('stage.local');
 let local = {};
 try { local = JSON.parse(localStorage.getItem(LKEY) || '{}') || {}; } catch (e) { local = {}; }
 if (!local.pins || typeof local.pins !== 'object') local.pins = {};

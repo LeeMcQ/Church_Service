@@ -7,12 +7,13 @@
 // The editor never draws the slide itself: the preview stage renders the slide (exactly as the
 // display will), and the editor lays a transparent overlay over it for selection and handles.
 import { h, clear, uid } from '../core/util.js';
+import { lsKey } from '../core/storens.js';
 import { icon } from '../core/icons.js';
 import { menu, closeMenu, toast } from '../core/ui.js';
 import { FONTS, SHAPES, cleanEl, cleanHtml, placeEl, drawLine, shrinkText, textHtml, htmlText, okColor } from '../core/slideels.js';
 
 const SW = 1920; // the stage is always 1920 px wide
-const CLIP_KEY = 'selah-slide-clipboard';
+const CLIP_KEY = lsKey('slide-clipboard');
 const PALETTE = [
   ['#000000', '#434343', '#666666', '#999999', '#b7b7b7', '#cccccc', '#d9d9d9', '#efefef', '#f3f3f3', '#ffffff'],
   ['#980000', '#ff0000', '#ff9900', '#ffff00', '#00ff00', '#00ffff', '#4a86e8', '#0000ff', '#9900ff', '#ff00ff'],
@@ -27,11 +28,11 @@ const r1 = (v) => Math.round(v * 100) / 100;
 const isText = (e) => e && (e.t === 'text' || e.t === 'shape');
 
 let recent = [];
-try { recent = JSON.parse(localStorage.getItem('selah-recent-colours') || '[]').filter(okColor).slice(0, 10); } catch (e) { recent = []; }
+try { recent = JSON.parse(localStorage.getItem(lsKey('recent-colours')) || '[]').filter(okColor).slice(0, 10); } catch (e) { recent = []; }
 function addRecent(c) {
   if (!okColor(c) || c === 'transparent') return;
   recent = [c].concat(recent.filter((x) => x !== c)).slice(0, 10);
-  try { localStorage.setItem('selah-recent-colours', JSON.stringify(recent)); } catch (e) { /* */ }
+  try { localStorage.setItem(lsKey('recent-colours'), JSON.stringify(recent)); } catch (e) { /* */ }
 }
 
 /** A colour popover: palette, recent colours, transparent and a custom picker. */

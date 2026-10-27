@@ -5,11 +5,14 @@ import { db } from './db.js';
 import { zipBlobs, readZip, ZIP_MAX } from '../lib/blobzip.js';
 import { exportableSettings, sanitizeImportedSettings } from './settings.js';
 import { scrubUrls } from './util.js';
+import { lsKey, LEGACY_LOCAL } from './storens.js';
 
 export const FORMAT = 'sda-sabbath-backup';
 export const EXT = '.sdabackup';
-const SETTINGS_KEY = 'selah.settings.v1';
-const EXTRA_LOCAL = ['selah-recent-colours', 'selah-bn-wide', 'selah-ai-history'];
+const SETTINGS_KEY = lsKey('settings.v1');
+// Small per-browser extras, written in backups under their short names (older backups used the 'selah-…' names).
+const EXTRA_LOCAL = ['recent-colours', 'bn-wide', 'ai-history'];
+const extraName = (k) => (LEGACY_LOCAL[k] && EXTRA_LOCAL.includes(LEGACY_LOCAL[k]) ? LEGACY_LOCAL[k] : k);
 // Settings that belong to this computer (its screens, its companion, its stage key), never copied across.
 const DEVICE_ONLY = { display: true, companion: true };
 const DEVICE_ONLY_PATHS = [['stage', 'hostKey'], ['stage', 'useWindow'], ['stage', 'second'], ['stage', 'screenLabel'], ['stage', 'screenLabel2'], ['ai', 'apiKey']];
@@ -108,7 +111,7 @@ export async function buildBackup(opts = {}, onProgress) {
   let settings = {};
   try { settings = exportableSettings(JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); } catch (e) { settings = {}; }
   const local = {};
-  EXTRA_LOCAL.forEach((k) => { try { const v = localStorage.getItem(k); if (v != null) local[k] = v; } catch (e) { /* */ } });
+  EXTRA_LOCAL.forEach((k) => { try { const v = localStorage.getItem(lsKey(k)); if (v != null) local[k] = v; } catch (e) { /* */ } });
 
   const bytes = blobs.reduce((a, b) => a + b.blob.size, 0);
   if (bytes > ZIP_MAX - 50e6) throw new Error('This backup would be larger than 4 GB. Leave the videos out (keep them on the PC) and try again.');
@@ -179,7 +182,7 @@ export async function restoreBackup(pkg, onProgress) {
     });
     next.app = Object.assign({}, next.app || {}, { setupDone: true });
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
-    Object.entries(m.local || {}).forEach(([k, v]) => { if (EXTRA_LOCAL.includes(k)) localStorage.setItem(k, v); });
+    Object.entries(m.local || {}).forEach(([k, v]) => { const n = extraName(k); if (EXTRA_LOCAL.includes(n)) localStorage.setItem(lsKey(n), v); });
   } catch (e) { /* settings could not be saved: the rest is restored */ }
   step('Done', 1);
   return done;

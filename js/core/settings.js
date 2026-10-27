@@ -1,8 +1,10 @@
 // Settings: small, synchronous, stored in localStorage.
 import { emitter, lowPowerDevice } from './util.js';
+import { lsKey } from './storens.js';
 
-const KEY = 'selah.settings.v1'; // kept from the app's first name: existing settings carry over
-const AIKEY = 'selah.aikey.session';
+// Named after this app's address folder, so another app on the same website never shares them (see storens.js).
+const KEY = lsKey('settings.v1');
+const AIKEY = lsKey('aikey.session');
 
 export const DEFAULTS = {
   app: { theme: 'dark', railSide: 'left', monitors: true, lowPower: null, lastTab: 'bible', clickerKeys: true, webPart: 'web', toolsPart: 'stage', stats: true, setupDone: false },

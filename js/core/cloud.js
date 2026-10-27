@@ -7,10 +7,11 @@
 // browser, screen layout, and the church name and town from Settings → Church. Never what is shown.
 import { CLOUD } from './cloud-config.js';
 import { emitter } from './util.js';
+import { lsKey } from './storens.js';
 import { settings } from './settings.js';
 
 const LS = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* private window */ } return null; };
-const K_SESSION = 'selah.cloud.session', K_INSTALL = 'selah.cloud.install', K_PENDING = 'selah.cloud.pending', K_OUTBOX = 'selah.cloud.outbox';
+const K_SESSION = lsKey('cloud.session'), K_INSTALL = lsKey('cloud.install'), K_PENDING = lsKey('cloud.pending'), K_OUTBOX = lsKey('cloud.outbox');
 
 export const cloud = emitter({ user: null, session: null, admin: false, lastError: '' });
 cloud.enabled = () => !!(CLOUD.url && CLOUD.anonKey);

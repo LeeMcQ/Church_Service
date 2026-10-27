@@ -3,9 +3,10 @@
 // "drive.file": the app sees only the files it created itself, never the rest of the Drive.
 // Needs a Google OAuth client id in js/core/cloud-config.js (googleClientId); see docs/backup.md.
 import { CLOUD } from './cloud-config.js';
+import { lsKey } from './storens.js';
 
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
-const TOKEN_KEY = 'selah.gdrive.token';
+const TOKEN_KEY = lsKey('gdrive.token');
 const FOLDER = 'SDA Sabbath backup';
 const API = 'https://www.googleapis.com/drive/v3';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
@@ -37,7 +38,7 @@ function signIn() {
     client_id: CLOUD.googleClientId.trim(), redirect_uri: redirect, response_type: 'token', scope: SCOPE + ' email',
     include_granted_scopes: 'true', prompt: 'select_account', state,
   });
-  try { sessionStorage.setItem('selah.gdrive.state', state); localStorage.setItem('selah.gdrive.state', state); } catch (e) { /* */ }
+  try { sessionStorage.setItem(lsKey('gdrive.state'), state); localStorage.setItem(lsKey('gdrive.state'), state); } catch (e) { /* */ }
   const win = window.open(u, 'sda-google', 'popup=yes,width=520,height=680');
   if (!win) return Promise.reject(new Error('The browser blocked the Google window. Allow pop-ups for this site and try again.'));
   return new Promise((resolve, reject) => {
@@ -61,13 +62,13 @@ function signIn() {
     const onMsg = (e) => { if (e.origin === location.origin && e.data && e.data.t === 'google-token') finish(e.data); };
     const onStore = (e) => { if (e.key === 'selah.gdrive.reply' && e.newValue) { try { finish(JSON.parse(e.newValue)); } catch (er) { /* */ } } };
     const poll = setInterval(() => {
-      try { const v = localStorage.getItem('selah.gdrive.reply'); if (v) finish(JSON.parse(v)); } catch (e) { /* */ }
+      try { const v = localStorage.getItem(lsKey('gdrive.reply')); if (v) finish(JSON.parse(v)); } catch (e) { /* */ }
     }, 700);
     const timeout = setTimeout(() => { if (!finished) { finished = true; cleanup(); reject(new Error('Google sign-in took too long. Try again.')); } }, 5 * 60000);
     function cleanup() {
       window.removeEventListener('message', onMsg); window.removeEventListener('storage', onStore);
       clearInterval(poll); clearTimeout(timeout);
-      try { localStorage.removeItem('selah.gdrive.reply'); localStorage.removeItem('selah.gdrive.state'); } catch (e) { /* */ }
+      try { localStorage.removeItem(lsKey('gdrive.reply')); localStorage.removeItem(lsKey('gdrive.state')); } catch (e) { /* */ }
     }
     window.addEventListener('message', onMsg);
     window.addEventListener('storage', onStore);

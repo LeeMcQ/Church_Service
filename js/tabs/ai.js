@@ -5,6 +5,7 @@
 // and short summaries that are always shown for checking first.
 // (The tab id stays 'ai' so existing settings and service plans keep working.)
 import { h, clear, uid, debounce, esc, normalize } from '../core/util.js';
+import { lsKey } from '../core/storens.js';
 import { icon } from '../core/icons.js';
 import { btn, seg, toast, modal, closeModal, confirmBox, promptBox, menu, emptyState } from '../core/ui.js';
 import { db } from '../core/db.js';
@@ -176,7 +177,7 @@ export default function create(ctx) {
   // Move them into the app's database once, as Picture banners.
   async function migrateOldHistory() {
     let old;
-    try { old = JSON.parse(localStorage.getItem('selah-ai-history') || 'null'); } catch (e) { old = null; }
+    try { old = JSON.parse(localStorage.getItem(lsKey('ai-history')) || 'null'); } catch (e) { old = null; }
     if (!Array.isArray(old) || !old.length) return;
     for (const it of old.slice().reverse()) {
       if (!it || typeof it.data !== 'string' || !/^data:image\//.test(it.data)) continue;
@@ -187,7 +188,7 @@ export default function create(ctx) {
       } catch (e) { /* skip a broken entry */ }
     }
     await saveLib();
-    try { localStorage.removeItem('selah-ai-history'); } catch (e) { /* */ }
+    try { localStorage.removeItem(lsKey('ai-history')); } catch (e) { /* */ }
   }
 
   // ------------------------------------------------------------ pictures
@@ -364,7 +365,7 @@ export default function create(ctx) {
   const strip = h('div.bn-strip', stripList);
   const wideBtn = h('button.btn.sm', { type: 'button', title: 'Bigger slide: make the editing area wider', 'aria-pressed': 'false', onclick: () => setWide(!wide) }, icon('wide'), h('span.hide-sm', 'Wide'));
   let wide = false;
-  try { wide = localStorage.getItem('selah-bn-wide') === '1'; } catch (e) { /* */ }
+  try { wide = localStorage.getItem(lsKey('bn-wide')) === '1'; } catch (e) { /* */ }
   const sideSeg = h('div.seg.bn-side-seg', { role: 'tablist', 'aria-label': 'Panel' });
   let side = 'slide';
   function renderSideSeg() {
@@ -395,7 +396,7 @@ export default function create(ctx) {
   views.make.append(tbRow, makeSplit);
   function setWide(v) {
     wide = v; makeSplit.classList.toggle('bn-wide', v); wideBtn.setAttribute('aria-pressed', String(v));
-    try { localStorage.setItem('selah-bn-wide', v ? '1' : '0'); } catch (e) { /* */ }
+    try { localStorage.setItem(lsKey('bn-wide'), v ? '1' : '0'); } catch (e) { /* */ }
     requestAnimationFrame(() => { stage.fit(); editor.afterRender(); });
   }
 

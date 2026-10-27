@@ -23,7 +23,7 @@ const lazyWelcome = () => import('./tabs/welcome.js');
 const openFeedback = (c, o) => import('./tabs/account.js').then((m) => m.openFeedback(c, o));
 
 export const VERSION = '1.5.0';
-export const BUILD = 'de442cc';
+export const BUILD = 'd2991bd';
 
 const TABS = [
   { id: 'bible', label: 'Bible', icon: 'bible', file: 'bible.js', load: () => import('./tabs/bible.js') },
@@ -808,6 +808,12 @@ live.on('live', keepAwake);
 
 // ------------------------------------------------------------ storage problems
 // Saving not possible at all (private window, storage blocked): say so once; the app still works.
+window.addEventListener('selah-migrate', (e) => {
+  const d = e.detail || {};
+  if (d.start) ui.toast('Moving your plans, hymnbooks and slides into this app’s own storage (once)…', '', 6000);
+  else if (d.done) ui.toast('Done: this app now keeps its data apart from other apps on this website.', 'ok', 5000);
+  else if (d.error) ui.toast('Not all saved data could be moved yet (' + d.error + '). It is tried again next time; nothing was lost.', 'err', 9000);
+});
 window.addEventListener('selah-storage', () => ui.toast('This browser is not letting SDA Sabbath save (private window or storage turned off). Everything works, but changes are lost when it closes.', 'err', 10000));
 // A full disk, or any other failure nobody waited for: tell the operator plainly instead of failing silently.
 let fullShown = 0;
