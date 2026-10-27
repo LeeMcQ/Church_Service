@@ -24,7 +24,7 @@ export function openWelcome({ onClose, only } = {}) {
   if (cloud.enabled() && (!cloud.user || only === 'account')) steps.push('account');
   if (only !== 'account') steps.push('church', 'screens', 'stats', 'done');
   let i = 0;
-  const wrap = h('div.welcome', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Set up SDA Sabbath' });
+  const wrap = h('div.welcome', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Set up Church Service' });
   const card = h('div.welcome-card');
   wrap.append(card);
   document.body.append(wrap);
@@ -43,7 +43,7 @@ export function openWelcome({ onClose, only } = {}) {
     clear(card);
     const step = steps[i];
     const dots = h('div.welcome-dots', ...steps.map((s, j) => h('span' + (j === i ? '.on' : j < i ? '.done' : ''))));
-    const head = (title, sub) => h('div', h('div.welcome-brand', h('img', { src: 'icons/favicon.svg', alt: '', width: 34, height: 34 }), h('span', 'SDA Sabbath')), dots, h('h2', title), sub ? h('p.note', sub) : null);
+    const head = (title, sub) => h('div', h('div.welcome-brand', h('img', { src: 'icons/favicon.svg', alt: '', width: 34, height: 34 }), h('span', 'Church Service')), dots, h('h2', title), sub ? h('p.note', sub) : null);
     const nav = (label = 'Next', { skip = true } = {}) => h('div.welcome-nav',
       i > 0 ? h('button.btn', { type: 'button', onclick: back }, 'Back') : h('span'),
       h('div.grow'),
@@ -52,7 +52,7 @@ export function openWelcome({ onClose, only } = {}) {
     let body;
     if (step === 'account') {
       body = h('div.col', { style: { gap: '12px' } },
-        h('p', 'Sign in once on this device. It lets you send suggestions and see the answers, and it helps us see how many churches use SDA Sabbath. SDA Sabbath keeps working without internet.'),
+        h('p', 'Sign in once on this device. It lets you send suggestions and see the answers, and it helps us see how many churches use Church Service. Church Service keeps working without internet.'),
         signInBox({ onDone: () => next(), compact: true }));
       card.append(head('Welcome!', 'Free presentation software for Seventh-day Adventist churches.'), body,
         h('div.welcome-nav', h('div.grow'), mustSignIn() ? null : h('button.btn.ghost', { type: 'button', onclick: next }, 'Not now')));
@@ -74,7 +74,7 @@ export function openWelcome({ onClose, only } = {}) {
       return;
     }
     if (step === 'stats') {
-      card.append(head('Help make SDA Sabbath better'),
+      card.append(head('Help make Church Service better'),
         h('div.col', { style: { gap: '12px' } },
           cloud.enabled() ? statsToggle() : h('p.note', 'Usage statistics are not switched on for this copy.'),
           h('p', 'Ideas or problems? Use ', h('b', 'the speech-bubble button'), ' at the top, or Settings → Account, to send a comment or suggestion at any time.')),
@@ -86,7 +86,7 @@ export function openWelcome({ onClose, only } = {}) {
         ...[['F5', 'Present: show what is Next on the projector'], ['→ / Space', 'Next slide'], ['B', 'Black screen'], ['L', 'Logo'], ['C', 'Clear'], ['/', 'Go to: type “John 3:16” or “hymn 73”'], ['?', 'All keyboard shortcuts']]
           .map(([k, t]) => h('div.row', h('kbd', k), h('span', t)))),
       h('div.welcome-nav', i > 0 ? h('button.btn', { type: 'button', onclick: back }, 'Back') : h('span'), h('div.grow'),
-        h('button.btn.primary', { type: 'button', onclick: close }, icon('check'), h('span', 'Start using SDA Sabbath'))));
+        h('button.btn.primary', { type: 'button', onclick: close }, icon('check'), h('span', 'Start using Church Service'))));
   }
   paint();
 }

@@ -15,12 +15,12 @@ const VERSION = 1;
 const STORES = ['kv', 'files', 'renders', 'bibles', 'hymnbooks', 'plans'];
 let dbp = null;
 // When the browser will not open its database (some private windows, storage turned off, a damaged
-// profile), SDA Sabbath keeps working with an in-memory store for this session instead of failing.
+// profile), Church Service keeps working with an in-memory store for this session instead of failing.
 let mem = null;
 function useMemory(why) {
   if (!mem) {
     mem = new Map(STORES.map((s) => [s, new Map()]));
-    console.warn('SDA Sabbath: saving is not available here (' + why + '); working in memory for this session.');
+    console.warn('Church Service: saving is not available here (' + why + '); working in memory for this session.');
     try { window.dispatchEvent(new CustomEvent('selah-storage', { detail: { off: true, why: String(why) } })); } catch (e) { /* */ }
   }
   return null;
@@ -93,7 +93,7 @@ function open() {
     };
     req.onsuccess = () => { clearTimeout(timer); copyFromOld(req.result).catch(() => {}).then(() => resolve(req.result)); };
     req.onerror = () => { clearTimeout(timer); resolve(useMemory(req.error && req.error.message)); };
-    req.onblocked = () => console.warn('Database upgrade waiting for another SDA Sabbath tab to close.');
+    req.onblocked = () => console.warn('Database upgrade waiting for another Church Service tab to close.');
   });
   return dbp;
 }

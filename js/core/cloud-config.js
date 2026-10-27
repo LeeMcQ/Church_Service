@@ -1,4 +1,4 @@
-// SDA Sabbath cloud (Supabase): sign-in, install & usage statistics, feedback, Google Slides download.
+// Church Service cloud (Supabase): sign-in, install & usage statistics, feedback, Google Slides download.
 // Leave `url` empty and the app works exactly as before, fully offline, with no sign-in.
 // Fill in from Supabase → Project Settings → API (the "anon public" key is meant to be public: what each
 // person may read or write is decided by the rules in supabase/schema.sql). See supabase/SETUP.md.

@@ -1,5 +1,5 @@
 // Online AI (optional): short text summaries and background pictures, using the church's own API key
-// from Settings → AI. Everything else in SDA Sabbath works without it.
+// from Settings → AI. Everything else in Church Service works without it.
 //
 // Model names change often, so nothing depends on one name: each provider has a preferred default,
 // and when the provider says that model does not exist, the list of models the key can use is
@@ -86,7 +86,7 @@ const ENDPOINTS = {
   openai: { chat: () => openaiLike('https://api.openai.com/v1/chat/completions'), models: () => openaiLike('https://api.openai.com/v1/models') },
   xai: { chat: () => openaiLike('https://api.x.ai/v1/chat/completions'), models: () => openaiLike('https://api.x.ai/v1/models') },
   together: { chat: () => openaiLike('https://api.together.xyz/v1/chat/completions'), models: () => openaiLike('https://api.together.xyz/v1/models') },
-  openrouter: { chat: () => openaiLike('https://openrouter.ai/api/v1/chat/completions', { 'HTTP-Referer': location.origin, 'X-Title': 'SDA Sabbath' }), models: () => openaiLike('https://openrouter.ai/api/v1/models') },
+  openrouter: { chat: () => openaiLike('https://openrouter.ai/api/v1/chat/completions', { 'HTTP-Referer': location.origin, 'X-Title': 'Church Service' }), models: () => openaiLike('https://openrouter.ai/api/v1/models') },
 };
 const anthropicHeaders = () => json({ 'x-api-key': key(), 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' });
 
@@ -209,7 +209,7 @@ async function imageOnce(model, prompt, refs = []) {
     r = await fetch('https://api.together.xyz/v1/images/generations', { method: 'POST', headers: openaiLike('').headers,
       body: JSON.stringify({ model, prompt, n: 1, width: 1536, height: 864, response_format: 'base64' }) });
   } else if (p === 'openrouter') {
-    r = await fetch('https://openrouter.ai/api/v1/images', { method: 'POST', headers: openaiLike('', { 'HTTP-Referer': location.origin, 'X-Title': 'SDA Sabbath' }).headers,
+    r = await fetch('https://openrouter.ai/api/v1/images', { method: 'POST', headers: openaiLike('', { 'HTTP-Referer': location.origin, 'X-Title': 'Church Service' }).headers,
       body: JSON.stringify({ model, prompt, n: 1, aspect_ratio: '16:9' }) });
   } else throw new Error(providerName() + ' cannot make pictures. Choose OpenAI, Gemini, Grok, Together or OpenRouter in Settings → AI.');
   if (!r.ok) await fail(r, 'picture');

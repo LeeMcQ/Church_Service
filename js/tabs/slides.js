@@ -241,7 +241,7 @@ export default function create(ctx) {
     return m ? m[1] : null;
   }
 
-  // Google does not let a web page download a deck itself, so the SDA Sabbath cloud fetches it (when set up);
+  // Google does not let a web page download a deck itself, so the Church Service cloud fetches it (when set up);
   // the direct download is tried too (it works in some browsers and on the companion).
   let googleError = '';
   async function googleDeck(gid) {
@@ -254,7 +254,7 @@ export default function create(ctx) {
       const r = await fetch('https://docs.google.com/presentation/d/' + gid + '/export/pdf', { mode: 'cors' });
       if (r.ok) { const b = await r.blob(); if (pdf(b)) return b; }
     } catch (e) { /* not allowed from this page */ }
-    if (!googleError) googleError = cloud.enabled() ? 'Could not download the slides.' : 'Added as a live link (needs internet). For slides that work offline and step with Next, the SDA Sabbath cloud must be set up, or download the deck as PDF (File → Download → PDF) and add the file.';
+    if (!googleError) googleError = cloud.enabled() ? 'Could not download the slides.' : 'Added as a live link (needs internet). For slides that work offline and step with Next, the Church Service cloud must be set up, or download the deck as PDF (File → Download → PDF) and add the file.';
     if (/not shared/i.test(googleError)) googleError = 'These slides are not shared. In Google Slides press Share → General access → “Anyone with the link”, then add the link again.';
     return null;
   }

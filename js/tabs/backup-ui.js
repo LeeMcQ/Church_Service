@@ -83,7 +83,7 @@ export function backupSection(box) {
       paint();
       const files = await gdrive.list();
       busy = false; btn.disabled = false;
-      if (!files.length) { toast('No SDA Sabbath backups in this Google Drive yet. Back up on the other device first.', 'err', 7000); return; }
+      if (!files.length) { toast('No Church Service backups in this Google Drive yet. Back up on the other device first.', 'err', 7000); return; }
       const listEl = h('div.col', { style: { gap: '6px' } }, files.map((f) => h('div.row', { style: { gap: '8px', alignItems: 'center' } },
         h('span.grow', h('b', f.name.replace(EXT, '')), h('span.note', '  ' + fmt(f.size) + ' · ' + new Date(f.modifiedTime).toLocaleString())),
         h('button.btn.sm.primary', { type: 'button', onclick: async (e) => {
@@ -98,7 +98,7 @@ export function backupSection(box) {
           if (!(await confirmBox('Delete this backup?', f.name + ' is removed from Google Drive.', 'Delete', true))) return;
           try { await gdrive.remove(f.id); e.target.closest('.row').remove(); } catch (er) { toast(er.message, 'err'); }
         } }, icon('trash')))));
-      modal({ title: 'Restore from Google Drive', wide: true, body: h('div.col', { style: { gap: '10px' } }, h('p.note', 'Backups in “SDA Sabbath backup” in your Google Drive, newest first.'), listEl, prog), actions: [{ label: 'Close' }] });
+      modal({ title: 'Restore from Google Drive', wide: true, body: h('div.col', { style: { gap: '10px' } }, h('p.note', 'Backups in “Church Service backup” in your Google Drive, newest first.'), listEl, prog), actions: [{ label: 'Close' }] });
     } catch (e) { toast(e.message, 'err', 8000); }
     busy = false; btn.disabled = false;
   }
@@ -129,10 +129,10 @@ export function backupSection(box) {
       gdrive.enabled()
         ? h('div.col', { style: { gap: '8px', marginTop: '10px' } },
           h('b', 'Google Drive'),
-          acc ? h('p.note', 'Signed in to Google' + (acc.email ? ' as ' + acc.email : '') + '. ', h('button.btn.ghost.sm', { type: 'button', onclick: () => { gdrive.signOut(); paint(); } }, 'Sign out of Google')) : h('p.note', 'The first time, a Google window asks which account to use. SDA Sabbath only sees the backups it made, never the rest of your Drive.'),
+          acc ? h('p.note', 'Signed in to Google' + (acc.email ? ' as ' + acc.email : '') + '. ', h('button.btn.ghost.sm', { type: 'button', onclick: () => { gdrive.signOut(); paint(); } }, 'Sign out of Google')) : h('p.note', 'The first time, a Google window asks which account to use. Church Service only sees the backups it made, never the rest of your Drive.'),
           h('div.row.wrap', driveBtn, restoreBtn),
           b.lastDrive ? h('p.note', 'Last backup to Google Drive: ' + new Date(b.lastDrive).toLocaleString()) : null)
-        : h('p.note', { style: { marginTop: '10px' } }, 'Google Drive backup is not switched on for this copy of SDA Sabbath yet (the maintainer adds a Google client id: docs/backup.md). Backup files work already.'),
+        : h('p.note', { style: { marginTop: '10px' } }, 'Google Drive backup is not switched on for this copy of Church Service yet (the maintainer adds a Google client id: docs/backup.md). Backup files work already.'),
       h('div.col', { style: { gap: '8px', marginTop: '10px' } },
         h('b', 'Backup file'),
         h('p.note', 'Without Google: save one ' + EXT + ' file (to a USB stick, OneDrive, WhatsApp …) and open it on the other device.'),

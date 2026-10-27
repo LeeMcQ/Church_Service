@@ -5,8 +5,8 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self' https://leemcq.github.io; style-src 'self' 'unsafe-inline'; img-src 'self' data:; base-uri 'self'; form-action 'none'; object-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#161c28">
-<title>Companion download – SDA Sabbath</title>
-<meta name="description" content="Download the SDA Sabbath companion for the church PC: OBS, phones, TVs and a second PC on the church network, without internet.">
+<title>Companion download – Church Service</title>
+<meta name="description" content="Download the Church Service companion for the church PC: OBS, phones, TVs and a second PC on the church network, without internet.">
 <link rel="canonical" href="https://leemcq.github.io/Church_Service/companion.html">
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <style>
@@ -27,12 +27,12 @@
 </head>
 <body>
 <main>
-<nav aria-label="Pages"><a href="./">← Open SDA Sabbath</a> <a href="privacy.html">Privacy</a> <a href="terms.html">Terms</a></nav>
+<nav aria-label="Pages"><a href="./">← Open Church Service</a> <a href="privacy.html">Privacy</a> <a href="terms.html">Terms</a></nav>
 
-<h1>SDA Sabbath companion</h1>
+<h1>Church Service companion</h1>
 <p>One small program for the PC that runs the service. It links that PC to the other devices on the church Wi‑Fi or network, with no internet needed:</p>
 <ul>
-  <li><b>OBS on another computer</b>: the lower third and the slides follow SDA Sabbath.</li>
+  <li><b>OBS on another computer</b>: the lower third and the slides follow Church Service.</li>
   <li><b>Phones</b> as a remote, a <b>TV</b> or <b>second PC</b> as the screen, and <b>stage screens</b>.</li>
   <li>Videos from the PC’s Videos folder, and exact PowerPoint conversion (with LibreOffice).</li>
 </ul>
@@ -45,19 +45,19 @@
   <li>Download <b>the Windows program</b> above on the PC that runs the service.</li>
   <li>Double‑click <code>selah-windows-x64.exe</code>. Windows may say it “protected your PC”: click <b>More info → Run anyway</b> (the program is not signed by a company).</li>
   <li>When Windows asks about network access, tick <b>Private networks</b> and click <b>Allow</b>. Without this, other computers cannot reach it.</li>
-  <li>SDA Sabbath opens in your browser at <code>http://localhost:7777</code>. <b>Use SDA Sabbath from this tab</b> during the service (not the website) and keep it open.</li>
+  <li>Church Service opens in your browser at <code>http://localhost:7777</code>. <b>Use Church Service from this tab</b> during the service (not the website) and keep it open.</li>
   <li>Optional: to get a Start‑menu and desktop shortcut, run it once with <code>--install</code> (PowerShell: <code>.\selah-windows-x64.exe --install</code>).</li>
 </ol>
 
 <h2>Connect OBS on the second computer</h2>
 <ol>
   <li>Make sure both computers are on the same Wi‑Fi or network.</li>
-  <li>In SDA Sabbath (the <code>localhost:7777</code> tab) open <b>Tools → Stream</b>. The box <b>“OBS on another computer”</b> shows two addresses with this PC’s network address in them.</li>
+  <li>In Church Service (the <code>localhost:7777</code> tab) open <b>Tools → Stream</b>. The box <b>“OBS on another computer”</b> shows two addresses with this PC’s network address in them.</li>
   <li>Click <b>Copy lower third address</b>. Send it to the OBS computer (e‑mail, WhatsApp, or type it — it looks like <code>http://192.168.1.20:7777/obs.html?via=lan&amp;mode=lower</code>).</li>
   <li>In OBS: <b>Sources → + → Browser</b>, paste it as the <b>URL</b>, set <b>Width 1920</b>, <b>Height 1080</b>, press OK, and drag it above the camera.</li>
-  <li>Show a Bible verse in SDA Sabbath: the words appear in OBS. For full‑screen slides, add the <b>Presentation</b> address the same way in its own scene.</li>
+  <li>Show a Bible verse in Church Service: the words appear in OBS. For full‑screen slides, add the <b>Presentation</b> address the same way in its own scene.</li>
 </ol>
-<p class="note"><b>OBS says “waiting for the media desk”?</b> The OBS link works, but SDA Sabbath is not open at <code>http://localhost:7777</code> on the companion PC. Open it there (not the website) and keep it open. <b>OBS shows nothing at all?</b> Open the same address in a browser on the OBS computer; if it does not load, allow the companion through Windows Firewall on private networks.</p>
+<p class="note"><b>OBS says “waiting for the media desk”?</b> The OBS link works, but Church Service is not open at <code>http://localhost:7777</code> on the companion PC. Open it there (not the website) and keep it open. <b>OBS shows nothing at all?</b> Open the same address in a browser on the OBS computer; if it does not load, allow the companion through Windows Firewall on private networks.</p>
 
 <h2>Raspberry Pi or Linux</h2>
 <p>Download the Linux file, then in a terminal: <code>chmod +x selah-linux-*</code> and run it. Open <code>http://localhost:7777</code>.</p>

@@ -124,7 +124,7 @@ export function bannerEl(f, urlFor) {
     ? '<div class="fb-qr"><img alt="" src="' + f.qr + '"><span>' + esc(f.qrLabel || 'Scan to give online') + '</span></div>' : '';
   if (qr) el.classList.add('has-qr');
   inner.innerHTML = (top ? '<div class="fb-top">' + top + '</div>' : '') + mid + (foot ? '<div class="fb-foot">' + foot + '</div>' : '') +
-    (f.mark ? '<div class="fb-mark">SDA Sabbath</div>' : '');
+    (f.mark ? '<div class="fb-mark">Church Service</div>' : '');
   if (qr) el.insertAdjacentHTML('beforeend', qr);
   el.appendChild(inner);
   // Free elements (text boxes, shapes, lines, pictures) sit above the template's own text.

@@ -1,4 +1,4 @@
-# Publishes the SDA Sabbath web app to GitHub Pages on every push to main, together with the companion
+# Publishes the Church Service web app to GitHub Pages on every push to main, together with the companion
 # programs (built from the same code) under /download/, so the site always offers a matching download.
 # Actions are pinned to a full commit (the version is in the comment); Dependabot proposes updates.
 name: Deploy app to GitHub Pages

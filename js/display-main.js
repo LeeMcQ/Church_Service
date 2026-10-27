@@ -1,7 +1,7 @@
 // Boot for display.html. Works with three kinds of controller:
 //   1. the control window that opened us (postMessage + direct calls for screen-share streams)
 //   2. a phone/PC using the Presentation API (Chromecast / wireless displays)
-//   3. the SDA Sabbath companion on the LAN (WebSocket), e.g. a smart-TV browser or second PC
+//   3. the Church Service companion on the LAN (WebSocket), e.g. a smart-TV browser or second PC
 import { createDisplay } from './display/display.js';
 import { createDecoder, createEncoder } from './core/wire.js';
 import { sanitizeSlideHtml } from './core/render.js';
@@ -9,7 +9,7 @@ import { APP_SCOPE } from './core/util.js';
 
 // Slides that arrive over a network link (the companion on the church network, or Cast) are cleaned before
 // they are drawn: only plain formatting survives, never scripts, frames, event handlers or odd links. The
-// window opened by SDA Sabbath on this PC is the app itself and needs no cleaning.
+// window opened by Church Service on this PC is the app itself and needs no cleaning.
 function cleanFrame(f) {
   if (!f || typeof f !== 'object') return;
   if (typeof f.html === 'string') f.html = sanitizeSlideHtml(f.html);
@@ -29,7 +29,7 @@ const outs = new Set();
 const post = (m) => outs.forEach((f) => { try { f(m); } catch (e) { /* closed */ } });
 // ?mirror=1: the second projector (same picture as the main one, videos silent).
 const MIRROR = params.get('mirror') === '1';
-if (MIRROR) document.title = 'SDA Sabbath · projector 2';
+if (MIRROR) document.title = 'Church Service · projector 2';
 const disp = createDisplay(root, { post, mirror: MIRROR });
 window.SelahDisplay = disp; // direct API used by the opener window (streams, snapshots)
 

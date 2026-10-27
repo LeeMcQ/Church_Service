@@ -60,7 +60,7 @@ const EXTRAS = [
   ['date', 'Date', 'The coming Sabbath’s date'],
   ['sunset', 'Sunset time', 'When Sabbath begins or ends, worked out offline'],
   ['qr', 'Giving QR code', 'The giving link from Church details'],
-  ['mark', '“SDA Sabbath” mark', 'A small app name in the corner'],
+  ['mark', '“Church Service” mark', 'A small app name in the corner'],
 ];
 const POS = [['center', 'Centre'], ['left', 'Left'], ['right', 'Right'], ['top', 'Top'], ['low', 'Bottom']];
 

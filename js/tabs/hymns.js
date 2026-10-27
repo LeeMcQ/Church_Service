@@ -131,7 +131,7 @@ export default function create(ctx) {
   let musicEntry = null;   // music index entry of the selected hymn
   const editBtn = btn('edit', 'Edit this hymn', () => hymn && editHymn(hymn), { cls: 'sm' });
   // A chorus this church added itself can be shared with every church (Praise Choruses only).
-  const shareBtn = h('button.btn.sm', { type: 'button', hidden: true, title: 'Share this chorus with all churches that use SDA Sabbath', onclick: () => hymn && shareChorus(hymn) }, icon('send'), h('span', 'Share with all churches'));
+  const shareBtn = h('button.btn.sm', { type: 'button', hidden: true, title: 'Share this chorus with all churches that use Church Service', onclick: () => hymn && shareChorus(hymn) }, icon('send'), h('span', 'Share with all churches'));
   const isOwnChorus = (hy) => !!(hy && book && book.id === COMMUNITY_BOOK && !hy.shared && !(book.builtinNs && book.builtinNs.has(hy.n)));
   const moreBtn = btn('more', 'More', () => menu(moreBtn, [
     { label: 'Find lyrics online', icon: 'search', onclick: () => findLyrics() },
@@ -252,7 +252,7 @@ export default function create(ctx) {
     list.slice(0, 400).forEach((x) => {
       frag.appendChild(h('button', { type: 'button', tabindex: '-1', 'aria-pressed': String(hymn === x), onclick: () => selectHymn(x), ondblclick: () => { selectHymn(x); live.take(); } },
         h('span.num', String(x.n)), h('span.grow', h('div.trunc', x.t), h('div.note.trunc', x.v[0][0])),
-        x.shared ? h('span.hy-shared', { title: 'Shared by a church that uses SDA Sabbath' }, 'Shared') : null,
+        x.shared ? h('span.hy-shared', { title: 'Shared by a church that uses Church Service' }, 'Shared') : null,
         musicSet && musicSet.has(x.n) ? h('span.has-music', { title: 'Music available offline' }, icon('music')) : null));
     });
     listEl.appendChild(frag);
@@ -565,7 +565,7 @@ export default function create(ctx) {
         download(z, (hy.t.replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '_') || 'chorus') + '_midi.zip');
       } }, icon('download'), h('span', 'Save MIDI as .zip'))) : h('p.note', 'No MIDI? The chorus robot looks for one and attaches it if it finds a good match.');
     const body = h('div.col', { style: { gap: '10px' } },
-      h('p', 'Every church that uses SDA Sabbath gets shared choruses in Praise Choruses (with the music, if there is a MIDI). The SDA Sabbath maintainer checks each song first.'),
+      h('p', 'Every church that uses Church Service gets shared choruses in Praise Choruses (with the music, if there is a MIDI). The Church Service maintainer checks each song first.'),
       h('b', hy.t + (hy.a ? ' — ' + hy.a : '')), preview,
       h('label.muted', 'May these words be shared with every church?'), rightsList,
       h('p.note', 'Songs from CCLI or other song publishers (most modern worship songs) may not be shared, even if your church has a licence to sing them.'),
@@ -587,8 +587,8 @@ export default function create(ctx) {
     modal({ title: 'Share “' + hy.t + '” with all churches', body, wide: true, actions: [
       { label: 'Cancel' },
       { label: 'No GitHub account? Copy the song', onclick: () => {
-        const txt = 'Chorus for SDA Sabbath (Praise Choruses)\nTitle: ' + hy.t + '\nWriter: ' + (hy.a || '') + '\nShared by: ' + name.value.trim() + '\nMay be shared: ' + (RIGHTS.find((r) => r[0] === rights) || ['', 'not said'])[1] + '\n\n' + sharedText(hy);
-        if (navigator.clipboard) navigator.clipboard.writeText(txt).then(() => toast('Copied. Send it to the person who looks after SDA Sabbath, or to the maintainer on GitHub.', 'ok', 7000), () => toast('Could not copy.', 'err'));
+        const txt = 'Chorus for Church Service (Praise Choruses)\nTitle: ' + hy.t + '\nWriter: ' + (hy.a || '') + '\nShared by: ' + name.value.trim() + '\nMay be shared: ' + (RIGHTS.find((r) => r[0] === rights) || ['', 'not said'])[1] + '\n\n' + sharedText(hy);
+        if (navigator.clipboard) navigator.clipboard.writeText(txt).then(() => toast('Copied. Send it to the person who looks after Church Service, or to the maintainer on GitHub.', 'ok', 7000), () => toast('Could not copy.', 'err'));
         return false;
       } },
       { label: 'Share on GitHub', primary: true, onclick: go }] });

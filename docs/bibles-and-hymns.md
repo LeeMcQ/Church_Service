@@ -25,7 +25,7 @@ publicly. Each church adds its own licensed copy:
 `data/hymns/sda-sample.json` holds sample hymns whose words are public domain, numbered as in the
 1985 SDA Hymnal. Replace or add hymnbooks with **Hymns → ⋯ → Import a hymnbook**:
 
-- JSON (SDA Sabbath format, formerly "Selah"):
+- JSON (Church Service format, formerly "Selah"):
   ```json
   { "id": "sda-en", "name": "SDA Hymnal", "short": "SDAH", "lang": "en",
     "hymns": [ { "n": 73, "t": "Holy, Holy, Holy", "a": "Reginald Heber",
@@ -39,7 +39,7 @@ To ship a hymnbook with the app, put the JSON in `data/hymns/` and list it in `d
 
 ### Shared praise choruses (every church gets new songs)
 
-Choruses that churches share and the maintainer approves join **Praise Choruses** in every copy of SDA Sabbath,
+Choruses that churches share and the maintainer approves join **Praise Choruses** in every copy of Church Service,
 numbered **CHR 501** and up (marked *Shared*), with their MIDI music when there is one. The app checks for new ones a
 few seconds after it starts (at most every 6 hours, and whenever the internet comes back); **Hymns → ⋯ → Check for new
 shared choruses** checks at once. They work offline afterwards.
@@ -50,7 +50,7 @@ CCLI songs may not be shared), then **Share on GitHub** opens a ready-filled "Sh
 account is needed; **Copy the song** sends it another way).
 
 **The chorus robot** (`.github/workflows/chorus.yml`, `tools/chorus_bot.py`) answers on the issue within minutes: it tidies the
-words (capitals, spaces, quotes), refuses songs already in SDA Sabbath or not cleared for sharing, flags typos and near-duplicates,
+words (capitals, spaces, quotes), refuses songs already in Church Service or not cleared for sharing, flags typos and near-duplicates,
 compares the words with a public lyrics database (LRCLIB) to catch mistakes (and to warn when it is a published song), and looks
 for a MIDI file (a .zip dropped into the issue, or a close title match on BitMidi, flagged for a check). **The maintainer adds the
 label `chorus-approved`** and the robot adds the song to `data/hymns/community/choruses.json`, rebuilds the website and closes

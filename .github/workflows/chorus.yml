@@ -1,4 +1,4 @@
-# Chorus robot: checks choruses shared from SDA Sabbath (issues made with the "Share a praise chorus" form),
+# Chorus robot: checks choruses shared from Church Service (issues made with the "Share a praise chorus" form),
 # and publishes them to every church once the maintainer adds the label "chorus-approved".
 # Set the repository variable AUTO_PUBLISH_CHORUSES to "true" to publish choruses that pass every check
 # without waiting for approval.

@@ -92,7 +92,7 @@ export default function create(ctx) {
   }
 
   async function removeItem(it) {
-    if (!(await confirmBox('Remove from playlist?', '“' + it.name + '” will be removed from SDA Sabbath' + (it.blob ? ' and its offline copy deleted' : '') + '. The original file is not touched.', 'Remove', true))) return;
+    if (!(await confirmBox('Remove from playlist?', '“' + it.name + '” will be removed from Church Service' + (it.blob ? ' and its offline copy deleted' : '') + '. The original file is not touched.', 'Remove', true))) return;
     if (session.has(it.id)) session.delete(it.id); else if (!it.remote) await db.del('files', it.id);
     items = items.filter((x) => x !== it);
     if (sel === it) { sel = null; ctx.setStaged('video', null); renderSelected(); }
@@ -124,7 +124,7 @@ export default function create(ctx) {
         const answer = (v) => { done = true; if (rem.checked) settings.set('video.keepCopies', v ? 'yes' : 'no'); resolve(v); };
         modal({ title: 'Keep offline copies?',
           body: h('div.col', { style: { gap: '10px' } },
-            h('p', 'Save ' + fmtBytes(total) + ' inside SDA Sabbath so these play next time without choosing them again? Choose “This time only” to use them for this session only.'),
+            h('p', 'Save ' + fmtBytes(total) + ' inside Church Service so these play next time without choosing them again? Choose “This time only” to use them for this session only.'),
             h('label.row', { style: { gap: '8px', alignItems: 'center' } }, rem, h('span', 'Remember my choice'))),
           onclose: () => { if (!done) resolve(false); },
           actions: [{ label: 'This time only', onclick: () => answer(false) }, { label: 'Keep copies', primary: true, onclick: () => answer(true) }] });
@@ -175,7 +175,7 @@ export default function create(ctx) {
     if (it.handle) {
       let p = await it.handle.queryPermission({ mode: 'read' });
       if (p !== 'granted' && interactive) p = await it.handle.requestPermission({ mode: 'read' });
-      if (p !== 'granted') throw new Error('SDA Sabbath needs permission to open “' + it.name + '”. Click it again and allow access.');
+      if (p !== 'granted') throw new Error('Church Service needs permission to open “' + it.name + '”. Click it again and allow access.');
       return it.handle.getFile();
     }
     throw new Error('This file is no longer available. Add it again.');

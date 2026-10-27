@@ -1,11 +1,11 @@
-# SDA Sabbath — offline church presenter for SDA media teams
+# Church Service — offline church presenter for SDA media teams
 
-SDA Sabbath shows Bible passages, hymns, slides, videos, web pages and your PC screen on the projector
+Church Service shows Bible passages, hymns, slides, videos, web pages and your PC screen on the projector
 (the extended screen) while the operator prepares what comes next on the main screen. It is a
 Progressive Web App: install it once and it runs with **no internet**, on old PCs and 1–2 GB phones.
 
 ```
-┌ SDA Sabbath ─ ● Display: Projector ─ [ Go to… John 3:16 / hymn 73 ] ────── [▶ Present  F5 ] ┐
+┌ Church Service ─ ● Display: Projector ─ [ Go to… John 3:16 / hymn 73 ] ────── [▶ Present  F5 ] ┐
 │ Bible  │                                                         │ ○ Next  (green)          │
 │ Hymns  │   the selected tab's options for what goes on next      │ ● Live  (red)            │
 │ Banners│                                                         │ Black · Logo · Clear     │
@@ -27,7 +27,7 @@ Nothing reaches the projector until **Present** (F5 or Ctrl+Enter). Each tab kee
 | **Hymns** | Type the number or words. Title slide, one stanza per slide, chorus repeated automatically, choose which stanzas to sing (1, 2, 4). Tap a stanza to make it Next (also while the hymn is on screen); double-tap, Enter or Present shows it. Jump to any stanza from the control bar. Edit or add hymns; import or export hymnbooks. |
 | **Slides** | PDF, PowerPoint (.pptx) and pictures. Converted once on import and kept offline. Speaker notes shown to the operator. Auto-advance loop for announcements. |
 | **Video** | VLC-style player: playlist with auto-next and repeat, speed 0.25×–4×, A-B repeat, loop, frame step, fade in/out, volume boost to 200 %, 10-band equaliser with presets, fit/fill/stretch, zoom, rotate, mirror, brightness/contrast/colour/hue, .srt/.vtt subtitles, snapshots. Music can play **in the background** while lyrics stay on screen. |
-| **Web & PC** | Two parts in one tab. **Web page:** *Mirror a tab* — the projector shows exactly that browser tab, without the mouse pointer (scroll/zoom it from SDA Sabbath in Chrome); *Embed* — YouTube and embeddable sites load directly on the display. **PC screen:** share the whole screen, one window (e.g. PowerPoint or a Bible app) or a tab; see it live inside SDA Sabbath. **Freeze** keeps the last picture up while you work privately. The **mini controller** floats on top of other programs. |
+| **Web & PC** | Two parts in one tab. **Web page:** *Mirror a tab* — the projector shows exactly that browser tab, without the mouse pointer (scroll/zoom it from Church Service in Chrome); *Embed* — YouTube and embeddable sites load directly on the display. **PC screen:** share the whole screen, one window (e.g. PowerPoint or a Bible app) or a tab; see it live inside Church Service. **Freeze** keeps the last picture up while you work privately. The **mini controller** floats on top of other programs. |
 | **Plan** | Prepare the order of service at home (one-tap Divine Service, Sabbath School and Vespers templates, or **your own templates**: build a plan once, then ⋯ → Save as template, with or without its hymns and readings, and make it the default for new plans). Type in the Add box — “hymn 73”, “Amazing grace”, “John 3:16-18”, a slide deck, video or banner name — and pick a suggestion, or use **Add media…** (Bible verse ranges and whole chapters, hymns and choruses by number or words, slides, video, banners, web pages; new files can be added right there). Attach or change the media of each part while it keeps its name (“Opening Hymn — Hymn 73”), rename parts, add who leads them, drag parts into order, see progress and what is **On screen**, undo a removal, copy the order as text, export it to Word, **save or share it with its media** (⋯ → Save or share this plan: one `.sdaplan` file with the slides, pictures, banners and videos it uses; Bible passages and hymns go as references; templates can be shared the same way from ⋯ → Templates → Share, and opened on another device with ⋯ → Open a shared plan or template, as a plan or as the default template), and step through it in church with **Next part** (it becomes Next; Present shows it). |
 | **Banners & Music** | Welcome, verse, announcement, offering (with giving QR code), countdown and Sabbath-sunset banners drawn live on the display; a self-running pre-service loop; **background music** that starts with the banners and fades out when something else goes on screen; key verses for the 28 Fundamental Beliefs and sermon topics. See [Banners](docs/banners-and-ai.md#banners) and [Banner music](docs/banners-and-ai.md#banner-music). |
 | **Tools → Stage** | The **second screen for the people on the platform** (confidence monitor): the slide on screen and what comes next, the words in large type, speaker notes, the time, speaker timers, your messages and the order of service — never shown to the congregation. Open it on another monitor, cast it, or let pastors and singers **follow on their own phones and laptops** with a QR code or a short room code. See [Stage screen](docs/stage-and-obs.md#stage-screen)). |
@@ -71,4 +71,4 @@ a local web address. Everything is explained in the guides below.
 - High-quality hymn sounds (`data/music/hq.sf3`, optional download): Salamander Grand Piano V3 by Alexander Holm
   (CC BY 3.0) and the GrandOrgue demo pipe organ, recordings by Lars Palo (CC BY-SA 2.5) — `data/music/HQ-SOUNDS-LICENSE.txt`.
 - Hymn MIDI files: supplied by the church for its own services.
-- SDA Sabbath code: MIT.
+- Church Service code: MIT.

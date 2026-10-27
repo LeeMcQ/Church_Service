@@ -83,7 +83,7 @@ and sunset stay live as fields). **Wide** gives the slide more room.
 
 In **Settings → AI** choose a provider (OpenAI, Google Gemini, xAI Grok, Together AI, OpenRouter or Anthropic
 Claude — text only), paste your key and press **Test key**: it shows the models your key can use and lets you
-choose a text and a picture model (or leave both on Automatic). If a model is retired, SDA Sabbath picks a
+choose a text and a picture model (or leave both on Automatic). If a model is retired, Church Service picks a
 current one by itself and remembers it.
 
 - Banners → Make has **two AI picture makers**:

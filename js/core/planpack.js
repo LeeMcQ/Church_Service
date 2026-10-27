@@ -1,6 +1,6 @@
 // Plan packages (.sdaplan): a service plan or plan template in one file, with the slides, pictures,
 // banners and (if wanted) videos it uses, so it can be backed up or shared with another media team.
-// Bible passages and hymns travel as references: every copy of SDA Sabbath has them.
+// Bible passages and hymns travel as references: every copy of Church Service has them.
 //
 //   const pack = await collectPlan(items, opts)      -> { manifest, blobs, stats }
 //   const blob = await packageBlob(pack, onProgress) -> a .sdaplan file (a stored ZIP: plan.json + media/…)
@@ -105,7 +105,7 @@ export async function collectPlan(items, opts = {}) {
   stats.mediaBytes = blobs.reduce((a, b) => a + b.blob.size, 0);
   stats.otherBytes = stats.mediaBytes - (stats.videoBlobBytes || 0);
   const plan = items.map((it) => { const c = JSON.parse(JSON.stringify(it)); delete c.done; return c; });
-  const manifest = { format: FORMAT, version: 2, app: 'SDA Sabbath', made: new Date().toISOString(), kind: opts.kind || 'plan', name: opts.name || 'Service plan',
+  const manifest = { format: FORMAT, version: 2, app: 'Church Service', made: new Date().toISOString(), kind: opts.kind || 'plan', name: opts.name || 'Service plan',
     items: plan, files, renders, banners, missing, links: !withMedia };
   return { manifest, blobs, stats };
 }
@@ -122,12 +122,12 @@ export async function openPackage(file) {
     const pj = entries.get('plan.json');
     if (!pj) throw new Error('This file has no plan in it.');
     const manifest = JSON.parse(await pj.text());
-    if (!isObj(manifest) || manifest.format !== FORMAT || !Array.isArray(manifest.items)) throw new Error('This is not an SDA Sabbath plan file.');
+    if (!isObj(manifest) || manifest.format !== FORMAT || !Array.isArray(manifest.items)) throw new Error('This is not a Church Service plan file.');
     return { manifest, entries };
   }
   const p = JSON.parse(await file.text());
   if (isObj(p) && p.format === FORMAT && Array.isArray(p.items)) return { manifest: p, entries: new Map() };
-  if (!isObj(p) || !Array.isArray(p.items)) throw new Error('Not an SDA Sabbath plan file.');
+  if (!isObj(p) || !Array.isArray(p.items)) throw new Error('Not a Church Service plan file.');
   return { manifest: { format: FORMAT, version: 1, kind: 'plan', name: p.name || 'Imported plan', items: p.items, files: [], renders: [], banners: [], missing: [], links: true }, entries: new Map() };
 }
 

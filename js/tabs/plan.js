@@ -374,7 +374,7 @@ export default function create(ctx) {
   }
   // ------------------------------------------------------------ save / share a plan or template with its media
   // One .sdaplan file: the parts, who leads them, and the slides, pictures, banners and videos they show.
-  // Bible passages and hymns go as references (every copy of SDA Sabbath has them).
+  // Bible passages and hymns go as references (every copy of Church Service has them).
   const safeName = (n) => (String(n || 'Service plan').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '_') || 'Service_plan');
   async function sharePlan(items, name, kind) {
     if (!items || !items.length) { toast('There is nothing in this ' + (kind === 'template' ? 'template' : 'plan') + ' yet.', 'err'); return; }
@@ -398,9 +398,9 @@ export default function create(ctx) {
         'Off: a small file with links only: part names, who leads, Bible passages and hymns'),
       vidToggle,
       h('p.note', (refs ? refs + (refs === 1 ? ' Bible passage or hymn goes as a reference; ' : ' Bible passages and hymns go as references; ') : 'Bible passages and hymns go as references; ') +
-        'every copy of SDA Sabbath has them. Bibles or hymnbooks you imported yourself must also be on the other device.'),
+        'every copy of Church Service has them. Bibles or hymnbooks you imported yourself must also be on the other device.'),
       est.manifest.missing.length ? h('p.note', { style: { color: 'var(--warn, #b45309)' } }, 'Not on this device, so not included: ' + est.manifest.missing.slice(0, 6).join(', ') + (est.manifest.missing.length > 6 ? '…' : '') + '.') : null,
-      st.handles ? h('p.note', 'Some videos are linked to files on this PC; you may be asked to allow SDA Sabbath to read them.') : null,
+      st.handles ? h('p.note', 'Some videos are linked to files on this PC; you may be asked to allow Church Service to read them.') : null,
       sizeNote,
       h('p.note', 'To use it: on the other device open Plan → ⋯ → Open a shared plan or template, and choose the file.'));
     paintSize();
@@ -421,7 +421,7 @@ export default function create(ctx) {
     const actions = [{ label: 'Cancel' }];
     if (canShare) actions.push({ label: 'Share…', onclick: async () => {
       const r = await make(); if (!r) return false;
-      try { await navigator.share({ files: [new File([r.blob], r.fname, { type: 'application/octet-stream' })], title: name, text: 'Service plan from SDA Sabbath' }); }
+      try { await navigator.share({ files: [new File([r.blob], r.fname, { type: 'application/octet-stream' })], title: name, text: 'Service plan from Church Service' }); }
       catch (e) { if (e.name !== 'AbortError') { download(r.blob, r.fname); toast('Sharing is not available here; the file was saved instead.', '', 4000); } }
       return true;
     } });
@@ -440,7 +440,7 @@ export default function create(ctx) {
       const f = inp.files && inp.files[0];
       if (!f) return;
       let pkg;
-      try { pkg = await openPackage(f); } catch (e) { toast(e.message || 'This is not an SDA Sabbath plan file.', 'err', 5000); return; }
+      try { pkg = await openPackage(f); } catch (e) { toast(e.message || 'This is not a Church Service plan file.', 'err', 5000); return; }
       const m = pkg.manifest;
       const n = { decks: 0, videos: 0, pictures: 0 };
       (m.files || []).forEach((x) => { if (x && x.kind === 'deck') n.decks++; else if (x && x.kind === 'media') n.videos++; else if (x) n.pictures++; });

@@ -1,4 +1,4 @@
-// admin.html: statistics and feedback for the SDA Sabbath maintainer (people listed in public.admins).
+// admin.html: statistics and feedback for the Church Service maintainer (people listed in public.admins).
 import { cloud } from './core/cloud.js';
 
 const $ = (s) => document.querySelector(s);
@@ -10,7 +10,7 @@ const LABEL = { bible: 'Bible', hymns: 'Hymns', slides: 'Slides', video: 'Video'
 const LAYOUT = { p: 'Projector only', ps: 'Projector + stage', pp: 'Two projectors', pps: 'Two projectors + stage', pss: 'Projector + two stage', ppss: 'Two projectors + two stage', '': '—', '?': '—' };
 
 function signIn(msg) {
-  app.innerHTML = '<div class="card" style="max-width:460px"><h2>Sign in</h2><p class="muted">' + esc(msg || 'For the maintainer of SDA Sabbath. We email you a code.') + '</p>' +
+  app.innerHTML = '<div class="card" style="max-width:460px"><h2>Sign in</h2><p class="muted">' + esc(msg || 'For the maintainer of Church Service. We email you a code.') + '</p>' +
     '<div class="row"><input id="em" type="email" placeholder="you@example.com" style="flex:1"><button class="primary" id="send" type="button">Send code</button></div>' +
     '<div class="row" id="coderow" hidden style="margin-top:10px"><input id="code" inputmode="numeric" placeholder="6-digit code"><button class="primary" id="ok" type="button">Sign in</button></div><p id="err" class="muted"></p></div>';
   const err = (t) => { $('#err').textContent = t; };
@@ -58,7 +58,7 @@ async function feedbackBox() {
 }
 
 async function load() {
-  if (!cloud.enabled()) { app.innerHTML = '<p>The SDA Sabbath cloud is not set up yet (js/core/cloud-config.js). See supabase/SETUP.md.</p>'; return; }
+  if (!cloud.enabled()) { app.innerHTML = '<p>The Church Service cloud is not set up yet (js/core/cloud-config.js). See supabase/SETUP.md.</p>'; return; }
   await cloud.ready;
   if (!cloud.user) { signIn(); return; }
   $('#who').textContent = 'Signed in as ' + (cloud.user.email || '');

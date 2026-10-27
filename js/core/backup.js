@@ -1,4 +1,4 @@
-// A whole-device backup of SDA Sabbath in one file (.sdabackup, a stored ZIP): settings, plans, templates,
+// A whole-device backup of Church Service in one file (.sdabackup, a stored ZIP): settings, plans, templates,
 // hymnbooks, imported Bibles, banners and their pictures, and (if chosen) slides and videos.
 // Used by "Back up to Google Drive" and "Save a backup file", and restored on another device.
 import { db } from './db.js';
@@ -115,7 +115,7 @@ export async function buildBackup(opts = {}, onProgress) {
 
   const bytes = blobs.reduce((a, b) => a + b.blob.size, 0);
   if (bytes > ZIP_MAX - 50e6) throw new Error('This backup would be larger than 4 GB. Leave the videos out (keep them on the PC) and try again.');
-  const manifest = { format: FORMAT, version: 1, app: 'SDA Sabbath', made: new Date().toISOString(), device: opts.device || '',
+  const manifest = { format: FORMAT, version: 1, app: 'Church Service', made: new Date().toISOString(), device: opts.device || '',
     includes: { slides: !!opts.slides, videos: !!opts.videos }, stats, settings, local, stores, files, renders };
   step('Packing…');
   const blob = await zipBlobs([{ name: 'backup.json', text: JSON.stringify(manifest) }].concat(blobs),
@@ -128,9 +128,9 @@ export async function buildBackup(opts = {}, onProgress) {
 export async function readBackup(file) {
   const entries = await readZip(file);
   const j = entries.get('backup.json');
-  if (!j) throw new Error('This is not an SDA Sabbath backup.');
+  if (!j) throw new Error('This is not a Church Service backup.');
   const m = JSON.parse(await j.text());
-  if (!m || m.format !== FORMAT) throw new Error('This is not an SDA Sabbath backup.');
+  if (!m || m.format !== FORMAT) throw new Error('This is not a Church Service backup.');
   return { manifest: m, entries };
 }
 
@@ -191,6 +191,6 @@ export async function restoreBackup(pkg, onProgress) {
 export const backupName = (device) => {
   const d = new Date();
   const p = (n) => String(n).padStart(2, '0');
-  return 'SDA Sabbath backup ' + d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + 'h' + p(d.getMinutes())
+  return 'Church Service backup ' + d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + 'h' + p(d.getMinutes())
     + (device ? ' (' + String(device).replace(/[\\/:*?"<>|]/g, '').slice(0, 40) + ')' : '') + EXT;
 };

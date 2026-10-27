@@ -1,4 +1,4 @@
-/* SDA Sabbath — control app styles.
+/* Church Service — control app styles.
    Colour language: green = Next (staged), red = Live. Brass is reserved for Present.
    No blur, no large shadows: flat layers by lightness so low-end GPUs stay idle. */
 
@@ -1267,3 +1267,16 @@ a.btn { text-decoration: none; }
 }
 /* Touch screens: sliders get a taller hit area (the track looks the same). */
 @media (pointer: coarse) { input[type=range] { min-height: 28px; } }
+
+/* Install Church Service card (js/core/installer.js) */
+.inst-card { position: fixed; z-index: 95; right: 16px; bottom: calc(var(--bar-h) * var(--bar-on, 0) + 16px); width: min(420px, calc(100vw - 32px)); background: var(--raised); color: var(--text);
+  border: 1px solid var(--line); border-left: 4px solid #0d5c63; border-radius: var(--r-lg); padding: 14px 16px; box-shadow: 0 12px 40px rgb(0 0 0 / .45); display: flex; flex-direction: column; gap: 8px; }
+.inst-card .inst-h { display: flex; gap: 12px; align-items: center; }
+.inst-card .inst-h img { border-radius: 10px; flex: none; }
+.inst-card p { margin: 0; }
+.inst-card .inst-ok { display: flex; gap: 8px; align-items: flex-start; font-size: var(--fs-sm); color: var(--muted); }
+.inst-card .inst-ok svg.i { color: var(--next); flex: none; width: 18px; height: 18px; margin-top: 1px; }
+.inst-card .inst-steps svg.i { width: 14px; height: 14px; vertical-align: -2px; }
+.inst-card .inst-act { justify-content: flex-end; gap: 8px; }
+@media (max-width: 760px) { .inst-card { left: 12px; right: 12px; width: auto; bottom: calc(var(--tab-h) + var(--bar-h) * var(--bar-on, 0) + 12px); } }
+@media (orientation: landscape) and (max-height: 500px) { .inst-card { bottom: 12px; } }

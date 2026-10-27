@@ -3,7 +3,7 @@
 // of service — fed to any number of stage screens at once, each through its own outlet:
 //   window   a stage window on another screen of this PC (also the preview in the Stage tab)
 //   cast     a Chromecast / Google TV / Android TV through the browser's Presentation API
-//   lan      screens and phones on the church network through the SDA Sabbath companion (no internet)
+//   lan      screens and phones on the church network through the Church Service companion (no internet)
 //   peer     phones, tablets and laptops that joined with the room code or QR code (stagenet.js)
 // Nothing here ever reaches the projector: stage messages and timers are for the platform only.
 //

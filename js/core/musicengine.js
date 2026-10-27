@@ -205,7 +205,7 @@ export class MusicEngine {
     s.systemExclusive(gs([0x01, 0x3a], [cho]));    // chorus level (Falcosoft recommendation: 43)
     // Lock them: otherwise each new song's reset would restore the GS defaults (64 / 64).
     s.setSystemParameter('reverbLock', true); s.setSystemParameter('chorusLock', true);
-    if (this.fx && this.fx.hq != null) this.setHQ(hqFor(this.fx.hq)).catch((e) => this.emit('notice', e.message));
+    if (this.fx && this.fx.hq != null) this.setHQ(hqFor(this.fx.hq)).catch((e) => { if (!this._hqWarned) { this._hqWarned = true; this.emit('notice', e.message); } });
   }
 
   /** Switch the high-quality instruments on or off (downloads them the first time). */
@@ -268,7 +268,10 @@ export class MusicEngine {
       this.applyEffects(rest);
       this.fx.hq = hq;
       // Wait for the high-quality instruments before the first note; if they cannot load, play the standard ones.
-      try { await this.setHQ(hqFor(hq), onProgress); } catch (e) { this.emit('notice', e.message + ' Playing the standard sounds.'); }
+      try { await this.setHQ(hqFor(hq), onProgress); } catch (e) {
+        // Said once per session (no internet yet for the first download): the standard sounds play meanwhile.
+        if (!this._hqWarned) { this._hqWarned = true; this.emit('notice', (navigator.onLine === false ? 'The high-quality instruments download the first time there is internet.' : e.message) + ' Playing the standard sounds.'); }
+      }
     }
     // Light mode (old PCs, 1–2 GB phones): linear interpolation and fewer voices, ~25% less CPU.
     this.synth.setSystemParameter('interpolationType', req.light ? 0 : 2);

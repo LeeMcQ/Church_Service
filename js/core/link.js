@@ -2,7 +2,7 @@
 //   window  – a pop-up on the extended screen (PC). Fastest: direct object hand-over, no copies.
 //   self    – this device becomes the screen (phone/tablet on HDMI or screen mirroring)
 //   cast    – Presentation API (Chromecast / wireless display from Chrome)
-//   socket  – SDA Sabbath companion on the LAN (TV browser or second PC shows display.html?via=ws)
+//   socket  – Church Service companion on the LAN (TV browser or second PC shows display.html?via=ws)
 import { emitter, h, APP_SCOPE } from './util.js';
 import { lsKey } from './storens.js';
 import { createEncoder, createDecoder } from './wire.js';

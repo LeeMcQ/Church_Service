@@ -1,6 +1,6 @@
 // Lightweight PowerPoint (.pptx) renderer: text boxes, placeholders, pictures, shapes,
 // groups, simple tables and backgrounds become positioned HTML. It covers typical church
-// announcement and sermon slides. For pixel-exact output, the SDA Sabbath companion converts
+// announcement and sermon slides. For pixel-exact output, the Church Service companion converts
 // .pptx to PDF with LibreOffice, or save as PDF from PowerPoint.
 import { unzipSync, strFromU8 } from '../../vendor/fflate-unzip.min.js';
 

@@ -4,7 +4,7 @@
 //   #mode=lower   a transparent overlay with lower thirds: the Bible verse or hymn words on screen
 //                 (automatically), names and announcements sent from Tools → Stream, a scrolling
 //                 ticker and the church logo in the corner.
-// It follows the operator's SDA Sabbath like a stage screen does: by room code over the internet
+// It follows the operator's Church Service like a stage screen does: by room code over the internet
 // (#c=CODE), on the church network through the companion (?via=lan), or as the preview in the app.
 // Nothing about the connection is ever drawn on the stream once it is connected.
 import { h, clear, uid, APP_SCOPE } from './core/util.js';
@@ -33,7 +33,7 @@ if (BG) {
   document.documentElement.style.setProperty('background', BG, 'important');
   document.body.style.setProperty('background', BG, 'important');
   document.body.style.cursor = 'none';
-  document.title = 'SDA Sabbath · ' + (MODE === 'full' ? 'slides' : 'lower third') + ' (HDMI)';
+  document.title = 'Church Service · ' + (MODE === 'full' ? 'slides' : 'lower third') + ' (HDMI)';
   const goFull = () => { const el = document.documentElement; if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen().catch(() => {}); };
   addEventListener('dblclick', () => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else goFull(); });
   addEventListener('keydown', (e) => { if (e.key === 'f' || e.key === 'F' || e.key === 'F11') { e.preventDefault(); goFull(); } });
@@ -224,7 +224,7 @@ function paintFull() {
 
 setInterval(() => { paintLower(); }, 500);
 
-// ------------------------------------------------------------ messages from SDA Sabbath
+// ------------------------------------------------------------ messages from Church Service
 function onMsg(m) {
   if (!m || typeof m !== 'object' || !m.t) return;
   if (m.to && m.to !== SID) return;
@@ -261,7 +261,7 @@ function setConn(state, text) {
   // Only shown while setting up (the first minute), never while OBS is streaming or recording.
   if (PREVIEW || Date.now() - started > 60000 || obsLive) { pill.hidden = true; return; }
   pill.hidden = false;
-  pill.textContent = text || 'SDA Sabbath: connecting…';
+  pill.textContent = text || 'Church Service: connecting…';
 }
 setInterval(() => { if (S.conn !== 'on' && !pill.hidden && Date.now() - started > 60000) pill.hidden = true; }, 2000);
 
@@ -302,7 +302,7 @@ function viaWindow() {
 }
 function viaLan() {
   let wait = 1000;
-  setConn('connecting', 'SDA Sabbath: connecting on the church network…');
+  setConn('connecting', 'Church Service: connecting on the church network…');
   const connect = () => {
     const ws = new WebSocket((location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws?role=display&room=stage');
     ws.binaryType = 'arraybuffer';
@@ -315,14 +315,14 @@ function viaLan() {
   connect();
 }
 async function viaCode(code) {
-  setConn('connecting', 'SDA Sabbath: connecting to the media desk…');
-  if (!canVerify()) { setConn('idle', 'SDA Sabbath: this address must start with https://'); return; }
+  setConn('connecting', 'Church Service: connecting to the media desk…');
+  if (!canVerify()) { setConn('idle', 'Church Service: this address must start with https://'); return; }
   // Only the media desk whose key matches the address (#h=…) is followed; anyone else with the room code is ignored.
   follower = createFollower({
     code, fp: get('h'),
     hello: (peerId, nonce) => { if (room) room.send(peerId, helloMsg(nonce)); },
     onMsg,
-    onLost: () => setConn('waiting', 'SDA Sabbath: waiting for the media desk…'),
+    onLost: () => setConn('waiting', 'Church Service: waiting for the media desk…'),
   });
   const go = async () => {
     try {
@@ -334,9 +334,9 @@ async function viaCode(code) {
         onLeave: (peerId) => follower.leave(peerId),
       });
       tx = { send: (m) => { const id = follower.hostId(); if (id) room.send(id, m); } };
-      setConn('waiting', 'SDA Sabbath: waiting for the media desk…');
+      setConn('waiting', 'Church Service: waiting for the media desk…');
     } catch (e) {
-      setConn('idle', 'SDA Sabbath: could not connect (' + ((e && e.message) || e) + '). Retrying…');
+      setConn('idle', 'Church Service: could not connect (' + ((e && e.message) || e) + '). Retrying…');
       setTimeout(go, 5000);
     }
   };
@@ -348,5 +348,5 @@ async function viaCode(code) {
   if (VIA === 'lan') { viaLan(); return; }
   const code = normCode(get('c'));
   if (code) { viaCode(code); return; }
-  setConn('idle', 'SDA Sabbath for OBS: this address needs a room code. Copy it from SDA Sabbath → Tools → Stream.');
+  setConn('idle', 'Church Service for OBS: this address needs a room code. Copy it from Church Service → Tools → Stream.');
 })();

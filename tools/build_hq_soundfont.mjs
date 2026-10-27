@@ -46,10 +46,10 @@ async function vorbis(data, rate) {
 }
 
 const bank = new BasicSoundBank();
-bank.soundBankInfo.name = 'SDA Sabbath high-quality hymn sounds';
+bank.soundBankInfo.name = 'Church Service high-quality hymn sounds';
 bank.soundBankInfo.engineer = 'Salamander Grand Piano V3: Alexander Holm (CC BY 3.0). Pipe organ: GrandOrgue demo, recordings by Lars Palo (CC BY-SA 2.5).';
 bank.soundBankInfo.copyright = 'Piano samples CC BY 3.0 (Alexander Holm); organ samples CC BY-SA 2.5 (Lars Palo / GrandOrgue contributors). This pack: CC BY-SA 2.5.';
-bank.soundBankInfo.comment = 'Built by tools/build_hq_soundfont.mjs for SDA Sabbath. Samples in Ogg Vorbis (SF3).';
+bank.soundBankInfo.comment = 'Built by tools/build_hq_soundfont.mjs for Church Service. Samples in Ogg Vorbis (SF3).';
 
 /** Adds a stereo pair; returns [left, right]. */
 function stereo(name, rate, key, cents, l, r, loopStart = 0, loopEnd = 0) {

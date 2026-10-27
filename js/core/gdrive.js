@@ -1,5 +1,5 @@
 // Google Drive for backups: sign in with Google (a pop-up, no Google script loaded into the app) and keep
-// backup files in an "SDA Sabbath backup" folder in the person's own Drive. The permission asked for is
+// backup files in an "Church Service backup" folder in the person's own Drive. The permission asked for is
 // "drive.file": the app sees only the files it created itself, never the rest of the Drive.
 // Needs a Google OAuth client id in js/core/cloud-config.js (googleClientId); see docs/backup.md.
 import { CLOUD } from './cloud-config.js';
@@ -7,7 +7,7 @@ import { lsKey } from './storens.js';
 
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const TOKEN_KEY = lsKey('gdrive.token');
-const FOLDER = 'SDA Sabbath backup';
+const FOLDER = 'Church Service backup';
 const API = 'https://www.googleapis.com/drive/v3';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
 
@@ -31,7 +31,7 @@ function signOut() {
 function signIn() {
   const old = saved();
   if (old) return Promise.resolve({ email: old.email || '' });
-  if (!gdrive.enabled()) return Promise.reject(new Error('Google Drive is not set up for this copy of SDA Sabbath yet (see docs/backup.md).'));
+  if (!gdrive.enabled()) return Promise.reject(new Error('Google Drive is not set up for this copy of Church Service yet (see docs/backup.md).'));
   const state = Math.random().toString(36).slice(2) + Date.now().toString(36);
   const redirect = new URL('oauth.html', location.href).href.split('?')[0];
   const u = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
@@ -100,7 +100,7 @@ async function folder() {
 
 /** Backups in the Drive folder, newest first: [{id, name, size, modifiedTime}]. */
 async function list() {
-  const j = await api('/files?' + new URLSearchParams({ q: "name contains 'SDA Sabbath backup' and mimeType!='application/vnd.google-apps.folder' and trashed=false",
+  const j = await api('/files?' + new URLSearchParams({ q: "name contains 'Church Service backup' and mimeType!='application/vnd.google-apps.folder' and trashed=false",
     orderBy: 'modifiedTime desc', fields: 'files(id,name,size,modifiedTime)', pageSize: '50' }));
   return (j.files || []).map((f) => Object.assign(f, { size: Number(f.size) || 0 }));
 }
@@ -126,7 +126,7 @@ async function upload(blob, name, onProgress) {
   const start = await fetch(UPLOAD + '/files?uploadType=resumable&fields=id', {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + tk, 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': 'application/zip', 'X-Upload-Content-Length': String(blob.size) },
-    body: JSON.stringify({ name, parents: [parent], mimeType: 'application/zip', description: 'SDA Sabbath backup. Restore it in SDA Sabbath: Settings → Backup.' }),
+    body: JSON.stringify({ name, parents: [parent], mimeType: 'application/zip', description: 'Church Service backup. Restore it in Church Service: Settings → Backup.' }),
   });
   if (!start.ok) throw new Error('Google Drive: ' + start.status + ' ' + (await start.text()).slice(0, 160));
   const loc = start.headers.get('Location');

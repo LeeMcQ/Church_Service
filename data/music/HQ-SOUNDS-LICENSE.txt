@@ -14,4 +14,4 @@ Pipe organ: GrandOrgue demo sample set, recordings by Lars Palo, (c) 2006 Milan 
   A = 440 Hz equal temperament, levels evened out, the release joined straight after the loop).
 
 Because it contains the organ samples, the sound pack hq.sf3 as a whole is shared under CC BY-SA 2.5.
-This applies only to that file, not to the SDA Sabbath app code (MIT).
+This applies only to that file, not to the Church Service app code (MIT).

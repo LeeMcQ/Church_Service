@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-SDA Sabbath smoke tests. They run on GitHub before every deploy: if one fails, the deploy stops and the
+Church Service smoke tests. They run on GitHub before every deploy: if one fails, the deploy stops and the
 website keeps the last working version.
 
     pip install playwright && python -m playwright install chromium
@@ -337,6 +337,45 @@ def main():
                     c2.close()
                 assert not bad_tabs, '; '.join(bad_tabs[:4])
             t_phone()
+
+            @check('works offline after the first visit (Bible, hymns, music, pages)')
+            def t_offline():
+                c3 = b.new_context(viewport={'width': 1280, 'height': 800})
+                p3 = c3.new_page()
+                p3.goto(base + 'index.html'); p3.wait_for_timeout(800)
+                p3.evaluate("import('./js/core/settings.js').then(m => m.settings.set('app.setupDone', true))")
+                st = None
+                for _ in range(150):   # the service worker stores every file of the app
+                    st = p3.evaluate("""async () => { const m = await (await fetch('asset-manifest.json', { cache: 'no-store' })).json();
+                      const ks = (await caches.keys()).filter((k) => k.startsWith('selah-/'));
+                      if (!ks.length) return [0, m.files.length];
+                      return [(await (await caches.open(ks[ks.length - 1])).keys()).length, m.files.length]; }""")
+                    if st[0] >= st[1]: break
+                    p3.wait_for_timeout(1000)
+                assert st and st[0] >= st[1], 'not everything stored: %r' % st
+                p3.reload(); p3.wait_for_timeout(1500)
+                c3.set_offline(True)
+                e3 = []
+                p3.on('pageerror', lambda e: e3.append(str(e)[:150]))
+                p3.reload(); p3.wait_for_selector('#presentBtn', timeout=20000); p3.wait_for_timeout(1500)
+                for t in TABS:
+                    p3.evaluate('id => window.selah.showTab(id)', t); p3.wait_for_timeout(400)
+                r = p3.evaluate("""async () => {
+                  const b = await window.selah.tab('bible'); await b.open({ ref: 'John 3:16' });
+                  const { live } = await import('./js/core/live.js');
+                  const staged = live.staged && live.staged.title;
+                  window.selah.showTab('hymns'); await new Promise((r) => setTimeout(r, 800));
+                  const rows = document.querySelectorAll('.tabpanel:not([hidden]) .list > button').length;
+                  const midi = await (await fetch('data/music/sda-online-midi.zip')).arrayBuffer();
+                  return { staged, rows, midi: midi.byteLength }; }""")
+                assert r['staged'] == 'John 3:16' and r['rows'] > 100 and r['midi'] > 100000, 'offline: %r' % r
+                for pgname in ('display.html', 'stage.html', 'privacy.html'):
+                    q = c3.new_page(); q.goto(base + pgname, timeout=15000); q.wait_for_timeout(600)
+                    assert 'Church Service' in q.title(), pgname + ' offline: ' + q.title()
+                    q.close()
+                assert not e3, '; '.join(e3[:3])
+                c3.close()
+            t_offline()
 
             @check('no errors on the main page')
             def t_clean():

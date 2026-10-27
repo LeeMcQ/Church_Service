@@ -5,7 +5,7 @@
            a public lyrics database), look for a MIDI file, and write the result as a comment.
   publish  the maintainer added the label "chorus-approved" (or AUTO_PUBLISH_CHORUSES is "true" and every
            check passed): add the chorus to data/hymns/community/choruses.json (and its MIDI), push, start
-           the website build, comment and close the issue. Every SDA Sabbath then gets it when online.
+           the website build, comment and close the issue. Every Church Service then gets it when online.
 
 The issue text is untrusted: it is only parsed as text here, never run.
 """
@@ -17,7 +17,7 @@ MIDI_DIR = os.path.join(ROOT, 'data', 'hymns', 'community', 'midi')
 FIRST = 501
 MARK = '<!-- chorus-bot -->'
 LABELS = {
-    'chorus': ('6d28d9', 'A chorus shared from SDA Sabbath'),
+    'chorus': ('6d28d9', 'A chorus shared from Church Service'),
     'chorus-checked': ('2b7f3e', 'The chorus robot found no problems'),
     'chorus-needs-attention': ('b45309', 'The chorus robot found something to look at'),
     'chorus-approved': ('1f4068', 'Maintainer: publish this chorus to every church'),
@@ -293,9 +293,9 @@ def run_checks(f):
     if title and v:
         same, near = find_duplicates(title, v[0][0])
         if same:
-            errors.append('This chorus is already in SDA Sabbath: ' + ', '.join(same) + '.')
+            errors.append('This chorus is already in Church Service: ' + ', '.join(same) + '.')
         elif near:
-            warns.append('Similar songs are already in SDA Sabbath: ' + ', '.join(near) + '. Check that this is a different song.')
+            warns.append('Similar songs are already in Church Service: ' + ', '.join(near) + '. Check that this is a different song.')
         ratio, label, differ = lyrics_check(title, author, v, c)
         if ratio is None:
             info.append('Lyrics database (LRCLIB): %s — the words could not be compared.' % label)
@@ -413,7 +413,7 @@ def main():
     n = publish(num, f, song, midi, approve)
     if n is None:
         return
-    api('POST', '/repos/%s/issues/%d/comments' % (REPO, num), {'body': '🎵 **Published as CHR %d** in the shared Praise Choruses%s. Every SDA Sabbath gets it when it is online (the website updates in about 5 minutes). Thank you for sharing!' % (n, ' with its MIDI' if midi else '')})
+    api('POST', '/repos/%s/issues/%d/comments' % (REPO, num), {'body': '🎵 **Published as CHR %d** in the shared Praise Choruses%s. Every Church Service gets it when it is online (the website updates in about 5 minutes). Thank you for sharing!' % (n, ' with its MIDI' if midi else '')})
     set_labels(num, add=['chorus-published'], remove=['chorus-checked', 'chorus-needs-attention'])
     api('PATCH', '/repos/%s/issues/%d' % (REPO, num), {'state': 'closed', 'state_reason': 'completed'})
 

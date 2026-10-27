@@ -1,8 +1,8 @@
-// SDA Sabbath cloud (Supabase, see cloud-config.js and supabase/): the person's account, install and usage
+// Church Service cloud (Supabase, see cloud-config.js and supabase/): the person's account, install and usage
 // statistics, and feedback. Everything here is optional and best-effort: without internet (or without a cloud
 // set up) the app works as before; counts and messages wait on this device and are sent later.
 //
-// What is counted (only while "Help improve SDA Sabbath" is on): minutes the app is in use, minutes a
+// What is counted (only while "Help improve Church Service" is on): minutes the app is in use, minutes a
 // projector is connected, how often each kind of item goes on screen (Bible, hymn, slides …), the app version,
 // browser, screen layout, and the church name and town from Settings → Church. Never what is shown.
 import { CLOUD } from './cloud-config.js';
@@ -31,7 +31,7 @@ cloud.installId = () => {
 
 // ------------------------------------------------------------ requests
 async function call(path, { method = 'GET', body, auth = true, keepalive = false, raw = false, timeout = 15000 } = {}) {
-  if (!cloud.enabled()) throw new Error('The SDA Sabbath cloud is not set up.');
+  if (!cloud.enabled()) throw new Error('The Church Service cloud is not set up.');
   if (auth) await freshSession();
   const token = auth && cloud.session ? cloud.session.access_token : CLOUD.anonKey;
   const ctl = new AbortController();

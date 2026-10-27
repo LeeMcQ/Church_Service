@@ -1,6 +1,6 @@
 // Mini controller in an always-on-top window (Document Picture-in-Picture, Chrome 116+).
 // Lets the operator work in PowerPoint, a browser or any other program and still
-// step slides, present, black or clear without switching back to SDA Sabbath.
+// step slides, present, black or clear without switching back to Church Service.
 import { h } from './core/util.js';
 import { icon } from './core/icons.js';
 import { live } from './core/live.js';

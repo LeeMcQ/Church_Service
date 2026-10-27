@@ -1,6 +1,6 @@
 // Shared Praise Choruses: songs that churches shared from the Hymns tab and the maintainer approved.
 // They live in the repository (data/hymns/community/choruses.json, MIDI files in …/midi/) and every copy of
-// SDA Sabbath fetches the list when it is online, so everyone gets new choruses without an app update.
+// Church Service fetches the list when it is online, so everyone gets new choruses without an app update.
 // The copy in the app's own files is used until the first successful check (and offline).
 import { db } from './db.js';
 

@@ -156,7 +156,7 @@ export default function create(ctx) {
         h('div.row.wrap', user, pass),
         h('label.muted', 'Own Nostr relays for finding each other (optional, advanced)'), relays,
         h('p.note', 'Only needed if your church runs its own relay. The QR code then carries it, so phones use it too.'),
-        h('p.note', 'Without internet, use the church network instead: run the SDA Sabbath companion on this PC, and screens on the Wi-Fi open its /stage.html?via=lan address.')),
+        h('p.note', 'Without internet, use the church network instead: run the Church Service companion on this PC, and screens on the Wi-Fi open its /stage.html?via=lan address.')),
       actions: [{ label: 'Cancel' }, { label: 'Save', primary: true, onclick: () => {
         settings.set('stage.turnUrl', url.value.trim()); settings.set('stage.turnUser', user.value.trim()); settings.set('stage.turnPass', pass.value);
         settings.set('stage.relays', relays.value.trim()); qrBox.dataset.url = ''; paintNet();

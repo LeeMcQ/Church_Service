@@ -1,5 +1,5 @@
 {
-  "about": "Key Bible verses for the 28 Fundamental Beliefs and common sermon topics. Titles and one-line themes are short summaries for finding verses; the verse text always comes from the Bible chosen in SDA Sabbath.",
+  "about": "Key Bible verses for the 28 Fundamental Beliefs and common sermon topics. Titles and one-line themes are short summaries for finding verses; the verse text always comes from the Bible chosen in Church Service.",
   "topics": [
     { "id": "fb01", "group": "belief", "n": 1, "t": "The Holy Scriptures", "d": "God's written Word, given by inspiration", "a": ["bible", "scripture", "word of god", "inspiration", "bybel", "skrif"],
       "r": ["2 Tim 3:16-17", "2 Pet 1:20-21", "Ps 119:105", "Isa 8:20", "John 17:17", "Heb 4:12", "1 Thess 2:13", "Prov 30:5"] },

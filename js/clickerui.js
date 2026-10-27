@@ -83,7 +83,7 @@ export function openClickerSetup({ version, onClose } = {}) {
       h('div.row.wrap', h('button.btn.sm', { type: 'button', onclick: () => { forget(); paintRows(); ui.toast('Taught buttons forgotten. The built-in keys still work.', 'ok', 2500); } }, icon('reload'), h('span', 'Forget taught buttons')), h('div.grow'), build),
       h('details.ck-help', h('summary', 'Nothing appears when I press a button'),
         h('ul',
-          h('li', 'The clicker types into the window that is active. Click once on the SDA Sabbath window (or on the projector window), then try again.'),
+          h('li', 'The clicker types into the window that is active. Click once on the Church Service window (or on the projector window), then try again.'),
           h('li', 'Make sure you have the newest version: close and reopen the app, or press Update now when it is offered. The build number above changes with each update.'),
           h('li', 'Check the clicker: batteries, the USB receiver plugged in, and its on/off switch. Many clickers have a mode switch (for example PowerPoint / Keynote / mouse mode); try another mode.'),
           h('li', 'A clicker in mouse mode (left / right click or scrolling) works on the projector window: click it once so it goes full screen, then the clicker moves the slides.'),

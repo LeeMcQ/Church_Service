@@ -63,7 +63,7 @@ export async function readZip(blob) {
   const tail = new DataView(await blob.slice(blob.size - tailLen).arrayBuffer());
   let eocd = -1;
   for (let i = tail.byteLength - 22; i >= 0; i--) if (tail.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
-  if (eocd < 0) throw new Error('This is not an SDA Sabbath plan file.');
+  if (eocd < 0) throw new Error('This is not a Church Service plan file.');
   const count = tail.getUint16(eocd + 10, true), cdSize = tail.getUint32(eocd + 12, true), cdOff = tail.getUint32(eocd + 16, true);
   const cd = new DataView(await blob.slice(cdOff, cdOff + cdSize).arrayBuffer());
   const dec = new TextDecoder();

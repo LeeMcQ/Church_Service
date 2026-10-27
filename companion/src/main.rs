@@ -1,6 +1,6 @@
-//! SDA Sabbath companion (formerly "Selah") — one small program for the church PC.
+//! Church Service companion (formerly "Selah") — one small program for the church PC.
 //!
-//! * Serves the whole SDA Sabbath app (embedded in this file) at http://localhost:7777 and on the LAN.
+//! * Serves the whole Church Service app (embedded in this file) at http://localhost:7777 and on the LAN.
 //! * Relays commands from a phone remote to the display, and from the display back.
 //! * Streams videos and pictures (with seeking) from the media folder (Videos/Selah; folder name kept for existing installs).
 //! * Converts PowerPoint to PDF with LibreOffice for pixel-exact slides.
@@ -539,7 +539,7 @@ fn api_control(st: &State, w: &mut TcpStream, req: &Request, from_this_pc: bool)
     }
     let ops = operators(st);
     if ops.is_empty() {
-        return json(w, "503 Service Unavailable", format!("{{\"ok\":false,\"error\":{}}}", json_str(&format!("SDA Sabbath is not open on this PC. Open http://localhost:{}/ first.", st.port))));
+        return json(w, "503 Service Unavailable", format!("{{\"ok\":false,\"error\":{}}}", json_str(&format!("Church Service is not open on this PC. Open http://localhost:{}/ first.", st.port))));
     }
     let arg = |k: &str| req.query.get(k).map(|v| v.chars().take(200).collect::<String>());
     let mut msg = format!("{{\"t\":\"cmd\",\"op\":{}", json_str(&op));
@@ -624,7 +624,7 @@ fn install() -> io::Result<()> {
         let script = format!(
             "$w=New-Object -ComObject WScript.Shell;\
              foreach($p in @([Environment]::GetFolderPath('Programs'),[Environment]::GetFolderPath('Desktop'))){{\
-             Remove-Item -ErrorAction SilentlyContinue (Join-Path $p 'Selah.lnk');$s=$w.CreateShortcut((Join-Path $p 'SDA Sabbath.lnk'));$s.TargetPath='{0}';$s.WorkingDirectory='{1}';$s.IconLocation='{0}';$s.Description='SDA Sabbath church presenter';$s.Save()}}",
+             Remove-Item -ErrorAction SilentlyContinue (Join-Path $p 'Selah.lnk');$s=$w.CreateShortcut((Join-Path $p 'Church Service.lnk'));$s.TargetPath='{0}';$s.WorkingDirectory='{1}';$s.IconLocation='{0}';$s.Description='Church Service church presenter';$s.Save()}}",
             t, dir.to_string_lossy().replace('\'', "''"));
         let ok = Command::new("powershell").args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &script]).status().map(|s| s.success()).unwrap_or(false);
         println!("Installed to {}", target.display());
@@ -640,7 +640,7 @@ fn install() -> io::Result<()> {
         if cfg!(target_os = "linux") {
             let apps = home.join(".local").join("share").join("applications");
             fs::create_dir_all(&apps)?;
-            fs::write(apps.join("selah.desktop"), format!("[Desktop Entry]\nType=Application\nName=SDA Sabbath\nComment=Church presenter\nExec={}\nTerminal=true\nCategories=Office;Presentation;\n", target.display()))?;
+            fs::write(apps.join("selah.desktop"), format!("[Desktop Entry]\nType=Application\nName=Church Service\nComment=Church presenter\nExec={}\nTerminal=true\nCategories=Office;Presentation;\n", target.display()))?;
         }
         println!("Installed to {}", target.display());
     }
@@ -675,7 +675,7 @@ fn load_config() -> Config {
             "--install" => { match install() { Ok(_) => {}, Err(e) => eprintln!("Install failed: {}", e) } std::process::exit(0); }
             "--version" | "-V" => { println!("selah-companion {}", VERSION); std::process::exit(0); }
             "--help" | "-h" => {
-                println!("SDA Sabbath companion {}\n\nUsage: selah [options]\n  --port N        port to use (default 7777)\n  --media DIR     folder with videos/pictures to share (default ~/Videos/Selah)\n  --pin NNNN      PIN phones must enter to control the screen\n  --no-browser    do not open the browser\n  --install       copy SDA Sabbath into your user folder and add shortcuts\n  --app-dir DIR   serve app files from DIR instead of the built-in copy\n\nSettings are kept in {}", VERSION, config_path().display());
+                println!("Church Service companion {}\n\nUsage: selah [options]\n  --port N        port to use (default 7777)\n  --media DIR     folder with videos/pictures to share (default ~/Videos/Selah)\n  --pin NNNN      PIN phones must enter to control the screen\n  --no-browser    do not open the browser\n  --install       copy Church Service into your user folder and add shortcuts\n  --app-dir DIR   serve app files from DIR instead of the built-in copy\n\nSettings are kept in {}", VERSION, config_path().display());
                 std::process::exit(0);
             }
             _ => {}
@@ -696,12 +696,12 @@ fn main() {
     for p in cfg.port..cfg.port + 10 {
         if let Ok(l) = TcpListener::bind(("0.0.0.0", p)) { listener = Some(l); port = p; break; }
     }
-    let Some(listener) = listener else { eprintln!("Could not open port {}. Is SDA Sabbath already running?", cfg.port); std::process::exit(1) };
+    let Some(listener) = listener else { eprintln!("Could not open port {}. Is Church Service already running?", cfg.port); std::process::exit(1) };
     let assets: HashMap<&'static str, (&'static [u8], bool)> = ASSETS.iter().map(|(k, v, g)| (*k, (*v, *g))).collect();
     let st = Arc::new(State { cfg: cfg.clone(), port, clients: Mutex::new(Vec::new()), next_id: AtomicU64::new(1), assets, etags: Mutex::new(HashMap::new()), status: Mutex::new(String::new()) });
 
     let local_url = format!("http://localhost:{}/", port);
-    println!("\n  SDA Sabbath companion {}  ({} files, {:.1} MB built in)", VERSION, ASSETS.len(), ASSET_BYTES as f64 / 1048576.0);
+    println!("\n  Church Service companion {}  ({} files, {:.1} MB built in)", VERSION, ASSETS.len(), ASSET_BYTES as f64 / 1048576.0);
     println!("  ------------------------------------------------------------");
     println!("  On this PC:        {}", local_url);
     for ip in lan_ips() {
@@ -712,7 +712,7 @@ fn main() {
     println!("  Media folder:      {}", cfg.media_dir.display());
     println!("  PowerPoint → PDF:  {}", match &cfg.soffice { Some(p) => format!("LibreOffice ({})", p.display()), None => "not available (install LibreOffice for exact slides)".into() });
     println!("  ------------------------------------------------------------");
-    println!("  Keep this window open during the service. Close it to stop SDA Sabbath's network features.\n");
+    println!("  Keep this window open during the service. Close it to stop Church Service's network features.\n");
     if cfg.open_browser { open_browser(&local_url); }
 
     for conn in listener.incoming() {
