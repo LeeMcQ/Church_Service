@@ -12,7 +12,8 @@ loaded from another website. When you update one, change its row too.
 | `spessasynth/*` | SpessaSynth (library and processor) | not recorded | Apache-2.0 (`spessasynth/LICENSE`) | https://github.com/spessasus/SpessaSynth | `8f671b7c…89015`, `109ad445…b1fb5` |
 | `trystero/trystero-nostr.min.js` | Trystero (Nostr strategy) with noble-secp256k1, with two local patches (`trystero/PATCHES.txt`) | 0.26.0 | MIT (`trystero/LICENSE`, `trystero/LICENSE-noble-secp256k1`) | https://github.com/dmotz/trystero | `0d1c0246190582fff3275952907dd8eef81e45ac8a4752086261b9020c2d2eee` |
 
-Also bundled outside this folder: GeneralUser GS 2.0.3 SoundFont (`data/music/GeneralUser-GS-LICENSE.txt`),
+Also bundled outside this folder: GeneralUser GS 2.0.3 SoundFont (`data/music/GeneralUser-GS-LICENSE.txt`), the optional
+high-quality hymn sounds (Salamander Grand Piano, GrandOrgue demo organ: `data/music/HQ-SOUNDS-LICENSE.txt`),
 Atkinson Hyperlegible and Source Serif fonts (OFL, `fonts/OFL-*.txt`).
 
 "Not recorded" means the version cannot be read from the file. The next time you update that library, write

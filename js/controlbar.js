@@ -4,6 +4,7 @@ import { icon } from './core/icons.js';
 import { btn } from './core/ui.js';
 import { live, frameCount } from './core/live.js';
 import { bgAudio } from './core/audio.js';
+import { link } from './core/link.js';
 // The hymn music engine is loaded a moment after start-up (nothing can play before it is loaded anyway).
 const idle = (f) => (window.requestIdleCallback ? requestIdleCallback(f, { timeout: 2000 }) : setTimeout(f, 800));
 let music = { isPlaying: () => false, state: {}, on() {}, unlock() {}, toggle() {}, fade() {}, stop() {} };
@@ -12,8 +13,20 @@ export function createControlBar(el, getTab) {
   const counter = h('span.cb-sub', '');
   const audioBox = h('div.audio-mini', { hidden: true });
   const musicBox = h('div.audio-mini.music-mini', { hidden: true });
-  const shown = () => !!live.cue || bgAudio.active || music.isPlaying();
+  // Phones hide the monitors' Black / Logo / Clear buttons, so there the bar also shows while a display is
+  // connected with nothing live (to put up the logo before the service, or black out).
+  const phone = window.matchMedia('(max-width: 760px)');
+  const shown = () => !!live.cue || bgAudio.active || music.isPlaying() || (phone.matches && !!link.kind && !!link.ready);
   let typeBox = h('div.cb-type');
+  // Back to what was on screen before (Ctrl+Z); the tooltip names it.
+  const backBtn = btn('undo', 'Back to the previous item', () => live.back(), { cls: 'hide-sm', key: 'Ctrl+Z' });
+  const paintBack = () => {
+    const prev = live.history && live.history[0];
+    backBtn.disabled = !prev;
+    const t = prev ? 'Back to “' + prev.cue.title + '” (Ctrl+Z)' : 'Nothing earlier to go back to';
+    backBtn.title = t; backBtn.setAttribute('aria-label', t);
+  };
+  live.on('history', paintBack);
   let renderedFor = null;
 
   async function render() {
@@ -29,7 +42,9 @@ export function createControlBar(el, getTab) {
         h('div.sep'),
         btn('prev', 'Previous', () => live.prev(), { key: '←' }),
         btn('next', 'Next', () => live.next(), { key: '→' }),
+        backBtn,
       );
+      paintBack();
       typeBox = h('div.cb-type');
       el.appendChild(typeBox);
       try {
@@ -122,6 +137,10 @@ export function createControlBar(el, getTab) {
     music.on('state', () => { if (el.hidden !== !shown()) { renderedFor = undefined; render(); } else renderMusic(false); });
   }));
   bgAudio.on('state', (st) => { if (el.hidden !== !shown()) { renderedFor = undefined; render(); } else renderAudio(st); });
+  const relayout = () => { if (el.hidden !== !shown()) { renderedFor = undefined; render(); } };
+  link.on('state', relayout);
+  link.on('hello', relayout);
+  if (phone.addEventListener) phone.addEventListener('change', relayout);
   render();
   return { render };
 }

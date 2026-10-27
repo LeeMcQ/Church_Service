@@ -11,7 +11,7 @@ import { db } from '../core/db.js';
 import { createStage } from '../core/render.js';
 import { PALETTES, DECOS } from '../core/bannerframe.js';
 import { church, hasLocation, sabbathSunsetLine, sabbathDateLine, nextTime, safeGivingUrl } from '../core/church.js';
-import { listTranslations, getInfo, versesFor, verseText, search as bibleSearch } from '../core/bibledata.js';
+import { listTranslations, getInfo, versesFor, englishSegs, verseText, search as bibleSearch } from '../core/bibledata.js';
 import { parseRef, refText, SHORT } from '../core/books.js';
 import * as ai from '../core/ai.js';
 import { churchForm } from './church-form.js';
@@ -1385,12 +1385,14 @@ export default function create(ctx) {
       let text = '', label = ref;
       try {
         if (info.books[r.book - 1] && info.books[r.book - 1][1]) {
-          const vs = await versesFor(info.id, r.book, r.segs, { english: true });
+          // Topic lists use English numbering; show and use this translation's own numbering (Afrikaans Ps 51:12).
+          const segs = await englishSegs(info.id, r.book, r.segs);
+          const vs = await versesFor(info.id, r.book, segs);
           text = vs.map((v) => verseText(v.text)).join(' ');
-          label = refText(info.names, r.book, r.segs);
+          label = refText(info.names, r.book, segs);
         }
       } catch (e) { /* missing book in this translation */ }
-      tpOut.appendChild(verseRow(label, text || '(not in ' + info.abbr + ')', ref));
+      tpOut.appendChild(verseRow(label, text.trim() ? text : '(not in ' + info.abbr + ')'));
     }
   }
   function verseRow(label, text, ref) {
@@ -1413,7 +1415,7 @@ export default function create(ctx) {
     const bible = await ctx.tab('bible');
     const frames = [], labels = [];
     for (const ref of refs) {
-      const c = await bible.cueFor(ref, tr);
+      const c = await bible.cueFor(ref, tr, { english: true });
       if (!c) continue;
       const sh = refText(SHORT, c.book, c.segs);
       c.deck.frames.forEach((f, i) => { frames.push(f); labels.push(c.deck.frames.length > 1 ? sh + ' (' + (i + 1) + ')' : sh); });

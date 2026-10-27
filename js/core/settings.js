@@ -26,7 +26,7 @@ export const DEFAULTS = {
     musicHQ: 'auto', musicRoom: 'church', musicNatural: true,
   },
   slides: { fit: 'contain', autoSec: 8, quality: 0.9 },
-  video: { volume: 1, autoNext: true, repeat: 'off', fit: 'contain' },
+  video: { volume: 1, autoNext: true, repeat: 'off', fit: 'contain', keepCopies: 'ask' },
   screen: { cursor: 'never', audio: false },
   companion: { url: '', pin: '' },
   // Stage screen (confidence monitor) for the people on the platform: what they see by default, the room

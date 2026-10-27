@@ -163,6 +163,7 @@ export default function create(ctx) {
       h('label', 'Install'), ctx.installPrompt ? h('button.btn', { type: 'button', onclick: async () => { await ctx.promptInstall(); rebuild(); } }, icon('download'), 'Install SDA Sabbath') : h('span.note', window.matchMedia('(display-mode: standalone)').matches ? 'Installed.' : 'Use the browser menu → Install app / Add to Home screen.'),
       h('label', 'Offline'), h('div.col', { style: { gap: '6px' } }, cache,
         h('div.row.wrap', h('button.btn.sm', { type: 'button', onclick: () => { cache.textContent = 'Checking…'; if (!ctx.checkOffline || !ctx.checkOffline(true)) offlineStatus().then((t) => { cache.textContent = t; }); } }, icon('check'), 'Check & repair offline files'))),
+      h('label', 'Videos you add'), seg([['ask', 'Ask each time'], ['yes', 'Keep a copy'], ['no', 'This session only']], settings.v.video.keepCopies || 'ask', (v) => settings.set('video.keepCopies', v)),
       h('label', 'Storage'), h('div.row.wrap', storage, h('button.btn.sm', { type: 'button', onclick: async () => { const ok = await persistStorage(); toast(ok ? 'SDA Sabbath’s data is protected from automatic clean-up.' : 'The browser has not allowed it yet. Install SDA Sabbath first.', ok ? 'ok' : ''); } }, 'Protect data')),
       h('label', 'Backup'), h('div.row.wrap',
         h('button.btn.sm.primary', { type: 'button', onclick: () => { active = 'backup'; rebuild(); } }, icon('upload'), 'Back up or move to another device'),

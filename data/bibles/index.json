@@ -5,7 +5,8 @@
   "name": "King James Version",
   "lang": "en",
   "year": "1769",
-  "license": "Public domain"
+  "license": "Public domain",
+  "titles": true
  },
  {
   "id": "web",
@@ -21,6 +22,7 @@
   "name": "Afrikaanse Bybel 1933/53",
   "lang": "af",
   "year": "1933/1953",
-  "license": "Public domain (50-year term expired)"
+  "license": "Public domain (50-year term expired)",
+  "titles": true
  }
 ]

@@ -73,6 +73,19 @@ export async function getInfo(id) {
   return info;
 }
 
+/** Psalm titles and Hebrew letters kept apart from the verse text: {book: {chapter: {verse: "A Psalm of David."}}}. */
+const titleCache = new Map();
+export async function getTitles(id) {
+  if (titleCache.has(id)) return titleCache.get(id);
+  let t = {};
+  try {
+    const entry = (await listTranslations()).find((x) => x.id === id);
+    if (entry && entry.titles && entry.dir) t = await fetchJSON(entry.dir + '/titles.json');
+  } catch (e) { t = {}; }
+  titleCache.set(id, t);
+  return t;
+}
+
 export async function getBook(id, b) {
   const k = id + '/' + b;
   if (bookCache.has(k)) { const v = bookCache.get(k); bookCache.delete(k); bookCache.set(k, v); return v; }
@@ -86,25 +99,57 @@ export async function getBook(id, b) {
   return data;
 }
 
-/** Expand parsed segments into verse objects [{b,c,v,text}] (clamped to real verse counts). */
+// Places where Bibles that follow the Hebrew/Dutch numbering (the Afrikaans 1933/53) number a verse differently
+// from the English Bibles, outside the Psalm titles: [book, chapter, first English verse, shift]. Applied only
+// when that chapter really has one verse fewer than in the KJV.
+const VERSE_SHIFTS = [
+  [47, 13, 13, -1],   // 2 Cor 13:13-14 (KJV) = 2 Kor 13:12b-13: the greeting and the blessing
+];
+
+/**
+ * Topic and key-verse lists are written in English (KJV) numbering. Converts such segments to this translation's
+ * numbering: Psalm titles that are counted as verse 1 (sometimes 1-2) in Afrikaans, and the shifts above.
+ */
+export async function englishSegs(id, book, segs) {
+  const info = await getInfo(id);
+  if (info.id === 'kjv' || info.id === 'web') return segs;
+  let kjv;
+  try { kjv = ((await getInfo('kjv')).books[book - 1] || [])[2] || null; } catch (e) { kjv = null; }
+  const mine = (info.books[book - 1] || [])[2] || [];
+  if (!kjv) return segs;
+  const shiftFor = (c) => {
+    const k = kjv[c - 1], n = mine[c - 1];
+    if (!k || !n) return () => 0;
+    if (book === 19 && n - k > 0 && n - k <= 2) { const off = n - k; return () => off; }
+    const rule = VERSE_SHIFTS.find((r) => r[0] === book && r[1] === c);
+    if (rule && n === k - 1) return (v) => (v >= rule[2] ? rule[3] : 0);
+    return () => 0;
+  };
+  return segs.map((s) => {
+    const f1 = shiftFor(s.c1), f2 = shiftFor(s.c2);
+    const out = Object.assign({}, s);
+    if (s.v1 != null) out.v1 = s.v1 + f1(s.v1);
+    else if (book === 19 && f1(1)) out.v1 = 1 + f1(1);   // a whole Psalm starts after its title
+    if (s.v2 != null) out.v2 = s.v2 + f2(s.v2);
+    else if (out.v1 != null && s.c1 === s.c2 && mine[s.c2 - 1]) out.v2 = mine[s.c2 - 1];   // "Psalm 51" → 51:3–21
+    return out;
+  });
+}
+
+/** Expand parsed segments into verse objects [{b,c,v,text}] (clamped to real verse counts).
+ *  opts.english: the segments use English numbering (topic lists); see englishSegs. */
 export async function versesFor(id, book, segs, opts) {
   const info = await getInfo(id);
   const data = await getBook(info.id, book);
   const out = [];
   const counts = (info.books[book - 1] || [])[2] || [];
-  // Psalm titles: Afrikaans (and other Bibles) number the heading as verse 1 (sometimes 2), English Bibles
-  // do not. Topic and key-verse lists are written in English numbering, so `opts.english` shifts them.
-  let kc = null;
-  if (opts && opts.english && book === 19 && info.id !== 'kjv' && info.id !== 'web') {
-    try { kc = ((await getInfo('kjv')).books[18] || [])[2] || null; } catch (e) { kc = null; }
-  }
+  if (opts && opts.english) segs = await englishSegs(info.id, book, segs);
   for (const s of segs) {
     for (let c = s.c1; c <= s.c2; c++) {
       const n = counts[c - 1] || (data[c - 1] || []).length;
       if (!n) continue;
-      const off = kc && kc[c - 1] && n - kc[c - 1] > 0 && n - kc[c - 1] <= 2 ? n - kc[c - 1] : 0;
-      const from = c === s.c1 && s.v1 != null ? s.v1 + off : (off ? 1 + off : 1);
-      const to = c === s.c2 && s.v2 != null ? Math.min(s.v2 + off, n) : n;
+      const from = c === s.c1 && s.v1 != null ? s.v1 : 1;
+      const to = c === s.c2 && s.v2 != null ? Math.min(s.v2, n) : n;
       for (let v = Math.max(1, from); v <= to; v++) out.push({ b: book, c, v, text: (data[c - 1] || [])[v - 1] || '' });
     }
   }

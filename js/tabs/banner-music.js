@@ -155,7 +155,7 @@ export function createMusicView(ctx, root) {
         { label: 'Play now', icon: 'play', onclick: () => bgMusic.start(t.id) },
         { label: 'Rename', icon: 'edit', onclick: async () => { const n = await promptBox('Rename', 'Name', t.title); if (n && n.trim()) bgMusic.update(t.id, { title: n.trim() }); } },
         i > 0 ? { label: 'Move up', icon: 'up', onclick: () => bgMusic.move(t.id, i - 1) } : null,
-        i < ts.length - 1 ? { label: 'Move down', icon: 'up', onclick: () => bgMusic.move(t.id, i + 1) } : null,
+        i < ts.length - 1 ? { label: 'Move down', icon: 'down', onclick: () => bgMusic.move(t.id, i + 1) } : null,
         '-',
         { label: 'Remove', icon: 'trash', onclick: async () => { if (await confirmBox('Remove music?', 'Remove “' + t.title + '” from the banner music?', 'Remove', true)) bgMusic.remove(t.id); } },
       ].filter(Boolean)), { cls: 'sm' });

@@ -222,7 +222,27 @@ export default function create(ctx) {
     return nq.split(/\s+/).every((w) => hy._txt.includes(w));
   }
 
+  // The hymn list is one Tab stop (the chosen hymn, or the first); the arrow keys, Home and End move inside it,
+  // so Tab reaches the stanzas and music controls without walking through every hymn.
+  function rovingStop() {
+    const bs = listEl.querySelectorAll(':scope > button');
+    if (!bs.length) return;
+    const cur = listEl.querySelector(':scope > button[aria-pressed="true"]') || bs[0];
+    bs.forEach((b) => b.setAttribute('tabindex', b === cur ? '0' : '-1'));
+  }
+  listEl.addEventListener('keydown', (e) => {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End', 'PageDown', 'PageUp'].includes(e.key) || e.ctrlKey || e.altKey || e.metaKey) return;
+    const bs = Array.from(listEl.querySelectorAll(':scope > button'));
+    const i = bs.indexOf(document.activeElement);
+    if (i < 0) return;
+    const j = e.key === 'Home' ? 0 : e.key === 'End' ? bs.length - 1 : e.key === 'PageDown' ? Math.min(bs.length - 1, i + 10) : e.key === 'PageUp' ? Math.max(0, i - 10)
+      : Math.max(0, Math.min(bs.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)));
+    e.preventDefault(); e.stopPropagation();
+    bs.forEach((b, k) => b.setAttribute('tabindex', k === j ? '0' : '-1'));
+    bs[j].focus();
+  });
   function renderList() {
+    const hadFocus = listEl.contains(document.activeElement);
     clear(listEl);
     if (!book) { listEl.appendChild(emptyState('hymn', 'No hymnbook installed', 'Use More (…) → Import a hymnbook.')); return; }
     const qq = q.value.trim();
@@ -230,12 +250,14 @@ export default function create(ctx) {
     if (/^\d+$/.test(qq)) list.sort((a, b) => (a.n === +qq ? -1 : b.n === +qq ? 1 : a.n - b.n));
     const frag = document.createDocumentFragment();
     list.slice(0, 400).forEach((x) => {
-      frag.appendChild(h('button', { type: 'button', 'aria-pressed': String(hymn === x), onclick: () => selectHymn(x), ondblclick: () => { selectHymn(x); live.take(); } },
+      frag.appendChild(h('button', { type: 'button', tabindex: '-1', 'aria-pressed': String(hymn === x), onclick: () => selectHymn(x), ondblclick: () => { selectHymn(x); live.take(); } },
         h('span.num', String(x.n)), h('span.grow', h('div.trunc', x.t), h('div.note.trunc', x.v[0][0])),
         x.shared ? h('span.hy-shared', { title: 'Shared by a church that uses SDA Sabbath' }, 'Shared') : null,
         musicSet && musicSet.has(x.n) ? h('span.has-music', { title: 'Music available offline' }, icon('music')) : null));
     });
     listEl.appendChild(frag);
+    rovingStop();
+    if (hadFocus) { const t = listEl.querySelector(':scope > button[tabindex="0"]'); if (t) t.focus({ preventScroll: true }); }
     if (!list.length) listEl.appendChild(emptyState('search', 'No hymn matches “' + qq + '”', 'Try a number like 73 or a few words from the hymn.',
       { label: 'Clear search', icon: 'x', onclick: () => { q.value = ''; renderList(); q.focus(); } }));
   }
@@ -265,7 +287,7 @@ export default function create(ctx) {
     const cls = s.caps ? 'caps' : '';
     const frames = [], labels = [], cards = [];
     const textFrame = (lines, p, sub) => ({
-      kind: 'text', variant: 'hymn', lines: true, cls: cls + (p.kind === 'chorus' ? ' is-chorus' : ''), refPos: s.refPos,
+      kind: 'text', variant: 'hymn', lines: true, cls: cls + (p.kind === 'chorus' ? ' is-chorus' : ''), refPos: s.refPos, lang: (book && book.lang) || undefined,
       html: lines.map((l) => '<span class="ln">' + esc(l) + '</span>').join(''), foot: footL,
       footR: p.kind === 'chorus' ? 'Chorus' : 'Verse ' + p.n + (sub ? sub : '') + ' of ' + nVerses,
     });
@@ -493,6 +515,7 @@ export default function create(ctx) {
     if (!book) return;
     const out = { id: book.id, name: book.name, short: book.short, lang: book.lang, hymns: book.hymns.map(({ n, t, a, v, c }) => ({ n, t, a, v, c })) };
     download(new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' }), (book.short || book.id) + '-hymns.json');
+    toast('Exported. Before you share this file: song words belong to their owners — songs from CCLI or other publishers may not be passed on, even if your church may sing them.', '', 8000);
   }
 
   async function deleteBook() {

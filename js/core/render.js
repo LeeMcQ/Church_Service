@@ -83,12 +83,15 @@ export function fitBody(body, min, max) {
 function textFrameEl(f) {
   const wrap = document.createElement('div');
   wrap.className = 'f-text f-' + (f.variant || 'plain') + (f.cls ? ' ' + f.cls : '');
+  // Language of the words (Afrikaans, isiXhosa …): screen readers and hyphenation use it. Checked, never echoed raw.
+  const okLang = (l) => (typeof l === 'string' && /^[a-z]{2,3}(-[A-Za-z]{2})?$/.test(l) ? l : '');
+  if (okLang(f.lang)) wrap.setAttribute('lang', f.lang);
   let inner = '';
   if (f.head) inner += '<div class="f-head">' + esc(f.head) + '</div>';
   inner += '<div class="f-body">';
   if (f.cols && f.cols.length > 1) {
     inner += '<div class="f-par' + (f.colLayout === 'rows' ? ' rows' : '') + '">';
-    f.cols.forEach((c) => { inner += '<div class="f-fit">' + c.html + (c.ref ? '<span class="f-col-ref">' + esc(c.ref) + '</span>' : '') + '</div>'; });
+    f.cols.forEach((c) => { inner += '<div class="f-fit"' + (okLang(c.lang) ? ' lang="' + c.lang + '"' : '') + '>' + c.html + (c.ref ? '<span class="f-col-ref">' + esc(c.ref) + '</span>' : '') + '</div>'; });
     inner += '</div>';
   } else inner += '<div class="f-fit' + (f.lines ? ' lines' : '') + '">' + (f.html || '') + '</div>';
   inner += '</div>';

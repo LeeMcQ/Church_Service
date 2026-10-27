@@ -50,7 +50,7 @@ export default function create(ctx) {
     toggle('24-hour clock', S().clock24, (v) => settings.set('stage.clock24', v)),
     toggle('Mirror (teleprompter glass)', S().mirror, (v) => settings.set('stage.mirror', v)),
     toggle('The stage window may change slides', S().allowWinControl !== false, (v) => settings.set('stage.allowWinControl', v), 'A touch screen on the platform can then move the slides'));
-  const sizeSel = select([['0.8', 'Small'], ['1', 'Normal'], ['1.2', 'Large'], ['1.4', 'Extra large']], String(S().textSize || 1), (v) => settings.set('stage.textSize', +v));
+  const sizeSel = select([['0.8', 'Small'], ['1', 'Normal'], ['1.2', 'Large'], ['1.4', 'Extra large']], String(S().textSize || 1), (v) => settings.set('stage.textSize', +v)); sizeSel.setAttribute('aria-label', 'Text size');
 
   const screensCard = card('Stage screens',
     h('p.note', 'A second screen for the preacher, singers and band: the slide on screen and what comes next, the words in large type, speaker notes, the time, timers and your messages. The congregation never sees it.'),
@@ -190,7 +190,7 @@ export default function create(ctx) {
   const msgIn = h('input.field', { placeholder: 'Message for the stage, e.g. “5 minutes left”', 'aria-label': 'Message for the stage', maxlength: 400, 'data-free-text': '', style: { flex: '1' } });
   let flash = false;
   const flashT = toggle('Flash', false, (v) => { flash = v; }, 'Make the message blink for a few seconds to catch attention');
-  const secSel = select([['0', 'Until cleared'], ['10', '10 seconds'], ['30', '30 seconds'], ['60', '1 minute'], ['120', '2 minutes']], String(S().msgSec || 0), (v) => settings.set('stage.msgSec', +v));
+  const secSel = select([['0', 'Until cleared'], ['10', '10 seconds'], ['30', '30 seconds'], ['60', '1 minute'], ['120', '2 minutes']], String(S().msgSec || 0), (v) => settings.set('stage.msgSec', +v)); secSel.setAttribute('aria-label', 'How long the message shows');
   const showing = h('div.st-showing', { hidden: true });
   const presetsEl = h('div.row.wrap.st-presets');
   const histEl = h('div.st-hist');
@@ -238,7 +238,7 @@ export default function create(ctx) {
 
   // ------------------------------------------------------------ timers
   const timersEl = h('div.st-timers');
-  const warnSel = select([['60', '1 minute'], ['120', '2 minutes'], ['180', '3 minutes'], ['300', '5 minutes']], String(S().warnSec || 120), (v) => settings.set('stage.warnSec', +v));
+  const warnSel = select([['60', '1 minute'], ['120', '2 minutes'], ['180', '3 minutes'], ['300', '5 minutes']], String(S().warnSec || 120), (v) => settings.set('stage.warnSec', +v)); warnSel.setAttribute('aria-label', 'Warn this long before the end');
   const timersCard = card('Timers',
     timersEl,
     h('div.row.wrap',

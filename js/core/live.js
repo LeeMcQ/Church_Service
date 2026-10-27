@@ -218,6 +218,7 @@ live.take = async (cue) => {
     stopStreamPump();
   }
   if (pendingStyle || !live.style) await live.sendStyle();
+  remember(cue);
   const wasFollow = follow.on && follow.ids.has(cue.id);
   live.cue = cue;
   live.index = Math.max(0, Math.min(cue.index || 0, frameCount(cue) - 1));
@@ -323,8 +324,28 @@ live.setBlank = (mode) => {
   live.emit('blank', mode);
 };
 
+// What was on screen before (newest first, at most 10), for "Back to …" and Ctrl+Z. A live camera/tab share is
+// not kept (its stream ends), nor is the same item twice in a row.
+live.history = [];
+function remember(next) {
+  const c = live.cue;
+  if (!c || c.deck.kind === 'stream' || (next && next.id === c.id)) return;
+  live.history = [{ cue: c, index: live.index }].concat(live.history.filter((x) => x.cue.id !== c.id)).slice(0, 10);
+  live.emit('history');
+}
+/** Put the previous item back on screen at the slide it was on. */
+live.back = async (i = 0) => {
+  const h = live.history[i];
+  if (!h) { live.emit('notice', { code: 'nothing', text: 'Nothing earlier to go back to.' }); return false; }
+  live.history.splice(i, 1);
+  const ok = await live.take(Object.assign({}, h.cue, { index: h.index }));
+  live.emit('history');
+  return ok;
+};
+
 /** Remove the live item: the screen shows the background (or logo). */
 live.clear = () => {
+  remember(null);
   stopStreamPump();
   const mode = settings.v.display.clearShows === 'logo' ? 'logo' : settings.v.display.clearShows === 'black' ? 'black' : null;
   link.send({ t: 'clear', mode });

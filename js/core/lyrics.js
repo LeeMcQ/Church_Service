@@ -222,12 +222,25 @@ export function songText(p) {
   return parts.join('\n\n');
 }
 
-/** Search BitMidi for MIDI files matching a title. Returns {name, url, score}[]. */
+/** Search BitMidi for MIDI files matching a title. Returns {name, url, score}[]. BitMidi does not allow requests
+ *  from other websites (no CORS header), so in most browsers it cannot answer: after the first failure it is not
+ *  asked again until the app restarts (no error per search result, no wait). Same title: answered from memory. */
+let midiDown = false;
+const midiMemo = new Map();
+export function midiSearchAvailable() { return !midiDown; }
 export async function findMidi(title) {
   const q = String(title || '').trim();
-  if (!q) return [];
+  if (!q || midiDown) return [];
+  if (midiMemo.has(q.toLowerCase())) return midiMemo.get(q.toLowerCase());
+  const p = findMidiOnline(q);
+  midiMemo.set(q.toLowerCase(), p);
+  return p;
+}
+async function findMidiOnline(q) {
   try {
-    const j = await getJson('https://bitmidi.com/api/midi/search?q=' + encodeURIComponent(q));
+    let j;
+    try { j = await getJson('https://bitmidi.com/api/midi/search?q=' + encodeURIComponent(q)); }
+    catch (e) { if (e && (e.name === 'TypeError' || e.name === 'AbortError')) midiDown = true; throw e; }
     const results = (j && j.result && j.result.results) || [];
     return results.slice(0, 8).map((x) => {
       const name = String(x.name || '').replace(/\.mid$/i, '');

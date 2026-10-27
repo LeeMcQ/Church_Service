@@ -7,10 +7,14 @@
 | F5 · Ctrl+Enter | Present the Next item |
 | → ↓ Page Down Space | Next verse / stanza / slide (Space plays/pauses a video) |
 | ← ↑ Page Up | Previous |
-| B or . | Black screen (press again to return) |
+| Home · End | First / last verse, stanza or slide |
+| Ctrl+Z | Back to what was on screen before, at the same slide (also the ↶ button in the control bar) |
+| B or . or W | Black screen (press again to return; some clickers send W) |
 | L | Logo (a default slide with the church name or “Welcome” until you add a logo in Settings → Screen) |
 | C or Esc twice | Clear the screen (one Esc never clears it) |
 | / or Ctrl+K | Go to a reference or hymn number |
+| M | Hymn music: play / pause |
+| ? | Show all shortcuts |
 | 1 … 9 | Select that stanza (Hymns) or verse (Bible) as Next; two digits quickly for verse 10 and up. F5 then presents it |
 | Click · double-click · Enter | On a verse, verse number or stanza: select it as Next · present it now · present it now |
 | Alt+1 … Alt+9 | Switch tabs (Bible, Hymns, Banners & Music, Slides, Video, Web & PC, Plan, Tools, Settings) |

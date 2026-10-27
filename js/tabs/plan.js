@@ -35,6 +35,14 @@ const TEMPLATES = {
   'Empty plan': [],
 };
 const TEMPLATE_PARTS = new Set(Object.values(TEMPLATES).flat().map((x) => x.toLowerCase()));
+// Parts that show the same thing every week come ready filled in a new plan (they can still be changed).
+const TEMPLATE_MEDIA = {
+  'Divine Service': {
+    'Reading of the 4th Commandment': { tab: 'bible', ref: 'Exodus 20:8–11', label: 'Exodus 20:8–11' },
+    'Praise My Soul': { tab: 'hymns', n: 4, book: 'sda-online', label: 'Hymn 4 — Praise, My Soul, the King of Heaven' },
+    'Dismiss Us Lord': { tab: 'hymns', n: 690, book: 'sda-online', label: 'Hymn 690 — Dismiss Us, Lord, With Blessing' },
+  },
+};
 
 // Fields that describe an item's media (everything else — id, part, role, done — belongs to the part).
 const MEDIA_KEYS = ['tab', 'n', 'book', 'ref', 'tr', 'deck', 'item', 'url', 'banner', 'loop', 'topic', 'index', 'heading', 'label'];
@@ -185,7 +193,12 @@ export default function create(ctx) {
       const t = myTpls.find((x) => 'c:' + x.id === key);
       items = t ? JSON.parse(JSON.stringify(t.items)) : [];
       items.forEach((it) => { it.id = uid(); delete it.done; });
-    } else items = (TEMPLATES[key.slice(2)] || []).map((label) => ({ id: uid(), tab: 'note', heading: true, part: label, label }));
+    } else {
+      const fill = TEMPLATE_MEDIA[key.slice(2)] || {};
+      items = (TEMPLATES[key.slice(2)] || []).map((label) => (fill[label]
+        ? Object.assign({ id: uid(), part: label, heading: false }, fill[label])
+        : { id: uid(), tab: 'note', heading: true, part: label, label }));
+    }
     return { id: uid(), name, items, updated: Date.now() };
   }
 
@@ -956,7 +969,7 @@ export default function create(ctx) {
     const list = h('div.pk-list');
     const extra = h('div.row.wrap.pk-extra');
     const kinds = h('div.row.wrap.pk-kinds', { role: 'tablist' });
-    KINDS.forEach(([k, label, ic]) => kinds.appendChild(h('button.chip', { type: 'button', role: 'tab', 'data-k': k, 'aria-pressed': String(k === kind), onclick: () => { kind = k; search.value = ''; paint(); } }, icon(ic), label)));
+    KINDS.forEach(([k, label, ic]) => kinds.appendChild(h('button.chip', { type: 'button', role: 'tab', 'data-k': k, 'aria-selected': String(k === kind), onclick: () => { kind = k; search.value = ''; paint(); } }, icon(ic), label)));
     const body = h('div.col.pk', { style: { gap: '10px' } },
       h('p.note', target ? 'Choose what “' + titleOf(target) + '” shows.' : 'Pick items to add' + (after ? ' below “' + titleOf(after) + '”' : '') + '. The dialog stays open so you can add several.'),
       kinds, search, extra, list, status);
@@ -972,7 +985,7 @@ export default function create(ctx) {
     let seq = 0;
     async function paint() {
       const my = ++seq;
-      kinds.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.getAttribute('data-k') === kind)));
+      kinds.querySelectorAll('button').forEach((b) => b.setAttribute('aria-selected', String(b.getAttribute('data-k') === kind)));
       clear(extra); clear(list);
       const q = search.value.trim(), lq = low(q);
       search.hidden = false;

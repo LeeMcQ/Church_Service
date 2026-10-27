@@ -23,7 +23,7 @@ const lazyWelcome = () => import('./tabs/welcome.js');
 const openFeedback = (c, o) => import('./tabs/account.js').then((m) => m.openFeedback(c, o));
 
 export const VERSION = '1.5.0';
-export const BUILD = 'd24e62d';
+export const BUILD = 'de442cc';
 
 const TABS = [
   { id: 'bible', label: 'Bible', icon: 'bible', file: 'bible.js', load: () => import('./tabs/bible.js') },
@@ -619,7 +619,8 @@ function showHelp() {
     ['F5  or  Ctrl+Enter', 'Present what is selected (Next → Live)'],
     ['→  ↓  Page Down  Space', 'Next verse / slide / stanza'],
     ['←  ↑  Page Up', 'Previous'], ['Home  End', 'First / last'],
-    ['B  or  .', 'Black screen (press again to return)'], ['L', 'Show logo'], ['C  or  Esc twice', 'Clear the screen'],
+    ['Ctrl+Z', 'Back to what was on screen before (at the same slide)'],
+    ['B  or  .  or  W', 'Black screen (press again to return)'], ['L', 'Show logo'], ['C  or  Esc twice', 'Clear the screen'],
     ['Esc', 'Close a menu or dialog, leave a text box (the screen stays as it is)'], ['M', 'Hymn music: play / pause'],
     ['/  or  Ctrl+K', 'Go to a Bible reference or hymn number (Enter selects it, Shift+Enter presents it now)'], ['Alt+1 … Alt+9, Alt+0', 'Switch tabs (Alt+0: Settings)'],
     ['1 … 9', 'Select that stanza (Hymns) or verse (Bible) as Next; type two digits quickly for verse 10 and up. Then F5 presents it'],
@@ -727,6 +728,7 @@ function handleKey(e, remote) {
   if (quiet && t && t.blur) t.blur();
   if (e.altKey && /^[1-9]$/.test(k)) { const tb = TABS.filter(Boolean)[+k - 1]; if (tb) showTab(tb.id); return true; }
   if (e.altKey && k === '0') { showTab('settings'); return true; }
+  if (ctrl && !e.altKey && !e.shiftKey && (k === 'z' || k === 'Z')) { live.back(); return true; }   // back to what was on screen before
   if (ctrl || e.altKey) return false;
   // 1–9: stage that stanza (Hymns) or verse (Bible) as Next; F5 then presents it. Two digits quickly = verse 10+.
   if (!remote && /^[0-9]$/.test(k) && numberKey(k)) return true;
@@ -869,17 +871,24 @@ window.addEventListener('beforeunload', (e) => { if (live.cue && link.kind === '
 
 // ------------------------------------------------------------ companion (LAN) detection
 async function detectCompanion() {
+  // A phone opened with ?remote=1 but no companion behind the address: say why it is not a remote.
+  const remoteAsked = new URLSearchParams(location.search).get('remote') === '1';
+  const noRemote = () => {
+    if (!remoteAsked) return;
+    ui.toast(h('span', 'Phone remote needs the SDA Sabbath companion running on the church PC. Open the address the companion shows (for example http://192.168.1.20:7777/?remote=1) on the church Wi-Fi. ',
+      h('a', { href: 'companion.html', target: '_blank', rel: 'noopener' }, 'About the companion')), '', 15000);
+  };
   // The companion only serves plain http on the church network, so an https site (GitHub Pages)
   // or a file:// copy can never be it. Skipping the probe avoids a 404 in the console on every load.
-  if (location.protocol !== 'http:') return;
+  if (location.protocol !== 'http:') { noRemote(); return; }
   try {
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), 1200);
     const r = await fetch('api/info', { cache: 'no-store', signal: ctl.signal });
     clearTimeout(t);
-    if (!r.ok) return;
+    if (!r.ok) { noRemote(); return; }
     const info = await r.json();
-    if (info.app !== 'selah-companion') return;
+    if (info.app !== 'selah-companion') { noRemote(); return; }
     ctx.companion = info;
     const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
     // Stage screens on the church network (no internet needed) follow this app through the companion.
@@ -895,7 +904,7 @@ async function detectCompanion() {
       const pin = params.get('pin') || settings.v.companion.pin || (await ui.promptBox('Connect to the church display', 'PIN shown by the SDA Sabbath companion'));
       if (pin != null) { settings.set('companion.pin', pin); link.connectSocket(location.origin, pin); }
     }
-  } catch (e) { /* not served by the companion */ }
+  } catch (e) { noRemote(); /* not served by the companion */ }
 }
 
 // ------------------------------------------------------------ service worker (offline + updates)

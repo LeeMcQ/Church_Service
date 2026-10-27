@@ -2,7 +2,7 @@
 // hardware-accelerated) decoders, which is far lighter on old PCs than running VLC.
 import { h, clear, uid, fmtTime, fmtBytes, readText, download } from '../core/util.js';
 import { icon } from '../core/icons.js';
-import { btn, seg, toggle, toast, promptBox, confirmBox, dropzone } from '../core/ui.js';
+import { btn, seg, toggle, toast, promptBox, confirmBox, dropzone, modal } from '../core/ui.js';
 import { db } from '../core/db.js';
 import { srtToVtt } from '../lib/srt.js';
 
@@ -113,12 +113,29 @@ export default function create(ctx) {
       } catch (e) { if (e.name === 'AbortError') return; console.warn(e); }
     }
     if (!files) { zone.querySelector('input').click(); return; }
+    // Keep copies inside the app, or use the files for this session only. "Remember my choice" stops the question
+    // (Settings → App → Videos you add brings it back).
+    function askKeep(total) {
+      const pref = settings.v.video.keepCopies || 'ask';
+      if (pref === 'yes' || pref === 'no') return Promise.resolve(pref === 'yes');
+      return new Promise((resolve) => {
+        let done = false;
+        const rem = h('input', { type: 'checkbox' });
+        const answer = (v) => { done = true; if (rem.checked) settings.set('video.keepCopies', v ? 'yes' : 'no'); resolve(v); };
+        modal({ title: 'Keep offline copies?',
+          body: h('div.col', { style: { gap: '10px' } },
+            h('p', 'Save ' + fmtBytes(total) + ' inside SDA Sabbath so these play next time without choosing them again? Choose “This time only” to use them for this session only.'),
+            h('label.row', { style: { gap: '8px', alignItems: 'center' } }, rem, h('span', 'Remember my choice'))),
+          onclose: () => { if (!done) resolve(false); },
+          actions: [{ label: 'This time only', onclick: () => answer(false) }, { label: 'Keep copies', primary: true, onclick: () => answer(true) }] });
+      });
+    }
     const total = files.reduce((s, f) => s + f.size, 0);
     let keep = false;
     try {
       const est = navigator.storage && navigator.storage.estimate ? await navigator.storage.estimate() : null;
       const free = est ? est.quota - est.usage : 0;
-      keep = free > total * 1.3 && (await confirmBox('Keep offline copies?', 'Save ' + fmtBytes(total) + ' inside SDA Sabbath so these play next time without choosing them again? (Choose “No” to use them for this session only.)', 'Keep copies'));
+      keep = free > total * 1.3 && (await askKeep(total));
     } catch (e) { keep = false; }
     for (const f of files) {
       if (!/^(video|audio)\//.test(f.type) && !/\.(mkv|mov|mp4|webm|mp3|m4a|wav|ogg|flac)$/i.test(f.name)) continue;

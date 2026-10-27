@@ -657,7 +657,7 @@ google-cast-launcher, .cast-button, [aria-label*="Cast"], button[title*="Cast"],
 }
 @media (max-width: 760px) {
   .bn-views .bn-sm { display: inline; }
-  .banners > .toolbar h2 { display: none; }
+  .banners > .toolbar h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; }
   .bn-views { flex: 1 1 auto; }
   .bn-views button { flex: 1 1 auto; padding: 0 6px; }
   .banner-split .bn-preview-pane { order: -1; }
@@ -680,7 +680,7 @@ google-cast-launcher, .cast-button, [aria-label*="Cast"], button[title*="Cast"],
 .lyr-badge { font-size: var(--fs-xs); font-weight: 700; padding: 2px 8px; border-radius: 99px; background: var(--sunk); color: var(--muted); white-space: nowrap; }
 .lyr-badge.best { background: color-mix(in srgb, var(--next) 25%, transparent); color: var(--text); }
 .lyr-badge.likely { background: color-mix(in srgb, #e6b422 25%, transparent); color: var(--text); }
-.lyr-badge.midi { background: color-mix(in srgb, #10b981 30%, transparent); color: var(--text); font-size: 10px; padding: 1px 6px; }
+.lyr-badge.midi { background: color-mix(in srgb, #10b981 30%, transparent); color: var(--text); font-size: 12px; padding: 1px 6px; }
 .lyr-go { font-weight: 700; color: var(--next); }
 .lyr-detail { border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 .lyr-ta { width: 100%; font-family: inherit; line-height: 1.4; }
@@ -845,7 +845,7 @@ google-cast-launcher, .cast-button, [aria-label*="Cast"], button[title*="Cast"],
 .webpc-part { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .webpc-part[hidden] { display: none; }
 .webpc-part > .toolbar { border-top: 0; }
-.webpc-part > .toolbar > h2 { display: none; }
+.webpc-part > .toolbar > h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; }
 
 /* ---------- Banner slide editor (Google Slides style) ---------- */
 .bn-side-bar { padding: 10px 14px 0; }
@@ -1171,7 +1171,7 @@ a.btn { text-decoration: none; }
   .rail-nav { flex-direction: column; }
   .rail { flex-direction: column; padding: 4px; gap: 2px; border: 0; border-right: 1px solid var(--line); overflow-x: hidden; overflow-y: auto; }
   .rail-right .rail { border-right: 0; border-left: 1px solid var(--line); }
-  .rail button, .rail button.more-tab { display: flex; flex: none; order: 0 !important; padding: 5px 0 4px; gap: 2px; font-size: 10px; }
+  .rail button, .rail button.more-tab { display: flex; flex: none; order: 0 !important; padding: 5px 0 4px; gap: 2px; font-size: 11px; }
   .rail button svg.i { width: 20px; height: 20px; }
   .rail button .lbl-long { display: none; } .rail button .lbl-short { display: inline; }
   .rail button[aria-selected="true"]::before { left: -4px; right: auto; top: 8px; bottom: 8px; width: 3px; height: auto; border-radius: 0 3px 3px 0; }
@@ -1211,13 +1211,14 @@ a.btn { text-decoration: none; }
   .toolbar.set-bar .set-nav { flex: 1 1 100%; min-width: 0; overflow-x: auto; scrollbar-width: none; }
   .toolbar.set-bar .set-nav::-webkit-scrollbar { display: none; }
   /* Plan: the tab button already says Plan, so the bar keeps the plan, back, Next part and more. */
-  .toolbar.plan-top > h2, .toolbar.plan-top > .grow { display: none; }
+  .toolbar.plan-top > .grow { display: none; }
+  .toolbar.plan-top > h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; }
   .toolbar.plan-top select.field { flex: 1 1 0; min-width: 0; max-width: none; }
   /* Choices such as the screen layouts wrap instead of making the page wider than the phone. */
   .scroll .seg, .card .seg, .scr-panel .seg { flex-wrap: wrap; max-width: 100%; }
   .scroll .seg button, .card .seg button, .scr-panel .seg button { flex: 1 1 auto; }
   /* Bible: the tab button already says Bible; the reference box gets the room instead. */
-  .toolbar.bible-bar > h2 { display: none; }
+  .toolbar.bible-bar > h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; }
   .card, .scr-panel, .scr-row, .scr-row > .grow { min-width: 0; }
 }
 @media (max-width: 560px) {
@@ -1235,7 +1236,7 @@ a.btn { text-decoration: none; }
   .toolbar.bible-bar select.field { min-width: 58px; }
 }
 @media (max-width: 420px) {
-  .toolbar.webpc-bar > h2 { display: none; }       /* the More menu already says Web & PC */
+  .toolbar.webpc-bar > h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; }       /* the More menu already says Web & PC */
   .toolbar > .seg { min-width: 0; overflow-x: auto; scrollbar-width: none; }   /* long choice rows scroll instead of being cut off */
   .toolbar > .seg::-webkit-scrollbar { display: none; }
   .toolbar > .seg > button { flex: none; }
@@ -1253,3 +1254,16 @@ a.btn { text-decoration: none; }
   .eq input[type=range] { width: 20px; }
 }
 @media (max-width: 760px) { .tabpanel .toolbar { flex-shrink: 0; } } /* a long page never squashes the bar above it */
+
+/* Psalm titles and Hebrew letters above the verse they belong to (Bible tab only). */
+.verse-list .vr-title { padding: 8px 12px 0 42px; color: var(--muted); font-size: var(--fs-sm); font-style: italic; }
+
+/* Tab titles hidden on small screens stay readable by screen readers (the headings keep their order). */
+.chip[role="tab"][aria-selected="true"] { color: var(--text); border-color: var(--next); background: var(--next-soft); }
+
+/* Verse buttons: on tablets and PCs every verse is reachable without sideways scrolling (wraps into up to three rows). */
+@media (min-width: 761px) and (min-height: 501px) {
+  .vstrip { flex-wrap: wrap; overflow-x: hidden; overflow-y: auto; max-height: 116px; overscroll-behavior-y: contain; }
+}
+/* Touch screens: sliders get a taller hit area (the track looks the same). */
+@media (pointer: coarse) { input[type=range] { min-height: 28px; } }
