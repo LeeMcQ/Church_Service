@@ -1,7 +1,8 @@
 // Banners & Music → Music: choose background music and play it with the banners.
 import { h, clear, fmtTime, fmtBytes } from '../core/util.js';
 import { icon } from '../core/icons.js';
-import { btn, toast, promptBox, confirmBox, menu, dropzone, modal, closeModal } from '../core/ui.js';
+import { btn, toast, promptBox, confirmBox, menu, dropzone, modal, closeModal, undoToast } from '../core/ui.js';
+import { db } from '../core/db.js';
 import { bgMusic, KIND_LABEL, ACCEPT, linkInfo, playable } from '../core/bgmusic.js';
 import { bgAudio } from '../core/audio.js';
 
@@ -157,7 +158,10 @@ export function createMusicView(ctx, root) {
         i > 0 ? { label: 'Move up', icon: 'up', onclick: () => bgMusic.move(t.id, i - 1) } : null,
         i < ts.length - 1 ? { label: 'Move down', icon: 'down', onclick: () => bgMusic.move(t.id, i + 1) } : null,
         '-',
-        { label: 'Remove', icon: 'trash', onclick: async () => { if (await confirmBox('Remove music?', 'Remove “' + t.title + '” from the banner music?', 'Remove', true)) bgMusic.remove(t.id); } },
+        { label: 'Remove', icon: 'trash', onclick: async () => {
+          const r = await bgMusic.remove(t.id, { keepFile: true });
+          if (r) undoToast('“' + t.title + '” removed from the banner music.', { onUndo: () => bgMusic.restore(r), onCommit: () => { if (r.track.fileId && !bgMusic.tracks.some((x) => x.id === r.track.id)) db.del('files', r.track.fileId).catch(() => {}); } });
+        } },
       ].filter(Boolean)), { cls: 'sm' });
       const row = h('div.mu-row', { 'data-id': t.id, draggable: 'true' },
         h('span.mu-n', String(i + 1)), inList,

@@ -184,12 +184,20 @@ bgMusic.update = async (id, patch) => {
   Object.assign(t, patch);
   await save(); bgMusic.emit('change');
 };
-bgMusic.remove = async (id) => {
+bgMusic.remove = async (id, { keepFile = false } = {}) => {
   const t = bgMusic.tracks.find((x) => x.id === id);
-  if (!t) return;
+  if (!t) return null;
+  const at = bgMusic.tracks.indexOf(t);
   if (bgMusic.current && bgMusic.current.id === id) bgAudio.stop();
   bgMusic.tracks = bgMusic.tracks.filter((x) => x !== t);
-  if (t.fileId) await db.del('files', t.fileId).catch(() => {});
+  if (t.fileId && !keepFile) await db.del('files', t.fileId).catch(() => {});
+  await save(); bgMusic.emit('change');
+  return { track: t, at };
+};
+/** Put a removed track back (Undo). */
+bgMusic.restore = async ({ track, at }) => {
+  if (!track || bgMusic.tracks.some((x) => x.id === track.id)) return;
+  bgMusic.tracks.splice(Math.max(0, Math.min(at, bgMusic.tracks.length)), 0, track);
   await save(); bgMusic.emit('change');
 };
 bgMusic.move = async (id, to) => {

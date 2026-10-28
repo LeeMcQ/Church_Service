@@ -24,7 +24,7 @@ const lazyWelcome = () => import('./tabs/welcome.js');
 const openFeedback = (c, o) => import('./tabs/account.js').then((m) => m.openFeedback(c, o));
 
 export const VERSION = '1.5.0';
-export const BUILD = 'acd8d4d';
+export const BUILD = '9dbfc69';
 
 const TABS = [
   { id: 'bible', label: 'Bible', icon: 'bible', file: 'bible.js', load: () => import('./tabs/bible.js') },
@@ -193,7 +193,10 @@ function updatePresent() {
   presentBtn.classList.toggle('is-live', same);
   presentKey.textContent = same ? 'On screen' : 'Present';
   const part = c && !same ? slideName(c, c.index) : '';
-  $('#presentNext').textContent = c ? (same ? '' : 'Next: ') + c.title + (part ? ' · ' + part : '') + (c.sub ? '  ' + c.sub : '') : 'Nothing selected';
+  const pn = $('#presentNext');
+  pn.replaceChildren();
+  if (!c) pn.textContent = 'Nothing selected';
+  else pn.append(same ? '' : h('span.pn-pre', 'Next: '), c.title + (part ? ' · ' + part : '') + (c.sub ? '  ' + c.sub : ''));   // phones drop "Next:" to fit the reference
   presentBtn.title = same ? 'This is already on screen. Press again (F5) to show it from the start.' : 'Present the selected item (F5 or Ctrl+Enter)';
 }
 live.on('staged', updatePresent);
@@ -204,8 +207,11 @@ const syncIdle = () => document.documentElement.classList.toggle('mon-idle', !li
 live.on('staged', syncIdle);
 live.on('live', syncIdle);
 presentBtn.addEventListener('click', () => doPresent());
+// Ask the browser to keep the data even when the disk gets full. Chrome, Edge and Safari decide quietly; Firefox
+// shows a permission box, so there it is asked only from Settings → App → Protect data (never mid-service).
+const autoPersist = () => { if (!/Firefox|FxiOS/.test(navigator.userAgent)) persistStorage(); };
 async function doPresent() {
-  persistStorage();
+  autoPersist();
   const a = document.activeElement;
   if (a && (a.tagName === 'INPUT' || a.tagName === 'SELECT') && a !== document.body) a.blur();
   // Always present on the extended screen, full screen.
@@ -232,8 +238,9 @@ function updateDispBtn() {
   const full = link.kind ? (link.ready ? link.info.label || 'Display' : 'Connecting…') : 'No display';
   dispBtn.querySelector('.lbl').textContent = full;
   // Phones show a one-glance status: "No display", "Ready · TV" or "Live · TV".
-  dispBtn.querySelector('.lbl-s').textContent = !link.kind ? 'No display' : !link.ready ? 'Connecting' : (isLive ? 'Live · ' : 'Ready · ') + (SHORT_KIND[link.kind] || 'Screen');
+  dispBtn.querySelector('.lbl-s').textContent = !link.kind ? 'No display' : !link.ready ? 'Connecting' : isLive ? 'Live' : 'Ready';   // the coloured dot and the tooltip say the rest
   dispBtn.setAttribute('aria-label', 'Display: ' + full + (isLive ? ', something is live' : '') + '. Choose where to present');
+  dispBtn.title = 'Display: ' + (link.kind ? (SHORT_KIND[link.kind] || 'Screen') + ' · ' : '') + full;
 }
 // A one-tap stop button beside the display button whenever something is connected (cast, window, TV …).
 const dispStop = h('button.disp-stop', { type: 'button', hidden: true, onclick: () => { const was = link.kind; link.close(); ui.toast(was === 'cast' ? 'Casting stopped.' : 'Display closed.', 'ok', 2000); } }, icon('x'));
@@ -629,6 +636,15 @@ function instMaybe(delay) {
 if (settings.v.app.setupDone) instMaybe(6000);
 else settings.on('change:app', (path) => { if (path === 'app.setupDone' && settings.v.app.setupDone) instMaybe(4000); });
 live.on('live', (c) => { if (c) instCard.close(false); });
+// Once the app itself is stored offline, the optional high-quality hymn instruments (18 MB) download quietly in
+// the background on devices where they are on, so the first hymn never waits for them.
+let hqTried = false;
+function hqBackground() {
+  if (hqTried || !offlineState().ready || navigator.onLine === false) return;
+  hqTried = true;
+  setTimeout(() => import('./core/hymnmusic.js').then((m) => { if (m.hqFor(settings.v.hymns.musicHQ || 'auto')) m.hqPrefetch(); }).catch(() => {}), 45000);
+}
+instFns.add(hqBackground);
 const mq = matchMedia('(max-width: 760px)');
 const syncSearch = () => { searchBtn.hidden = !mq.matches; helpBtn.hidden = mq.matches; };
 mq.addEventListener ? mq.addEventListener('change', syncSearch) : mq.addListener(syncSearch);
@@ -894,7 +910,7 @@ function onHealth(hh) {
 setTimeout(() => checkOffline(true), 15000);
 setInterval(() => { if (navigator.onLine) checkOffline(true); }, 30 * 60000);
 // Ask the browser to keep the stored app and data even when the disk gets full.
-setTimeout(() => { persistStorage(); }, 4000);
+setTimeout(autoPersist, 4000);
 
 // Warn before closing while something is live.
 window.addEventListener('beforeunload', (e) => { if (live.cue && link.kind === 'window') { e.preventDefault(); e.returnValue = ''; } });

@@ -2,7 +2,7 @@
 // hardware-accelerated) decoders, which is far lighter on old PCs than running VLC.
 import { h, clear, uid, fmtTime, fmtBytes, readText, download } from '../core/util.js';
 import { icon } from '../core/icons.js';
-import { btn, seg, toggle, toast, promptBox, confirmBox, dropzone, modal } from '../core/ui.js';
+import { btn, seg, toggle, toast, promptBox, confirmBox, dropzone, modal, undoToast } from '../core/ui.js';
 import { db } from '../core/db.js';
 import { srtToVtt } from '../lib/srt.js';
 
@@ -92,11 +92,15 @@ export default function create(ctx) {
   }
 
   async function removeItem(it) {
-    if (!(await confirmBox('Remove from playlist?', '“' + it.name + '” will be removed from Church Service' + (it.blob ? ' and its offline copy deleted' : '') + '. The original file is not touched.', 'Remove', true))) return;
-    if (session.has(it.id)) session.delete(it.id); else if (!it.remote) await db.del('files', it.id);
+    // Gone from the list at once; the stored copy is deleted only when the Undo message has gone.
+    const at = items.indexOf(it);
     items = items.filter((x) => x !== it);
     if (sel === it) { sel = null; ctx.setStaged('video', null); renderSelected(); }
     renderList();
+    undoToast('“' + it.name + '” removed from the playlist (the original file is not touched).', {
+      onUndo: () => { items.splice(Math.max(0, Math.min(at, items.length)), 0, it); renderList(); },
+      onCommit: async () => { if (session.has(it.id)) session.delete(it.id); else if (!it.remote) await db.del('files', it.id).catch(() => {}); },
+    });
   }
 
   async function addFiles(files) {

@@ -110,7 +110,7 @@ function decodeImgs(el) {
 
 /**
  * Render a frame into a layer element. Returns a cleanup function (revokes object URLs).
- * opts: {minFont, maxFont, sw, sh, media(layer, frame) -> cleanup?, placeholderOnly}
+ * opts: {minFont, maxFont, hymnCap (share of maxFont for hymn words), sw, sh, media(layer, frame) -> cleanup?, placeholderOnly}
  */
 export async function renderFrame(layer, frame, opts = {}) {
   const urls = [];
@@ -123,10 +123,10 @@ export async function renderFrame(layer, frame, opts = {}) {
     layer.appendChild(el);
     const body = el.querySelector('.f-body');
     const maxF = opts.maxFont || 150;
-    // Hymn lines never wrap (see stage.css), and sung text is capped a little lower (110 px at the
-    // default 150) so short stanzas don't look shouty.
+    // Sung text is capped a little lower than the largest size (Settings → Screen → Hymn words: 110, 130 or 150 px
+    // at the default 150), so short stanzas don't look shouty but use the screen.
     // A slide may allow smaller text than usual (a long Bible passage that must stay on one slide).
-    fitBody(body, Math.min(opts.minFont || 58, frame.minFont > 0 ? frame.minFont : 999), frame.variant === 'title' ? maxF * 1.2 : frame.variant === 'hymn' ? Math.round(maxF * 110 / 150) : maxF);
+    fitBody(body, Math.min(opts.minFont || 58, frame.minFont > 0 ? frame.minFont : 999), frame.variant === 'title' ? maxF * 1.2 : frame.variant === 'hymn' ? Math.round(maxF * (opts.hymnCap > 0 && opts.hymnCap <= 1 ? opts.hymnCap : 130 / 150)) : maxF);
   } else if (k === 'image') {
     const box = document.createElement('div');
     box.className = 'f-image' + (frame.fit === 'cover' ? ' cover' : '');
@@ -258,7 +258,7 @@ export function createStage(host, opts = {}) {
       if (rp === 'top') el.classList.add('ref-top'); else if (rp === 'none') el.classList.add('ref-none');
       layers[back].classList.add('hide');
       const c = await renderFrame(layers[back], frame, {
-        minFont: style.minFont, maxFont: style.maxFont, sw, sh,
+        minFont: style.minFont, maxFont: style.maxFont, hymnCap: style.hymnCap, sw, sh,
         media: opts.media, placeholderOnly: opts.placeholderOnly, ...extra,
       });
       if (my !== seq) { c(); return; } // superseded while loading

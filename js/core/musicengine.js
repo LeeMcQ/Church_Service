@@ -117,6 +117,19 @@ async function hqBytes(onProgress) {
   return buf;
 }
 
+/** Download the high-quality instruments in the background (once; nothing plays). Resolves true when stored. */
+let prefetchP = null;
+export function hqPrefetch() {
+  if (prefetchP) return prefetchP;
+  prefetchP = (async () => {
+    if (await hqStored()) return true;
+    if (navigator.onLine === false) return false;
+    await hqBytes();
+    return hqStored();
+  })().catch(() => false).finally(() => { setTimeout(() => { prefetchP = null; }, 1000); });
+  return prefetchP;
+}
+
 // ------------------------------------------------------------------ engine
 export class MusicEngine {
   constructor() {
@@ -205,7 +218,7 @@ export class MusicEngine {
     s.systemExclusive(gs([0x01, 0x3a], [cho]));    // chorus level (Falcosoft recommendation: 43)
     // Lock them: otherwise each new song's reset would restore the GS defaults (64 / 64).
     s.setSystemParameter('reverbLock', true); s.setSystemParameter('chorusLock', true);
-    if (this.fx && this.fx.hq != null) this.setHQ(hqFor(this.fx.hq)).catch((e) => { if (!this._hqWarned) { this._hqWarned = true; this.emit('notice', e.message); } });
+    if (this.fx && this.fx.hq != null) this._wantHQ(hqFor(this.fx.hq), false).catch(() => {});
   }
 
   /** Switch the high-quality instruments on or off (downloads them the first time). */
@@ -228,6 +241,14 @@ export class MusicEngine {
     try { await this._hqP; } finally { this._hqP = null; }
   }
   get hq() { return !!this._hq; }
+  /** Use the high-quality instruments if they are already on this device; otherwise start their download in the
+   *  background and keep the standard sounds for now (a hymn never waits for an 18 MB download). */
+  async _wantHQ(want, onProgress) {
+    if (!want) { if (this._hq) await this.setHQ(false); return; }
+    if (this._hq) return;
+    if (await hqStored()) { await this.setHQ(true, onProgress); return; }
+    hqPrefetch();
+  }
 
   _meta(d) {
     const ev = d && d.event;
@@ -267,11 +288,8 @@ export class MusicEngine {
       const { hq, ...rest } = req.fx;
       this.applyEffects(rest);
       this.fx.hq = hq;
-      // Wait for the high-quality instruments before the first note; if they cannot load, play the standard ones.
-      try { await this.setHQ(hqFor(hq), onProgress); } catch (e) {
-        // Said once per session (no internet yet for the first download): the standard sounds play meanwhile.
-        if (!this._hqWarned) { this._hqWarned = true; this.emit('notice', (navigator.onLine === false ? 'The high-quality instruments download the first time there is internet.' : e.message) + ' Playing the standard sounds.'); }
-      }
+      // High-quality instruments when they are stored (loads in about a second); never wait for their download.
+      try { await this._wantHQ(hqFor(hq), onProgress); } catch (e) { /* the standard sounds play */ }
     }
     // Light mode (old PCs, 1–2 GB phones): linear interpolation and fewer voices, ~25% less CPU.
     this.synth.setSystemParameter('interpolationType', req.light ? 0 : 2);

@@ -22,7 +22,10 @@ export function needsSetup() { return !settings.v.app.setupDone || (cloud.requir
 export function openWelcome({ onClose, only } = {}) {
   const steps = [];
   if (cloud.enabled() && (!cloud.user || only === 'account')) steps.push('account');
-  if (only !== 'account') steps.push('church', 'screens', 'stats', 'done');
+  // Phones and tablets (touch only) do not drive projector windows, and the statistics step only makes sense
+  // when this copy has the cloud switched on.
+  const touchOnly = matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches;
+  if (only !== 'account') steps.push('church', ...(touchOnly ? [] : ['screens']), ...(cloud.enabled() ? ['stats'] : []), 'done');
   let i = 0;
   const wrap = h('div.welcome', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Set up Church Service' });
   const card = h('div.welcome-card');
@@ -81,10 +84,12 @@ export function openWelcome({ onClose, only } = {}) {
         nav());
       return;
     }
-    card.append(head('All set!', 'A few keys to remember:'),
-      h('div.welcome-keys',
-        ...[['F5', 'Present: show what is Next on the projector'], ['→ / Space', 'Next slide'], ['B', 'Black screen'], ['L', 'Logo'], ['C', 'Clear'], ['/', 'Go to: type “John 3:16” or “hymn 73”'], ['?', 'All keyboard shortcuts']]
-          .map(([k, t]) => h('div.row', h('kbd', k), h('span', t)))),
+    const tips = touchOnly
+      ? [['Tap', 'A verse, stanza or slide: it goes on Next (green)'], ['Present', 'The button at the top right shows Next on the screen (red: Live)'], ['‹ ›', 'Previous / next slide in the bar at the bottom'], ['■ ◎ ✕', 'Black screen, logo and clear: in the bottom bar while a screen is connected'], ['🔍', 'Go to: type “John 3:16” or “hymn 73”']]
+      : [['F5', 'Present: show what is Next on the projector'], ['→ / Space', 'Next slide'], ['B', 'Black screen'], ['L', 'Logo'], ['C', 'Clear'], ['/', 'Go to: type “John 3:16” or “hymn 73”'], ['Ctrl+Z', 'Back to what was on screen before'], ['?', 'All keyboard shortcuts']];
+    card.append(head('All set!', touchOnly ? 'How it works on this device:' : 'A few keys to remember:'),
+      h('div.welcome-keys', ...tips.map(([k, t]) => h('div.row', h('kbd', k), h('span', t)))),
+      h('p.note', 'Ideas or problems? The speech-bubble button at the top (or Settings → Account) sends a comment at any time.'),
       h('div.welcome-nav', i > 0 ? h('button.btn', { type: 'button', onclick: back }, 'Back') : h('span'), h('div.grow'),
         h('button.btn.primary', { type: 'button', onclick: close }, icon('check'), h('span', 'Start using Church Service'))));
   }

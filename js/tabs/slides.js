@@ -4,7 +4,7 @@
 import { cloud } from '../core/cloud.js';
 import { h, clear, uid, fmtBytes } from '../core/util.js';
 import { icon } from '../core/icons.js';
-import { btn, dropzone, menu, toast, confirmBox, promptBox, seg, emptyState } from '../core/ui.js';
+import { btn, dropzone, menu, toast, confirmBox, promptBox, seg, emptyState, undoToast } from '../core/ui.js';
 import { db } from '../core/db.js';
 import { createStage, renderFrame } from '../core/render.js';
 
@@ -328,7 +328,8 @@ export default function create(ctx) {
 
   async function deleteSlide() {
     if (!deck || !frames || stagedIndex < 0 || deck.count <= 1) { toast('Cannot delete the only slide.', 'err'); return; }
-    if (!(await confirmBox('Delete this slide?', 'Remove slide ' + (stagedIndex + 1) + '?', 'Delete', true))) return;
+    const at = stagedIndex, d0 = deck;
+    const gone = { render: await db.get('renders', deck.id + '/' + at), frame: frames[at], thumb: thumbs[at] };
     // Shift remaining renders down.
     for (let i = stagedIndex; i < deck.count - 1; i++) {
       const next = await db.get('renders', deck.id + '/' + (i + 1));
@@ -342,7 +343,19 @@ export default function create(ctx) {
     stagedIndex = Math.min(stagedIndex, deck.count - 1);
     renderDeck();
     stageAt(stagedIndex);
-    toast('Slide deleted.', 'ok', 1500);
+    // Undo puts the slide back in its place (no "Are you sure?" first).
+    undoToast('Slide ' + (at + 1) + ' deleted.', { onUndo: async () => {
+      if (deck !== d0) return;   // another deck is open now
+      for (let i = deck.count; i > at; i--) {
+        const prev = await db.get('renders', deck.id + '/' + (i - 1));
+        if (prev) await db.put('renders', deck.id + '/' + i, prev);
+      }
+      if (gone.render) await db.put('renders', deck.id + '/' + at, gone.render); else await db.del('renders', deck.id + '/' + at);
+      frames.splice(at, 0, gone.frame); thumbs.splice(at, 0, gone.thumb);
+      deck.count++;
+      await db.put('files', deck.id, deck);
+      renderDeck(); stageAt(at);
+    } });
   }
 
   async function moveSlide(dir) {

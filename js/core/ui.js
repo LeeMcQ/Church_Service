@@ -48,14 +48,29 @@ export function toast(msg, kind = '', ms = 3200) {
   // Same message already showing: keep one toast, just restart its timer.
   const text = typeof msg === 'string' ? msg : (msg && msg.textContent) || '';
   for (const old of Array.from(toastHost.children)) if (old.dataset.msg === text && !old.classList.contains('out')) old.remove();
+  // Plain messages stay as long as it takes to read them (about 15 letters a second), not a fixed long time;
+  // errors and messages with a button keep their time. A tap on a plain message closes it.
+  if (typeof msg === 'string' && kind !== 'err') ms = Math.min(ms, Math.max(2200, Math.min(7000, 1800 + text.length * 65)));
   const t = h('div.toast' + (kind ? '.' + kind : ''), msg);
   t.dataset.msg = text;
+  if (typeof msg === 'string') t.addEventListener('click', () => t.remove());
   toastHost.appendChild(t);
   setTimeout(() => {
     if (!motionOK()) { t.remove(); return; }
     t.classList.add('out'); // fade and drop away, then remove
     setTimeout(() => t.remove(), 180);
   }, ms);
+  return t;
+}
+
+/** "Removed — Undo": the change is shown at once; onUndo puts it back. Calls onCommit (the real deletion) when the
+ *  message has gone without Undo. Faster than "Are you sure?" and just as safe. */
+export function undoToast(text, { onUndo, onCommit, ms = 7000 } = {}) {
+  let undone = false;
+  const b = h('button.btn.sm', { type: 'button', onclick: () => { if (undone) return; undone = true; t.remove(); if (onUndo) onUndo(); } }, 'Undo');
+  const t = toast(h('span', text + ' ', b), 'ok', ms);
+  t.dataset.keep = '1';
+  setTimeout(() => { if (!undone && onCommit) onCommit(); }, ms + 300);
   return t;
 }
 

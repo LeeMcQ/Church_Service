@@ -11,6 +11,7 @@ export const DEFAULTS = {
   display: {
     font: 'sans', fg: '#ffffff', bg: '#000000', accent: '#f2cf7a', shadow: true, align: 'center',
     pad: 96, minFont: 58, maxFont: 150, fade: 250, transition: 'fade', aspect: 'auto',
+    hymnSize: 'large', // hymn words on the projector: 'normal' (capped at 110 px of 150), 'large' (130), 'largest' (150)
     bgImage: null, bgDim: 0.45, logo: null, logoText: '', clearShows: 'background', weight: 'bold',
     keepFull: true, // put the projector window back in full screen whenever it drops out
     screenLabel: '', screenLabel2: '', mirror: false, // projector screen; a second projector (same picture) and its screen
@@ -189,7 +190,7 @@ settings.displayStyle = () => {
   const d = settings.v.display;
   return {
     font: d.font, fg: d.fg, bg: d.bg, accent: d.accent, shadow: d.shadow, align: d.align, pad: d.pad,
-    minFont: d.minFont, maxFont: d.maxFont, fade: settings.lowPower() || d.transition === 'cut' ? 0 : d.fade,
+    minFont: d.minFont, maxFont: d.maxFont, hymnCap: { normal: 110 / 150, large: 130 / 150, largest: 1 }[d.hymnSize] || 130 / 150, fade: settings.lowPower() || d.transition === 'cut' ? 0 : d.fade,
     bgImage: d.bgImage, bgDim: d.bgDim, logo: d.logo, logoText: d.logoText, clearShows: d.clearShows, weight: d.weight,
     // Default logo slide when no logo is set: the church name from Settings → Church, if any.
     logoName: ((settings.v.church && settings.v.church.name) || '').trim(),

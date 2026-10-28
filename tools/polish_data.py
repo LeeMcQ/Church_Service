@@ -112,3 +112,28 @@ idx = load('data/bibles/index.json')   # the app only asks for titles.json where
 for t in idx:
     if t['id'] in ('kjv', 'afr53'): t['titles'] = True
 open('data/bibles/index.json', 'w', encoding='utf-8').write(json.dumps(idx, ensure_ascii=False, indent=1) + '\n')
+
+# Afrikaans 1933/53: Exodus 30:31-38 were missing from the source text (the chapter stopped at verse 30).
+# Text from the Bible Society of South Africa's AFR53 (biblesa.co.za/af/bybel/AFR53/EXO.30), checked against a
+# second copy; written in this file's style (HERE for the LORD, ’n, spaced dash).
+EXO30_TAIL = [
+    'En jy moet met die kinders van Israel spreek en sê: Dit moet vir My ’n heilige salfolie wees in julle geslagte.',
+    'Op geen mens se liggaam mag dit uitgegiet word nie; julle mag ook, na dieselfde voorskrif, so iets nie maak nie: heilig is dit; heilig moet dit vir julle wees.',
+    'Elkeen wat so iets meng of iets daarvan aan ’n onbevoegde laat kom, moet uit sy volksgenote uitgeroei word.',
+    'Verder het die HERE vir Moses gesê: Neem vir jou speserye: storaksgom en naeltjies en gálbanum – speserye en ook suiwer wierook; alles in gelyke hoeveelhede,',
+    'en maak daar reukwerk van, ’n mengsel soos die salfmenger dit maak, met sout gemeng, suiwer, heilig.',
+    'En vrywe ’n gedeelte daarvan heeltemal fyn, en sit ’n deel daarvan neer voor die Getuienis in die tent van samekoms, waar Ek met jou sal saamkom; hoogheilig moet dit vir julle wees.',
+    'En die reukwerk wat jy moet maak – na dieselfde voorskrif mag julle vir julle nie maak nie; as iets heiligs aan die HERE moet dit vir jou wees.',
+    'Elkeen wat so iets maak om daaraan te ruik, moet uit sy volksgenote uitgeroei word.',
+]
+ex = load('data/bibles/afr53/02.json')
+if len(ex[29]) == 30:
+    ex[29].extend(EXO30_TAIL)
+    save('data/bibles/afr53/02.json', ex)
+    info = load('data/bibles/afr53/info.json')
+    try:
+        info['books'][1][2][29] = 38
+        save('data/bibles/afr53/info.json', info)
+    except Exception as e:
+        print('info.json verse count not updated:', e)
+print('Exodus 30 (AFR):', len(load('data/bibles/afr53/02.json')[29]), 'verses')

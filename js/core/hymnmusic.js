@@ -4,9 +4,9 @@ import { emitter, debounce } from './util.js';
 import { settings } from './settings.js';
 import { link } from './link.js';
 import { db } from './db.js';
-import { MusicEngine, loadIndex, planSegments, INSTRUMENTS, hqFor, hqStored, hqRemove, HQ_MB } from './musicengine.js';
+import { MusicEngine, loadIndex, planSegments, INSTRUMENTS, hqFor, hqStored, hqRemove, hqPrefetch, HQ_MB } from './musicengine.js';
 
-export { INSTRUMENTS, planSegments, hqFor, hqStored, hqRemove, HQ_MB };
+export { INSTRUMENTS, planSegments, hqFor, hqStored, hqRemove, hqPrefetch, HQ_MB };
 
 // ------------------------------------------------------------------ controller (UI side)
 export const music = emitter({ state: { playing: false }, where: 'here', hymnKey: null, entryInfo: null });

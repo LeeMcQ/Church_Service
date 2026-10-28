@@ -55,6 +55,8 @@ def t_manifest():
     missing = [f for f in m['files'] if not os.path.isfile(os.path.join(ROOT, f))]
     assert not missing, 'missing: ' + ', '.join(missing[:5])
     assert len(m['files']) > 100, 'only %d files listed' % len(m['files'])
+    empty = [f for f in m['files'] if f.endswith(('.js', '.css', '.html', '.json')) and os.path.getsize(os.path.join(ROOT, f)) == 0]
+    assert not empty, 'empty files: ' + ', '.join(empty[:5])
 
 
 @check('service worker parses')
@@ -292,6 +294,8 @@ def main():
                 r = pg.evaluate("""async () => {
                   const m = await import('./js/core/musicengine.js');
                   await m.hqRemove();
+                  // The pack downloads in the background (a hymn never waits for it); then hymns use it.
+                  const pre = await m.hqPrefetch();
                   const e = new m.MusicEngine(); e.unlock(); await e.init();
                   const an = e.ctx.createAnalyser(); an.fftSize = 2048; e.gain.connect(an);
                   const peakFor = async (instrument) => {
@@ -303,7 +307,7 @@ def main():
                   };
                   const piano = await peakFor('piano'), organ = await peakFor('organ');
                   const banks = e.synth.soundBankManager.priorityOrder;
-                  return { piano, organ, hq: e.hq, banks, stored: await m.hqStored(), wet: e.wet.gain.value, ir: e.conv.buffer && e.conv.buffer.duration };
+                  return { pre, piano, organ, hq: e.hq, banks, stored: await m.hqStored(), wet: e.wet.gain.value, ir: e.conv.buffer && e.conv.buffer.duration };
                 }""")
                 assert r['hq'] and r['banks'][0] == 'hq', 'sound pack not in use: %r' % r
                 assert r['stored'], 'sound pack not kept for offline use'

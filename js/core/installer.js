@@ -46,7 +46,8 @@ export function startInstallPrompt(ctx) {
     const pct = off.total ? Math.min(100, Math.round(off.done / off.total * 100)) : 0;
     const status = off.ready
       ? h('p.inst-ok', icon('check'), h('span', 'Saved on this device: everything works without internet, except the things that need it (online Bibles and lyrics, AI, YouTube, sharing to phones over the internet).'))
-      : h('p.note', 'Saving Church Service for use without internet… ' + (off.total ? pct + '%' : '') + ' Keep the internet on until this finishes.');
+      : off.total ? h('p.note', 'Saving Church Service for use without internet… ' + pct + '%. Keep the internet on until this finishes.')
+        : h('p.note', 'Checking that everything is saved on this device…');
     const can = ctx.installAvailable();
     card.append(
       h('div.inst-h', h('img', { src: 'icons/favicon.svg', alt: '', width: 40, height: 40 }),

@@ -76,6 +76,7 @@ export default function create(ctx) {
       h('label', 'Margin'), range('pad', 20, 200, 4, (v) => v + ' px', 'Margin'),
       h('label', 'Smallest text'), range('minFont', 36, 110, 2, (v) => v + ' px', 'Smallest text'),
       h('label', 'Largest text'), range('maxFont', 90, 240, 5, (v) => v + ' px', 'Largest text'),
+      h('label', 'Hymn words'), seg([['normal', 'Normal'], ['large', 'Large'], ['largest', 'Largest']], D().hymnSize || 'large', setD('hymnSize')),
       h('label', 'Changing slides'), seg([['fade', 'Fade'], ['cut', 'Cut']], D().transition, setD('transition')),
       h('label', 'Fade time'), range('fade', 100, 1000, 50, (v) => v + ' ms', 'Fade time'),
       h('label', 'Screen shape'), seg([['auto', 'Automatic'], ['16:9', '16:9'], ['16:10', '16:10'], ['4:3', '4:3']], D().aspect, setD('aspect')),
