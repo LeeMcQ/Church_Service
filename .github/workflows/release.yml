@@ -59,7 +59,7 @@ jobs:
         with: { python-version: '3.12' }
       - run: |
           python tools/build.py
-          zip -qr church-service-web-offline.zip index.html display.html stage.html obs.html privacy.html terms.html companion.html feedback.html admin.html manifest.webmanifest sw.js asset-manifest.json css js vendor fonts icons data
+          zip -qr church-service-web-offline.zip index.html display.html stage.html obs.html privacy.html terms.html companion.html feedback.html admin.html oauth.html manifest.webmanifest sw.js asset-manifest.json css js vendor fonts icons data
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with: { name: church-service-web-offline.zip, path: church-service-web-offline.zip }
 
