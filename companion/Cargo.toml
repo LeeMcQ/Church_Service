@@ -1,6 +1,6 @@
 [package]
 name = "church-service-companion"
-version = "1.1.0"
+version = "1.2.0"
 edition = "2021"
 description = "Church Service companion: serves the Church Service church presenter on the local network, relays phone-remote commands, streams media from the PC and converts PowerPoint files."
 license = "MIT"

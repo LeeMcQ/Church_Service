@@ -1,5 +1,5 @@
 {
-"version": "6af11ea4732b",
+"version": "5734b5dfb6cf",
 "bytes": 25006531,
 "files": [
 "index.html",
@@ -362,7 +362,7 @@
 "css/stage.css": "35f7e1d869c23da6",
 "css/stagescreen.css": "540ebaeef182c40a",
 "js/admin-main.js": "9927d99dd25c84f2",
-"js/app.js": "958ad2ef2f1da421",
+"js/app.js": "446f3c1a65670fb3",
 "js/boot-guard.js": "d748254780e6023d",
 "js/clickerui.js": "9a63e0671581410e",
 "js/companion-page.js": "b44c841c7a0276ce",
