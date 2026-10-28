@@ -4,7 +4,7 @@ import { installed as installedApp, installSteps } from '../core/installer.js';
 import { lsKey } from '../core/storens.js';
 import { backupSection } from './backup-ui.js';
 import { screensPanel } from './screens-panel.js';
-import { h, clear, uid, fmtBytes, download, readText, scrubUrls, debounce } from '../core/util.js';
+import { h, clear, uid, fmtBytes, readText, scrubUrls, debounce } from '../core/util.js';
 import { icon } from '../core/icons.js';
 import { btn, seg, toggle, toast, confirmBox } from '../core/ui.js';
 import { db, persistStorage } from '../core/db.js';
@@ -12,7 +12,7 @@ import { createStage } from '../core/render.js';
 import { listTranslations, deleteImported, resetCaches } from '../core/bibledata.js';
 const importBibleDialog = (cb) => import('./bible-import.js').then((m) => m.importBibleDialog(cb));
 import { listScreens } from '../core/link.js';
-import { sanitizeImportedSettings, exportableSettings } from '../core/settings.js';
+import { sanitizeImportedSettings } from '../core/settings.js';
 import { churchForm } from './church-form.js';
 import { PROVIDERS, listModels, modelFor, friendlyAiError } from '../core/ai.js';
 
@@ -94,12 +94,12 @@ export default function create(ctx) {
     box.append(h('div.card', { style: { marginBottom: '14px' } }, h('h3', 'Screens: projectors and stage screens'), screensPanel()),
       stateLine,
       h('div.row.wrap', { style: { margin: '10px 0' } },
-        h('button.btn', { type: 'button', onclick: () => link.openWindow({ prompt: true }) }, icon('present'), 'Open display window'),
+        h('button.btn', { type: 'button', onclick: () => link.openWindow() }, icon('present'), 'Open display window'),
         'getScreenDetails' in window ? h('button.btn', { type: 'button', onclick: async () => {
           const r = await listScreens();
           clear(screens);
           if (!r) { toast('Screen list not allowed. Allow “Window management” for this site.', 'err'); return; }
-          r.screens.forEach((s, i) => screens.appendChild(h('button', { type: 'button', onclick: () => { settings.set('display.screenLabel', s.label || ''); link.openWindow({ prompt: true }); } },
+          r.screens.forEach((s, i) => screens.appendChild(h('button', { type: 'button', onclick: () => { settings.set('display.screenLabel', s.label || ''); link.openWindow(); } },
             icon('pc'), h('span.grow', (s.label || 'Screen ' + (i + 1)) + (s === r.current ? ' (this one)' : '') + (settings.v.display.screenLabel === s.label ? '  ✓ default' : '')), h('span.faint', s.width + ' × ' + s.height))));
         } }, icon('pc'), 'Detect screens') : null,
         link.canCast() ? h('button.btn', { type: 'button', onclick: () => link.openCast().catch((e) => toast(e.message, 'err')) }, icon('cast'), 'Cast') : null,
@@ -109,7 +109,7 @@ export default function create(ctx) {
         settings.set('display.keepFull', v);
         if (link.kind === 'window' && link.win) { try { link.win.postMessage({ t: 'keepfull', on: v }, location.origin); } catch (e) { /* */ } }
       }, 'If the projector window leaves full screen (Esc, a clicker button, another window), it goes back to full screen straight away or on your next click or key press here.')),
-      h('p.note', 'Tip: in Chrome or Edge, allow “Window management” once and Church Service opens the display straight onto the projector every time. Click the projector screen once at the start so videos may play with sound (not needed once Church Service is installed).'));
+      h('p.note', 'Tip: allow “Window management” once (Chrome or Edge) and the display opens straight onto the projector. Before installing, click the projector screen once so videos play with sound.'));
     // Phone remote via the companion
     const comp = ctx.companion;
     const rc = h('div.card', h('h3', 'Phone remote and network displays'));
@@ -123,7 +123,7 @@ export default function create(ctx) {
       }).catch(() => {});
       rc.append(h('div.row.wrap', qrBox, h('div.col', h('code', url), h('p.note', 'TV or second PC as the screen: open ' + (comp.urls && comp.urls[0] || location.origin) + '/display.html?via=ws&pin=' + (comp.pin || 'PIN')))));
     } else {
-      rc.append(h('p.note', 'Run the Church Service companion on the church PC to control the screen from a phone, use a smart-TV browser as the screen, play videos straight from the PC’s Videos folder, and convert PowerPoint files exactly. Then open Church Service from the address it shows. Anything in the PC’s Videos\\Selah folder can be opened by anyone on the same Wi-Fi who knows its file name, so keep private files out of it.'));
+      rc.append(h('p.note', 'The companion on the church PC adds a phone remote, a smart-TV screen, videos from the PC and exact PowerPoint. Open Church Service from the address it shows. Anyone on the same Wi-Fi can open a file in its videos folder if they know the name, so keep private files out of it.'));
       rc.append(h('a.btn.primary', { href: 'companion.html', target: '_blank', rel: 'noopener' }, icon('download'), h('span', 'Download the companion')));
     }
     box.append(rc);
@@ -273,19 +273,12 @@ export default function create(ctx) {
         const c = h('input', { type: 'checkbox', checked: !!A.keySession, onchange: () => { settings.set('ai.keySession', c.checked); toast(c.checked ? 'The key is now kept only until this tab is closed. Paste it again next time.' : 'The key is saved on this device again.', 'ok', 4000); } });
         return c;
       })(), h('span', 'Forget the key when this window closes (recommended on a shared church computer)')),
-      h('p.note', 'Stored only in this browser on this device, and never included in backups. Other pages on the same website address can read what a browser page stores, so use a key with a low spending limit, and press "Remove key" after the service on a shared computer.'),
+      h('p.note', 'Kept only in this browser, never in backups. Other pages on this website can read it, so use a key with a low spending limit, and remove it after the service on a shared computer.'),
       h('p.note', 'AI output can be wrong, and it can be doctrinally wrong. Read everything against Scripture before it goes on the screen. AI pictures are marked “AI-generated”.'),
-      h('p.note', 'Privacy (POPIA): when you use an online AI button, what you typed (a topic, a picture description, or Bible text you asked it to summarise) is sent directly to the provider chosen above and handled under their terms. These providers are companies in the USA: OpenAI, Google, xAI, Together AI, OpenRouter and Anthropic. Do not type names, contact details or other personal information. Other online features send a request only when you use them: lyrics search (LRCLIB and Lyrics.ovh, outside South Africa), Bible downloads (bible.helloao.org and GitHub, USA) and YouTube videos you embed (youtube-nocookie.com, Google, USA). Everything else in Church Service works offline and sends nothing. The full notice is on the privacy page.')));
+      h('p.note', 'Privacy (POPIA): what you type into an AI button goes to the provider chosen above (a company in the USA). Leave out names and contact details. ', h('a', { href: 'privacy.html', target: '_blank', rel: 'noopener' }, 'The privacy page'), ' lists everything that is sent.')));
   });
 
-  // ------------------------------------------------------------ Coming next
-  section('next', 'Live translation', (box) => {
-    box.append(h('div.card', h('h3', h('span', icon('translate'), ' Live translation — coming later')),
-      h('p.note', 'The sermon will be heard through a microphone, turned into text and translated (for example English → Afrikaans or isiXhosa), and shown as a caption line at the bottom of the screen while Bible verses and hymns stay visible. The caption line is already built into the display; the speech and translation part will be added in a later version.'),
-      h('label.switch', { title: 'Not available yet' }, h('input', { type: 'checkbox', disabled: true }), h('span', 'Show live captions (not available yet)'))));
-  });
-
-  // ------------------------------------------------------------ Account
+  // ------------------------------------------------------------ Backup and account
   section('backup', 'Backup', (box) => backupSection(box));
   section('account', 'Account', (box) => accountSection(box, ctx));
 
@@ -362,10 +355,6 @@ export default function create(ctx) {
     } catch (e) { return navigator.serviceWorker && navigator.serviceWorker.controller ? 'Stored for offline use.' : ''; }
   }
 
-  async function exportBackup() {
-    const data = { app: 'selah', version: 1, settings: exportableSettings(settings.v), plans: await db.all('plans'), hymnbooks: await db.all('hymnbooks') };
-    download(new Blob([JSON.stringify(data)], { type: 'application/json' }), 'sda-sabbath-backup.json');
-  }
   function importBackup() {
     const inp = h('input', { type: 'file', accept: '.json' });
     inp.onchange = async () => {

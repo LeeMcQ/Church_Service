@@ -110,7 +110,7 @@ export function createSlideEditor(opts) {
     const hh = n ? n.offsetHeight * g.k : e.h / 100 * g.H;
     return { x: e.x / 100 * g.W, y: e.y / 100 * g.H, w, h: hh, rot: e.rot || 0 };
   }
-  function partBox(p, g = geo()) {
+  function partBox(p) {
     const n = partNode(p), st = stage();
     if (!n || !st) return null;
     const r = n.getBoundingClientRect(), sr = st.getBoundingClientRect();
@@ -140,7 +140,7 @@ export function createSlideEditor(opts) {
     const g = geo();
     const list = els();
     for (let i = list.length - 1; i >= 0; i--) if (inBox(px, py, boxOf(list[i], g))) return list[i].id;
-    for (const p of PARTS) { const b = partBox(p, g); if (b && inBox(px, py, b)) return 'part:' + p; }
+    for (const p of PARTS) { const b = partBox(p); if (b && inBox(px, py, b)) return 'part:' + p; }
     return null;
   }
   const local = (ev) => { const r = ov.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; };
@@ -163,7 +163,7 @@ export function createSlideEditor(opts) {
         ov.appendChild(h('div.se-ghost', { style: boxStyle(b) }, h('span', 'Click to add text')));
       }
     });
-    const items = sel.map((id) => (id.startsWith('part:') ? { id, b: partBox(id.slice(5), g), part: true } : (byId(id) ? { id, e: byId(id), b: boxOf(byId(id), g) } : null))).filter((x) => x && x.b);
+    const items = sel.map((id) => (id.startsWith('part:') ? { id, b: partBox(id.slice(5)), part: true } : (byId(id) ? { id, e: byId(id), b: boxOf(byId(id), g) } : null))).filter((x) => x && x.b);
     if (!items.length) { ov.classList.toggle('editing', !!editing); return; }
     const single = items.length === 1;
     items.forEach((it) => {
@@ -643,7 +643,7 @@ export function createSlideEditor(opts) {
     const list = [];
     ['kicker', 'title', 'text', 'foot'].forEach((p) => {
       const n = partNode(p);
-      let b = partBox(p, g);
+      let b = partBox(p);
       if (!n || !b) return;
       // Fit the box to the words themselves, so the lines break where they did before.
       try {
@@ -754,7 +754,7 @@ export function createSlideEditor(opts) {
     const g = geo();
     const xs = [0, g.W / 2, g.W], ys = [0, g.H / 2, g.H];
     els().forEach((e) => { if (exclude.has(e.id)) return; const b = aabb(boxOf(e, g)); xs.push(b.x, b.x + b.w / 2, b.x + b.w); ys.push(b.y, b.y + b.h / 2, b.y + b.h); });
-    PARTS.forEach((pp) => { if (exclude.has('part:' + pp)) return; const b = partBox(pp, g); if (b) { xs.push(b.x, b.x + b.w / 2, b.x + b.w); ys.push(b.y, b.y + b.h / 2, b.y + b.h); } });
+    PARTS.forEach((pp) => { if (exclude.has('part:' + pp)) return; const b = partBox(pp); if (b) { xs.push(b.x, b.x + b.w / 2, b.x + b.w); ys.push(b.y, b.y + b.h / 2, b.y + b.h); } });
     return { xs, ys };
   }
   function snap1(vals, targets, tol) {

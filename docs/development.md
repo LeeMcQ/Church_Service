@@ -22,7 +22,7 @@ about 8 MB of JavaScript memory; with the CPU slowed six times, a 24-verse passa
 python tools/build.py              # update the offline file list (run before deploying)
 python tools/build.py --bibles     # rebuild Bibles from ./sources (KJV, WEB, AFR from Joy in the Journey)
 cd companion && cargo build --release
-./companion/target/release/selah --app-dir .     # serve this folder live while editing
+./companion/target/release/church-service --app-dir .     # serve this folder live while editing
 ```
 
 Any static web server also works (`python -m http.server`), but service workers and screen sharing need

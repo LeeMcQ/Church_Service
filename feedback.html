@@ -28,7 +28,7 @@
 <main>
 <nav aria-label="Pages"><a href="./">← Open Church Service</a> <a href="privacy.html">Privacy</a></nav>
 <h1>Comments and suggestions</h1>
-<p class="muted">How ca Church Service be better for your church? Ideas, problems and thanks are all welcome. Every message is read.</p>
+<p class="muted">How can Church Service be better for your church? Ideas, problems and thanks are all welcome. Every message is read.</p>
 <form id="f" novalidate>
   <div class="kinds" role="radiogroup" aria-label="Kind of message">
     <label><input type="radio" name="kind" value="idea" checked> Idea</label>
@@ -38,8 +38,11 @@
   </div>
   <label for="text">Your message</label>
   <textarea id="text" rows="8" maxlength="4000" required></textarea>
-  <label for="email">Your email (optional, if you would like an answer)</label>
-  <input id="email" type="email" autocomplete="email">
+  <div id="emailRow" hidden>
+    <label for="email">Your email (optional, if you would like an answer)</label>
+    <input id="email" type="email" autocomplete="email">
+  </div>
+  <p id="how" class="muted" hidden></p>
   <button type="submit">Send</button>
   <p id="msg" role="status"></p>
 </form>

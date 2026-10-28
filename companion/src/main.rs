@@ -1,8 +1,10 @@
-//! Church Service companion (formerly "Selah") — one small program for the church PC.
+//! Church Service companion — one small program for the church PC.
 //!
 //! * Serves the whole Church Service app (embedded in this file) at http://localhost:7777 and on the LAN.
 //! * Relays commands from a phone remote to the display, and from the display back.
-//! * Streams videos and pictures (with seeking) from the media folder (Videos/Selah; folder name kept for existing installs).
+//! * Streams videos and pictures (with seeking) from the media folder (Videos/Church Service).
+//! * Has its own program, settings and shortcut folders ("Church Service"), so it never replaces or changes the
+//!   SDA Sabbath companion ("Selah" folders) on the same PC.
 //! * Converts PowerPoint to PDF with LibreOffice for pixel-exact slides.
 //! * Takes remote-control commands over plain HTTP (/api/control/next …) from a Stream Deck, Bitfocus
 //!   Companion or any program, and passes them to the operator page open on this PC.
@@ -137,19 +139,25 @@ fn lan_ips() -> Vec<String> {
     out
 }
 
-fn config_path() -> PathBuf {
+fn config_in(win: &str, unix: &str) -> PathBuf {
     if cfg!(windows) {
-        PathBuf::from(env::var("APPDATA").unwrap_or_else(|_| ".".into())).join("Selah").join("companion.txt")
+        PathBuf::from(env::var("APPDATA").unwrap_or_else(|_| ".".into())).join(win).join("companion.txt")
     } else {
         let home = env::var("HOME").unwrap_or_else(|_| ".".into());
-        PathBuf::from(home).join(".config").join("selah").join("companion.txt")
+        PathBuf::from(home).join(".config").join(unix).join("companion.txt")
     }
 }
+fn config_path() -> PathBuf { config_in("Church Service", "church-service") }
+/// Settings of companions downloaded before Church Service had its own folders: read once (never changed),
+/// so the PIN, port and media folder carry over.
+fn old_config_path() -> PathBuf { config_in("Selah", "selah") }
 
 fn default_media_dir() -> PathBuf {
     let home = env::var(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).unwrap_or_else(|_| ".".into());
-    let videos = if cfg!(target_os = "macos") { "Movies" } else { "Videos" };
-    PathBuf::from(home).join(videos).join("Selah")
+    let videos = PathBuf::from(home).join(if cfg!(target_os = "macos") { "Movies" } else { "Videos" });
+    let own = videos.join("Church Service");
+    // A PC that already keeps its church videos in Videos/Selah goes on using that folder.
+    if !own.exists() && videos.join("Selah").is_dir() { videos.join("Selah") } else { own }
 }
 
 fn which(name: &str) -> Option<PathBuf> {
@@ -417,11 +425,11 @@ fn convert(st: &State, w: &mut TcpStream, req: &Request, reader: &mut BufReader<
     let name = url_decode(req.headers.get("x-filename").map(|s| s.as_str()).unwrap_or("slides.pptx"));
     let ext = name.rsplit('.').next().unwrap_or("pptx").to_ascii_lowercase();
     let ext = if ["pptx", "ppt", "odp", "pps", "ppsx"].contains(&ext.as_str()) { ext } else { "pptx".to_string() };
-    let dir = env::temp_dir().join(format!("selah-convert-{}", now_ms()));
+    let dir = env::temp_dir().join(format!("church-service-convert-{}", now_ms()));
     fs::create_dir_all(&dir)?;
     let input = dir.join(format!("slides.{}", ext));
     fs::write(&input, &body)?;
-    let profile = env::temp_dir().join("selah-lo-profile");
+    let profile = env::temp_dir().join("church-service-lo-profile");
     let profile_url = format!("file://{}{}", if cfg!(windows) { "/" } else { "" }, profile.to_string_lossy().replace('\\', "/"));
     let mut child = Command::new(&soffice)
         .arg(format!("-env:UserInstallation={}", profile_url))
@@ -616,31 +624,31 @@ fn handle_conn(st: Arc<State>, stream: TcpStream) {
 fn install() -> io::Result<()> {
     let exe = env::current_exe()?;
     if cfg!(windows) {
-        let dir = PathBuf::from(env::var("LOCALAPPDATA").unwrap_or_else(|_| ".".into())).join("Selah");
+        let dir = PathBuf::from(env::var("LOCALAPPDATA").unwrap_or_else(|_| ".".into())).join("Church Service");
         fs::create_dir_all(&dir)?;
-        let target = dir.join("selah.exe");
+        let target = dir.join("church-service.exe");
         if exe != target { fs::copy(&exe, &target)?; }
         let t = target.to_string_lossy().replace('\'', "''");
         let script = format!(
             "$w=New-Object -ComObject WScript.Shell;\
              foreach($p in @([Environment]::GetFolderPath('Programs'),[Environment]::GetFolderPath('Desktop'))){{\
-             Remove-Item -ErrorAction SilentlyContinue (Join-Path $p 'Selah.lnk');$s=$w.CreateShortcut((Join-Path $p 'Church Service.lnk'));$s.TargetPath='{0}';$s.WorkingDirectory='{1}';$s.IconLocation='{0}';$s.Description='Church Service church presenter';$s.Save()}}",
+             $s=$w.CreateShortcut((Join-Path $p 'Church Service.lnk'));$s.TargetPath='{0}';$s.WorkingDirectory='{1}';$s.IconLocation='{0}';$s.Description='Church Service church presenter';$s.Save()}}",
             t, dir.to_string_lossy().replace('\'', "''"));
         let ok = Command::new("powershell").args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &script]).status().map(|s| s.success()).unwrap_or(false);
         println!("Installed to {}", target.display());
-        println!("{}", if ok { "Shortcuts added to the Start menu and the desktop." } else { "Could not create shortcuts; run selah.exe from that folder." });
+        println!("{}", if ok { "Shortcuts added to the Start menu and the desktop." } else { "Could not create shortcuts; run church-service.exe from that folder." });
     } else {
         let home = PathBuf::from(env::var("HOME").unwrap_or_else(|_| ".".into()));
         let bin = home.join(".local").join("bin");
         fs::create_dir_all(&bin)?;
-        let target = bin.join("selah");
+        let target = bin.join("church-service");
         if exe != target { fs::copy(&exe, &target)?; }
         #[cfg(unix)]
         { use std::os::unix::fs::PermissionsExt; fs::set_permissions(&target, fs::Permissions::from_mode(0o755))?; }
         if cfg!(target_os = "linux") {
             let apps = home.join(".local").join("share").join("applications");
             fs::create_dir_all(&apps)?;
-            fs::write(apps.join("selah.desktop"), format!("[Desktop Entry]\nType=Application\nName=Church Service\nComment=Church presenter\nExec={}\nTerminal=true\nCategories=Office;Presentation;\n", target.display()))?;
+            fs::write(apps.join("church-service.desktop"), format!("[Desktop Entry]\nType=Application\nName=Church Service\nComment=Church presenter\nExec={}\nTerminal=true\nCategories=Office;Presentation;\n", target.display()))?;
         }
         println!("Installed to {}", target.display());
     }
@@ -650,7 +658,7 @@ fn install() -> io::Result<()> {
 fn load_config() -> Config {
     let mut kv: HashMap<String, String> = HashMap::new();
     let path = config_path();
-    if let Ok(s) = fs::read_to_string(&path) {
+    if let Ok(s) = fs::read_to_string(&path).or_else(|_| fs::read_to_string(old_config_path())) {
         for line in s.lines() { if let Some((k, v)) = line.split_once('=') { kv.insert(k.trim().into(), v.trim().into()); } }
     }
     let mut cfg = Config {
@@ -673,9 +681,9 @@ fn load_config() -> Config {
             "--pin" => { if let Some(v) = next { cfg.pin = v; i += 1; } }
             "--no-browser" => cfg.open_browser = false,
             "--install" => { match install() { Ok(_) => {}, Err(e) => eprintln!("Install failed: {}", e) } std::process::exit(0); }
-            "--version" | "-V" => { println!("selah-companion {}", VERSION); std::process::exit(0); }
+            "--version" | "-V" => { println!("church-service-companion {}", VERSION); std::process::exit(0); }
             "--help" | "-h" => {
-                println!("Church Service companion {}\n\nUsage: selah [options]\n  --port N        port to use (default 7777)\n  --media DIR     folder with videos/pictures to share (default ~/Videos/Selah)\n  --pin NNNN      PIN phones must enter to control the screen\n  --no-browser    do not open the browser\n  --install       copy Church Service into your user folder and add shortcuts\n  --app-dir DIR   serve app files from DIR instead of the built-in copy\n\nSettings are kept in {}", VERSION, config_path().display());
+                println!("Church Service companion {}\n\nUsage: church-service [options]\n  --port N        port to use (default 7777)\n  --media DIR     folder with videos/pictures to share (default ~/Videos/Church Service)\n  --pin NNNN      PIN phones must enter to control the screen\n  --no-browser    do not open the browser\n  --install       copy Church Service into your user folder and add shortcuts\n  --app-dir DIR   serve app files from DIR instead of the built-in copy\n\nSettings are kept in {}", VERSION, config_path().display());
                 std::process::exit(0);
             }
             _ => {}

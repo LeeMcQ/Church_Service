@@ -1076,9 +1076,8 @@ button.se-sw[aria-pressed="true"] { outline: 2px solid var(--focus, #2f6fe0); ou
 .ver-box { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; padding: 10px 12px; margin-bottom: 10px; border-radius: var(--r); background: var(--sunk); border: 1px solid var(--line); }
 .mono { font-family: ui-monospace, Consolas, monospace; font-size: 0.75rem; }
 
-/* Review fixes: easier targets, wrapped titles, visible focus */
+/* Touch targets, wrapped list titles, visible focus */
 input[type=range] { min-height: 24px; }
-.video-ctl input[type=number], .vd-speed, .vd-ab input { min-height: 44px; }
 .list > button > .grow > .trunc:first-child { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .field:focus-visible, .toolbar .field:focus-visible, .pane-h .field:focus-visible { outline: 2px solid var(--next); outline-offset: 1px; box-shadow: none; }
 

@@ -3,6 +3,7 @@
 // announcement and sermon slides. For pixel-exact output, the Church Service companion converts
 // .pptx to PDF with LibreOffice, or save as PDF from PowerPoint.
 import { unzipSync, strFromU8 } from '../../vendor/fflate-unzip.min.js';
+import { esc } from '../core/util.js';
 
 const A = 'http://schemas.openxmlformats.org/drawingml/2006/main';
 const P = 'http://schemas.openxmlformats.org/presentationml/2006/main';
@@ -19,7 +20,6 @@ const PRESET_COLOURS = new Set(['black', 'white', 'red', 'green', 'blue', 'yello
 const safeColour = (c) => (typeof c === 'string' && /^(#[0-9A-Fa-f]{3,8}|rgba?\([0-9.,\s]+\)|[A-Za-z]{3,20})$/.test(c) ? c : null);
 /** Font family names: letters, digits, spaces and a few safe punctuation marks only. */
 const safeFont = (f) => String(f || '').replace(/[^\p{L}\p{N} _.-]/gu, '').slice(0, 64) || 'sans-serif';
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', bmp: 'image/bmp', svg: 'image/svg+xml', webp: 'image/webp', tif: 'image/tiff', tiff: 'image/tiff', emf: 'image/emf', wmf: 'image/wmf' };
 
 export async function parsePptx(blob) {

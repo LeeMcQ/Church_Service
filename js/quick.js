@@ -3,7 +3,7 @@ import { h, clear, debounce } from './core/util.js';
 import { parseRef, refText, EN } from './core/books.js';
 import { live } from './core/live.js';
 
-export function createQuick({ input, pop, wrap, getTab, showTab }) {
+export function createQuick({ input, pop, wrap, getTab }) {
   let items = [], sel = 0, lastQ = null;
 
   async function suggest() {

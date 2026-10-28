@@ -10,6 +10,14 @@
 import { isBlob, esc } from './util.js';
 import { bannerEl, clockEl } from './bannerframe.js';
 
+/** Slide i of a cue (clamped to the deck), or its only picture; null when there is none. */
+export function frameOf(cue, i) {
+  const d = cue && cue.deck;
+  if (!d) return null;
+  if (d.frames && d.frames.length) return d.frames[Math.max(0, Math.min(i || 0, d.frames.length - 1))];
+  return d.frame || null;
+}
+
 /** The app mark (open book), drawn for the default logo slide. */
 const DEFAULT_MARK = '<svg class="logo-mark" viewBox="0 0 64 64" aria-hidden="true"><path d="M7 18.5Q19 14 30 20.5V50Q19 44.5 7 48Z" fill="#c9a44c"/><path d="M57 18.5Q45 14 34 20.5V50Q45 44.5 57 48Z" fill="#ecd48e"/></svg>';
 

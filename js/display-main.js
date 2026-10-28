@@ -5,7 +5,7 @@
 import { createDisplay } from './display/display.js';
 import { createDecoder, createEncoder } from './core/wire.js';
 import { sanitizeSlideHtml } from './core/render.js';
-import { APP_SCOPE } from './core/util.js';
+import { APP_SCOPE, keepScreenOn } from './core/util.js';
 
 // Slides that arrive over a network link (the companion on the church network, or Cast) are cleaned before
 // they are drawn: only plain formatting survives, never scripts, frames, event handlers or odd links. The
@@ -130,8 +130,7 @@ if (params.get('via') === 'ws') {
 // next key or click here, or on the control screen, puts it back.
 function isFull() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
 let keepFull = true;
-let lastFull = null;
-function reportFull() { const on = isFull(); lastFull = on; post({ t: 'fs', on }); }
+function reportFull() { post({ t: 'fs', on: isFull() }); }
 async function goFull() {
   const el = document.documentElement;
   try {
@@ -183,13 +182,7 @@ document.addEventListener('keydown', (e) => {
   post({ t: 'key', key: e.key, code: e.code, shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey, alt: e.altKey });
 });
 
-let wake = null;
-async function keepAwake() {
-  if (wake && !wake.released) return; // one lock is enough
-  try { if ('wakeLock' in navigator && document.visibilityState === 'visible') wake = await navigator.wakeLock.request('screen'); } catch (e) { /* */ }
-}
-document.addEventListener('visibilitychange', keepAwake);
-keepAwake();
+keepScreenOn()();
 
 if (!params.get('via') && !isFull()) {
   disp.hint(true);

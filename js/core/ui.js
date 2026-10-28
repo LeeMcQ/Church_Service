@@ -84,7 +84,6 @@ export function btn(ic, title, onclick, opt = {}) {
   return b;
 }
 
-export function setPressed(b, on) { b.setAttribute('aria-pressed', String(!!on)); return b; }
 
 /** Segmented control. seg([[value,label],...], current, onchange) */
 export function seg(options, current, onchange) {

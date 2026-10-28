@@ -22,8 +22,9 @@ publicly. Each church adds its own licensed copy:
 
 ## Hymns
 
-`data/hymns/sda-sample.json` holds sample hymns whose words are public domain, numbered as in the
-1985 SDA Hymnal. Replace or add hymnbooks with **Hymns → ⋯ → Import a hymnbook**:
+Built in (listed in `data/hymns/index.json`): the SDA Hymnal (698), the 1941 Church Hymnal (703), Advent
+Lofliedere (Afrikaans, 481), Praise Choruses and Malmesbury Praise. Add or replace hymnbooks with
+**Hymns → ⋯ → Import a hymnbook**:
 
 - JSON (Church Service format, formerly "Selah"):
   ```json

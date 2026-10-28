@@ -1,4 +1,4 @@
--- SDA Sabbath cloud: accounts, install & usage statistics, and feedback.
+-- Church Service cloud: accounts, install & usage statistics, and feedback.
 -- Run once in Supabase → SQL Editor (it is safe to run again after an update).
 -- Nothing here stores slides, plans, songs or anything shown on screen: only counts and what people type
 -- into the feedback form.

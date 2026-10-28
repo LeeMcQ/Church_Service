@@ -1,7 +1,7 @@
 // Banners & Music → Music: choose background music and play it with the banners.
 import { h, clear, fmtTime, fmtBytes } from '../core/util.js';
 import { icon } from '../core/icons.js';
-import { btn, toast, promptBox, confirmBox, menu, dropzone, modal, closeModal, undoToast } from '../core/ui.js';
+import { btn, toast, promptBox, menu, dropzone, modal, closeModal, undoToast } from '../core/ui.js';
 import { db } from '../core/db.js';
 import { bgMusic, KIND_LABEL, ACCEPT, linkInfo, playable } from '../core/bgmusic.js';
 import { bgAudio } from '../core/audio.js';

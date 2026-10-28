@@ -22,9 +22,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: windows-latest, target: x86_64-pc-windows-msvc,    name: selah-windows-x64.exe }
-          - { os: ubuntu-latest,  target: x86_64-unknown-linux-gnu,  name: selah-linux-x64 }
-          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu, name: selah-linux-arm64 }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc,    name: church-service-windows-x64.exe }
+          - { os: ubuntu-latest,  target: x86_64-unknown-linux-gnu,  name: church-service-linux-x64 }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu, name: church-service-linux-arm64 }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -44,7 +44,7 @@ jobs:
       - name: Rename
         shell: bash
         run: |
-          src=companion/target/${{ matrix.target }}/release/selah
+          src=companion/target/${{ matrix.target }}/release/church-service
           [ -f "$src.exe" ] && src="$src.exe"
           cp "$src" "${{ matrix.name }}"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -89,7 +89,7 @@ jobs:
           import json, os, hashlib, datetime
           files = []
           for n in sorted(os.listdir('.')):
-              if n.startswith('selah-'):
+              if n.startswith('church-service-'):
                   h = hashlib.sha256(open(n, 'rb').read()).hexdigest()
                   files.append({'name': n, 'size': os.path.getsize(n), 'sha256': h})
           json.dump({'built': datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC'), 'commit': os.environ.get('GITHUB_SHA', '')[:7], 'files': files}, open('index.json', 'w'))

@@ -1,9 +1,9 @@
 // admin.html: statistics and feedback for the Church Service maintainer (people listed in public.admins).
 import { cloud } from './core/cloud.js';
+import { esc } from './core/util.js';
 
 const $ = (s) => document.querySelector(s);
 const app = $('#app');
-const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const hrs = (m) => (m / 60 >= 100 ? Math.round(m / 60) : (m / 60).toFixed(1)) + ' h';
 const ago = (t) => { const d = (Date.now() - new Date(t)) / 86400000; return d < 1 ? 'today' : d < 2 ? 'yesterday' : Math.floor(d) + ' days ago'; };
 const LABEL = { bible: 'Bible', hymns: 'Hymns', slides: 'Slides', video: 'Video', ai: 'Banners', web: 'Web & PC', plan: 'Plan', stream: 'Stream', stage: 'Stage' };

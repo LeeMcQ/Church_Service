@@ -5,15 +5,14 @@
 //   3. Lower thirds — names, announcements, a scrolling ticker; Bible verses and hymn words automatically.
 //   4. Look — style, position, size, church logo, text over the camera for the full-slide output.
 // Nothing on this tab changes the projector.
-import { h, clear } from '../core/util.js';
+import { h, clear, pad2 } from '../core/util.js';
 import { icon } from '../core/icons.js';
-import { btn, seg, toggle, select, modal, closeModal, confirmBox, promptBox } from '../core/ui.js';
+import { seg, toggle, select, modal, closeModal, confirmBox, promptBox } from '../core/ui.js';
 import { hub } from '../core/stagehub.js';
-import { obs, LOWER_NAME, FULL_NAME } from '../core/obsctl.js';
+import { obs, obsName } from '../core/obsctl.js';
 import { fmtCode } from '../core/stagenet.js';
 import { remote } from '../core/remotectl.js';
 
-const pad2 = (n) => String(n).padStart(2, '0');
 const dur = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return Math.floor(s / 3600) + ':' + pad2(Math.floor(s / 60) % 60) + ':' + pad2(s % 60); };
 
 export default function create(ctx) {
@@ -36,7 +35,7 @@ export default function create(ctx) {
   const disBtn = h('button.btn.sm', { type: 'button', onclick: () => { dropErr(); obs.disconnect(); toast('Disconnected from OBS.', '', 2000); } }, icon('x'), h('span', 'Disconnect'));
   const camRow = h('div.st-step', h('div', h('b', '2. '), 'Which scene has your camera? The lower third goes on top of it.'), h('div.row.wrap', camSel, setupBtn));
   const autoCard = card('Connect OBS (automatic)',
-    h('p.note', 'One click puts Church Service into OBS: a “', h('b', LOWER_NAME), '” overlay on your camera scene, and a “', h('b', S().presScene), '” scene with the slides full screen. Needs OBS 28 or newer: in OBS open ', h('b', 'Tools → WebSocket Server Settings'), ', tick ', h('b', 'Enable WebSocket server'), ', and copy the password from ', h('b', 'Show Connect Info'), '.'),
+    h('p.note', 'One click puts Church Service into OBS: a “', h('b', obsName('Lower third')), '” overlay on your camera scene, and a “', h('b', S().presScene), '” scene with the slides full screen. Needs OBS 28 or newer: in OBS open ', h('b', 'Tools → WebSocket Server Settings'), ', tick ', h('b', 'Enable WebSocket server'), ', and copy the password from ', h('b', 'Show Connect Info'), '.'),
     h('div.st-step', h('div', h('b', '1. '), 'Connect'), h('div.row.wrap', urlIn, passIn, connBtn, disBtn)),
     camRow,
     obsState,

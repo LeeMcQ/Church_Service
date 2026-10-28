@@ -1,15 +1,15 @@
 [package]
-name = "selah-companion"
+name = "church-service-companion"
 version = "1.1.0"
 edition = "2021"
-description = "Selah companion: serves the Selah church presenter on the local network, relays phone-remote commands, streams media from the PC and converts PowerPoint files."
+description = "Church Service companion: serves the Church Service church presenter on the local network, relays phone-remote commands, streams media from the PC and converts PowerPoint files."
 license = "MIT"
 
 # No third-party crates: a tiny, auditable binary that builds anywhere Rust does.
 [dependencies]
 
 [[bin]]
-name = "selah"
+name = "church-service"
 path = "src/main.rs"
 
 [profile.release]

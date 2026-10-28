@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Build the offline hymn music library for Selah.
+Build the offline hymn music library for Church Service.
 
   python tools/build_hymn_music.py "<folder with 001.mid … 695.mid>" [book-id]
 

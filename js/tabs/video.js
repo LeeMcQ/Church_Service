@@ -2,7 +2,7 @@
 // hardware-accelerated) decoders, which is far lighter on old PCs than running VLC.
 import { h, clear, uid, fmtTime, fmtBytes, readText, download } from '../core/util.js';
 import { icon } from '../core/icons.js';
-import { btn, seg, toggle, toast, promptBox, confirmBox, dropzone, modal, undoToast } from '../core/ui.js';
+import { btn, seg, toggle, toast, promptBox, dropzone, modal, undoToast } from '../core/ui.js';
 import { db } from '../core/db.js';
 import { srtToVtt } from '../lib/srt.js';
 

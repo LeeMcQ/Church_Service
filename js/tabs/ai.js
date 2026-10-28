@@ -1593,10 +1593,10 @@ export default function create(ctx) {
       options.push({ label: clampStr(o.label, 40) || ASK_LABELS[i] || 'Answer ' + (i + 1), title, text, foot, bad });
     }
     const mood = ai.flaggedWords(j.picture).length ? '' : clampStr(j.picture, 160);
-    renderAsk(question, options, mood, tr);
+    renderAsk(question, options, mood);
   }
 
-  function renderAsk(question, options, mood, tr) {
+  function renderAsk(question, options, mood) {
     dropAskStage();
     clear(tpOut);
     let sel = 0;
@@ -1617,7 +1617,6 @@ export default function create(ctx) {
       if (my !== seq || !fr || !askStage) return;
       askStage.show(fr);
     }
-    const refreshSoon = debounce(refresh, 150);
     function drawCards() {
       clear(cards);
       options.forEach((o, i) => {

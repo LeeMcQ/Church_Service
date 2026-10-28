@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Convert Bible source files into Selah's compact offline format.
+Convert Bible source files into Church Service's compact offline format.
 
 Output (per translation):
     <out>/<id>/info.json   -> metadata + book names + verse counts per chapter

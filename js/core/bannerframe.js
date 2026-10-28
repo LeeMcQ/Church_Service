@@ -6,7 +6,7 @@
 //         kicker, title, text, foot, img?:Blob, dim?:0..0.85, logo?:Blob, qr?:'data:image/gif;base64,…',
 //         qrLabel?, mark?:bool, countdown?:{at:epochMs, done:'Welcome'}}
 // Any frame may also carry clock:{at, label} for a small "Service starts in 4:32" corner.
-import { esc } from './util.js';
+import { esc, pad2 } from './util.js';
 import { elsLayer, finishEls, okColor } from './slideels.js';
 
 export const PALETTES = {
@@ -34,7 +34,6 @@ function decoCss(deco, dark) {
 }
 
 const lines = (s) => esc(s || '').replace(/\n/g, '<br>');
-const pad2 = (n) => (n < 10 ? '0' : '') + n;
 export function fmtLeft(ms) {
   const s = Math.max(0, Math.ceil(ms / 1000));
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60;

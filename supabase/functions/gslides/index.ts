@@ -1,4 +1,4 @@
-// Google Slides → SDA Sabbath. Browsers may not download a Google Slides export directly (Google does not
+// Google Slides → Church Service. Browsers may not download a Google Slides export directly (Google does not
 // allow it from other websites), so the app asks this small function, which downloads the export of a deck
 // shared as "Anyone with the link" and hands it back. Nothing is stored.
 //   GET /functions/v1/gslides?id=<presentation id>&format=pdf|pptx

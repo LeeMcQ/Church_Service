@@ -60,7 +60,7 @@ function signIn() {
     // oauth.html answers by postMessage (desktop pop-up) or, when the phone opened it as a separate tab,
     // through localStorage, which this page hears as a "storage" event.
     const onMsg = (e) => { if (e.origin === location.origin && e.data && e.data.t === 'google-token') finish(e.data); };
-    const onStore = (e) => { if (e.key === 'selah.gdrive.reply' && e.newValue) { try { finish(JSON.parse(e.newValue)); } catch (er) { /* */ } } };
+    const onStore = (e) => { if (e.key === lsKey('gdrive.reply') && e.newValue) { try { finish(JSON.parse(e.newValue)); } catch (er) { /* */ } } };
     const poll = setInterval(() => {
       try { const v = localStorage.getItem(lsKey('gdrive.reply')); if (v) finish(JSON.parse(v)); } catch (e) { /* */ }
     }, 700);

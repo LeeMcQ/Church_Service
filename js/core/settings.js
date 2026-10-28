@@ -7,7 +7,7 @@ const KEY = lsKey('settings.v1');
 const AIKEY = lsKey('aikey.session');
 
 export const DEFAULTS = {
-  app: { theme: 'dark', railSide: 'left', monitors: true, lowPower: null, lastTab: 'bible', clickerKeys: true, webPart: 'web', toolsPart: 'stage', stats: true, setupDone: false },
+  app: { theme: 'dark', railSide: 'left', monitors: true, lowPower: null, lastTab: 'bible', clickerKeys: true, webPart: 'web', toolsPart: 'stage', stats: false, setupDone: false },
   display: {
     font: 'sans', fg: '#ffffff', bg: '#000000', accent: '#f2cf7a', shadow: true, align: 'center',
     pad: 96, minFont: 58, maxFont: 150, fade: 250, transition: 'fade', aspect: 'auto',
@@ -45,7 +45,7 @@ export const DEFAULTS = {
   stream: {
     autoBible: true, autoHymns: true, hymnMode: 'lines', autoOther: false, theme: 'classic', pos: 'left', size: 1, bug: false,
     fullBg: 'stage', accent: '', lowerSec: 8, names: [],
-    obsUrl: 'ws://127.0.0.1:4455', obsPass: '', obsAuto: false, autoScene: false, camScene: '', presScene: 'SDA Sabbath · Presentation',
+    obsUrl: 'ws://127.0.0.1:4455', obsPass: '', obsAuto: false, autoScene: false, camScene: '', presScene: 'Church Service · Presentation', obsPrefix: 'Church Service',
     mediaScene: 'camera', studioPreview: true, hdmiBg: 'green', hdmiScreen: '',
   },
   // Presentation clicker: buttons taught in Clicker setup ({next:['key:F14'], prev:[…], black:[…], present:[…], clear:[…]}).
@@ -91,10 +91,11 @@ function fixTypes(base, v) {
 }
 
 function load() {
-  let v;
+  let v, raw = {};
   try {
-    const raw = JSON.parse(localStorage.getItem(KEY) || '{}');
-    v = fixTypes(DEFAULTS, merge(DEFAULTS, raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}));
+    raw = JSON.parse(localStorage.getItem(KEY) || '{}');
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) raw = {};
+    v = fixTypes(DEFAULTS, merge(DEFAULTS, raw));
   } catch (e) { v = merge(DEFAULTS, {}); }
   // A key kept for this session only lives in sessionStorage, never in the saved settings.
   if (v.ai.keySession) { try { v.ai.apiKey = sessionStorage.getItem(AIKEY) || ''; } catch (e) { v.ai.apiKey = ''; } }
@@ -103,6 +104,18 @@ function load() {
   if (!v.app.rev || v.app.rev < 2) {
     if (v.display.pad === 80) v.display.pad = 96;
     v.app.rev = 2;
+  }
+  // v1.6: OBS scenes and sources are named "Church Service · …". OBS already set up from this computer keeps the
+  // first names ("SDA Sabbath · …"), so it does not need setting up again.
+  // Usage statistics are now only sent when a church switches them on (none were ever sent before: no cloud).
+  if (v.app.rev < 3) {
+    v.app.stats = false;
+    const st = raw.stream || {};
+    if (st.camScene && !st.obsPrefix) {
+      v.stream.obsPrefix = 'SDA Sabbath';
+      if (!st.presScene) v.stream.presScene = 'SDA Sabbath · Presentation';
+    }
+    v.app.rev = 3;
   }
   return v;
 }

@@ -12,7 +12,7 @@ python tools/build.py --bibles
 
 They are converted into `data/bibles-private/` (also git-ignored) and become part of **your**
 installation: they download with the rest of the app and work offline, on every device that
-installs Selah from your own PC or companion.
+installs Church Service from your own PC or companion.
 
 Optional: add `<name>.meta.json` next to a file to set its labels, e.g. `xho75.meta.json`:
 

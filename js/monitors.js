@@ -1,7 +1,7 @@
 // Next (green) and Live (red) monitors. They use the same renderer as the projector,
 // so the operator sees exactly what the congregation will see.
 import { h, clear, debounce } from './core/util.js';
-import { createStage } from './core/render.js';
+import { createStage, frameOf } from './core/render.js';
 import { live, frameCount, slideName } from './core/live.js';
 import { link } from './core/link.js';
 import { settings } from './core/settings.js';
@@ -9,12 +9,6 @@ import { icon } from './core/icons.js';
 import { hub as stageHub } from './core/stagehub.js';
 import { missing, openNext, roleName } from './core/screens.js';
 
-function frameOf(cue, i) {
-  if (!cue) return null;
-  const d = cue.deck;
-  if (d.frames) return d.frames[Math.max(0, Math.min(i || 0, d.frames.length - 1))];
-  return d.frame || null;
-}
 
 export function createMonitors(host) {
   const nextHost = h('div.stage-host');

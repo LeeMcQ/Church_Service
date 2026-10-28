@@ -43,7 +43,7 @@ bank.removeUnusedElements();
 bank.flush();
 bank.soundBankInfo.name = 'GeneralUser GS 2.0.3 — hymnal subset';
 bank.soundBankInfo.comment = (bank.soundBankInfo.comment || '') +
-  '\n\nSubset for the Selah church presenter: only the presets used by the SDA Hymnal MIDI files, plus piano, organ, strings and choir. Samples unchanged (lossless).';
+  '\n\nSubset for the Church Service church presenter: only the presets used by the SDA Hymnal MIDI files, plus piano, organ, strings and choir. Samples unchanged (lossless).';
 const out = bank.writeSF2({ writeDefaultModulators: true, writeExtendedLimits: true });
 await fs.mkdir(path.dirname(outPath), { recursive: true });
 await fs.writeFile(outPath, new Uint8Array(out));

@@ -7,10 +7,10 @@
 //   ?via=cast    a Chromecast / Google TV started from the app (Presentation API)
 //   ?via=lan     the Church Service companion on the church network (works without internet)
 //   #c=CODE      phones, tablets and laptops anywhere: the room code (or QR code) from the media desk
-import { h, clear, pad2, uid, APP_SCOPE } from './core/util.js';
+import { h, clear, pad2, uid, APP_SCOPE, keepScreenOn } from './core/util.js';
 import { lsKey } from './core/storens.js';
 import { icon } from './core/icons.js';
-import { createStage, fitBody, sanitizeSlideHtml } from './core/render.js';
+import { createStage, fitBody, sanitizeSlideHtml, frameOf } from './core/render.js';
 import { createEncoder, createDecoder } from './core/wire.js';
 import { normCode, fmtCode, joinStageRoom, relaysFrom, createFollower, forgetHost, canVerify } from './core/stagenet.js';
 
@@ -136,12 +136,6 @@ const nowStage = createStage(nowHost, { placeholderOnly: true });
 const nextStage = createStage(nextHost, { placeholderOnly: true });
 
 // ------------------------------------------------------------ helpers for slides
-const frameOf = (cue, i) => {
-  if (!cue || !cue.deck) return null;
-  const d = cue.deck;
-  if (d.frames && d.frames.length) return d.frames[Math.max(0, Math.min(i || 0, d.frames.length - 1))];
-  return d.frame || null;
-};
 const countOf = (cue) => (cue && cue.deck && cue.deck.frames ? cue.deck.frames.length : cue ? 1 : 0);
 function slideName(cue, i) {
   if (!cue || countOf(cue) < 2 || !cue.labels) return '';
@@ -621,12 +615,7 @@ async function goFull() {
 }
 function toggleFull() { if (isFull()) (document.exitFullscreen || document.webkitExitFullscreen).call(document); else goFull(); }
 if (!document.documentElement.requestFullscreen && !document.documentElement.webkitRequestFullscreen) fsBtn.hidden = true;
-let wake = null;
-async function keepAwake() {
-  if (wake && !wake.released) return;
-  try { if ('wakeLock' in navigator && document.visibilityState === 'visible') wake = await navigator.wakeLock.request('screen'); } catch (e) { /* */ }
-}
-document.addEventListener('visibilitychange', keepAwake);
+const keepAwake = keepScreenOn();
 document.addEventListener('keydown', (e) => {
   if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) { if (e.key === 'Escape') closeSheet(); return; }
   if (e.ctrlKey || e.metaKey || e.altKey) return;

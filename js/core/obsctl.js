@@ -7,10 +7,14 @@ import { emitter, debounce } from './util.js';
 import { settings } from './settings.js';
 import { live } from './live.js';
 import { hub } from './stagehub.js';
+import { frameOf } from './render.js';
 
-// These names live inside OBS: they keep the app's first name, so scenes set up earlier keep working.
-export const LOWER_NAME = 'SDA Sabbath · Lower third';
-export const FULL_NAME = 'SDA Sabbath · Slides';
+// The names this app gives its scene and sources in OBS: "Church Service · Lower third", "… · Slides",
+// "… · Presentation". A computer that set OBS up before the rename keeps the first names (settings
+// stream.obsPrefix = 'SDA Sabbath'), so the scenes it made keep working without being set up again.
+export const obsName = (what) => (settings.v.stream.obsPrefix || 'Church Service') + ' · ' + what;
+const lowerName = () => obsName('Lower third');
+const fullName = () => obsName('Slides');
 const CAMERA_KINDS = /^(dshow_input|av_capture_input|macos_avcapture|v4l2_input|decklink-input|ndi_source|pipewire-camera-source)/;
 
 export const obs = emitter({
@@ -61,7 +65,7 @@ obs.call = (requestType, requestData) => new Promise((resolve, reject) => {
 });
 
 /** Connect (url like ws://127.0.0.1:4455). opts.quiet: an automatic reconnect that should not report errors. */
-obs.connect = (opts = {}) => new Promise(async (resolve) => { // eslint-disable-line no-async-promise-executor
+obs.connect = (opts = {}) => new Promise(async (resolve) => {
   obs.disconnect(true);
   const url = String(opts.url || settings.v.stream.obsUrl || 'ws://127.0.0.1:4455').trim();
   const pass = opts.pass != null ? opts.pass : settings.v.stream.obsPass || '';
@@ -219,7 +223,7 @@ obs.detectSetup = async () => {
   if (s.camScene && obs.scenes.includes(s.camScene)) return true;
   for (const sc of obs.scenes) {
     if (sc === s.presScene) continue;
-    if (await itemId(sc, LOWER_NAME) != null) { settings.set('stream.camScene', sc); obs.emit('change', obs); return true; }
+    if (await itemId(sc, lowerName()) != null) { settings.set('stream.camScene', sc); obs.emit('change', obs); return true; }
   }
   return false;
 };
@@ -287,14 +291,14 @@ async function ensureInput(sceneName, inputName, url, inputs) {
 }
 /**
  * Create (or repair) everything in OBS:
- *   "SDA Sabbath · Lower third"  browser source on top of the camera scene (and of the presentation scene)
- *   "SDA Sabbath · Presentation"  scene with "SDA Sabbath · Slides" (the slides, full screen) and — for
- *                                  "text over the camera" — the camera scene underneath.
+ *   "… · Lower third"   browser source on top of the camera scene (and of the presentation scene)
+ *   "… · Presentation"  scene with "… · Slides" (the slides, full screen) and, for "text over the camera",
+ *                       the camera scene underneath.
  */
 obs.setup = async ({ lowerUrl, fullUrl, camScene }) => {
   await obs.refresh();
   const s = settings.v.stream;
-  const pres = (s.presScene || 'SDA Sabbath · Presentation').trim();
+  const pres = (s.presScene || obsName('Presentation')).trim();
   const inputs = ((await obs.call('GetInputList')).inputs || []).map((i) => i.inputName);
   const scenes = obs.scenes.slice();
   if (!scenes.includes(pres)) { await obs.call('CreateScene', { sceneName: pres }); scenes.push(pres); }
@@ -303,9 +307,9 @@ obs.setup = async ({ lowerUrl, fullUrl, camScene }) => {
   if (!cam) cam = scenes.find((x) => x !== pres) || null;
   if (!cam) { cam = 'Camera'; await obs.call('CreateScene', { sceneName: cam }); }
   // The camera scene changed since last time: take the lower third out of the old one.
-  if (s.camScene && s.camScene !== cam && scenes.includes(s.camScene)) await removeItem(s.camScene, LOWER_NAME);
-  await ensureInput(pres, FULL_NAME, fullUrl, inputs);
-  await ensureInput(cam, LOWER_NAME, lowerUrl, inputs);
+  if (s.camScene && s.camScene !== cam && scenes.includes(s.camScene)) await removeItem(s.camScene, lowerName());
+  await ensureInput(pres, fullName(), fullUrl, inputs);
+  await ensureInput(cam, lowerName(), lowerUrl, inputs);
   settings.set('stream.camScene', cam);
   settings.set('stream.presScene', pres);
   await obs.refresh(); // the scene list now includes the presentation scene
@@ -323,7 +327,7 @@ obs.applyFullBg = async () => {
   if (obs.state !== 'on' || !s.camScene || !s.presScene || !obs.scenes.includes(s.presScene) || !obs.scenes.includes(s.camScene)) return;
   const over = s.fullBg === 'transparent';
   await ensureItem(s.presScene, s.camScene, { bottom: true, enabled: over });
-  await ensureItem(s.presScene, LOWER_NAME, { enabled: !over });
+  await ensureItem(s.presScene, lowerName(), { enabled: !over });
 };
 settings.on('change:stream', (p) => {
   if (p === 'stream.fullBg') obs.applyFullBg().catch((e) => console.warn('OBS', e));
@@ -339,9 +343,8 @@ function wantedScene() {
   const s = settings.v.stream;
   const c = live.cue;
   if (!c || live.blank) return s.camScene;
-  const d = c.deck || {};
-  const f = d.frames ? d.frames[Math.max(0, Math.min(live.index || 0, d.frames.length - 1))] : d.frame;
-  const k = (f && f.kind) || d.kind;
+  const f = frameOf(c, live.index);
+  const k = (f && f.kind) || (c.deck && c.deck.kind);
   if (k === 'text') {
     const words = hub.overlaysOn && (c.tab === 'bible' ? s.autoBible : c.tab === 'hymns' ? s.autoHymns : s.autoOther);
     return words ? s.camScene : s.presScene;

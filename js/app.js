@@ -1,5 +1,5 @@
 // Church Service control app boot: tabs, Present button, display menu, shortcuts, service worker.
-import { $, h, isTyping } from './core/util.js';
+import { $, h, isTyping, keepScreenOn } from './core/util.js';
 import { startInstallPrompt } from './core/installer.js';
 import { icon } from './core/icons.js';
 import { settings } from './core/settings.js';
@@ -23,8 +23,8 @@ import { remote, startRemote, sendStatus } from './core/remotectl.js';
 const lazyWelcome = () => import('./tabs/welcome.js');
 const openFeedback = (c, o) => import('./tabs/account.js').then((m) => m.openFeedback(c, o));
 
-export const VERSION = '1.5.0';
-export const BUILD = '9dbfc69';
+export const VERSION = '1.6.0';
+export const BUILD = 'e8ab648';
 
 const TABS = [
   { id: 'bible', label: 'Bible', icon: 'bible', file: 'bible.js', load: () => import('./tabs/bible.js') },
@@ -216,7 +216,7 @@ async function doPresent() {
   if (a && (a.tagName === 'INPUT' || a.tagName === 'SELECT') && a !== document.body) a.blur();
   // Always present on the extended screen, full screen.
   if (!link.ready) {
-    const opened = await link.openWindow({ prompt: true });
+    const opened = await link.openWindow();
     if (!opened) return;
     // Wait briefly for the display window to be ready.
     await new Promise((r) => setTimeout(r, 400));
@@ -268,7 +268,7 @@ async function chooseScreen() {
     const list = h('div.list');
     r.screens.forEach((s, i) => {
       list.appendChild(h('button', { type: 'button', onclick: async () => {
-        settings.set('display.screenLabel', s.label || ''); ui.closeModal(); resolve(await link.openWindow({ prompt: true }));
+        settings.set('display.screenLabel', s.label || ''); ui.closeModal(); resolve(await link.openWindow());
       } }, icon('pc'), h('span.grow', (s.label || 'Screen ' + (i + 1)) + (s === r.current ? '  (this screen)' : '')), h('span.faint', s.width + ' × ' + s.height)));
     });
     ui.modal({ title: 'Present on which screen?', body: list, onclose: () => resolve(false) });
@@ -651,7 +651,7 @@ mq.addEventListener ? mq.addEventListener('change', syncSearch) : mq.addListener
 syncSearch();
 
 // ------------------------------------------------------------ quick go-to
-const quick = createQuick({ input: $('#quickInput'), pop: $('#quickPop'), wrap: $('#quick'), getTab, showTab });
+const quick = createQuick({ input: $('#quickInput'), pop: $('#quickPop'), wrap: $('#quick'), getTab });
 
 // ------------------------------------------------------------ keyboard (also clickers & keys pressed on the display window)
 function showHelp() {
@@ -838,12 +838,8 @@ createMonitors($('#monitors'));
 createControlBar($('#ctrlbar'), getTab);
 
 // ------------------------------------------------------------ keep the control screen awake during a service (phones)
-let wake = null;
-async function keepAwake() {
-  if (wake && !wake.released) return; // one lock is enough
-  try { if ('wakeLock' in navigator && document.visibilityState === 'visible' && (live.cue || link.kind)) wake = await navigator.wakeLock.request('screen'); } catch (e) { /* */ }
-}
-document.addEventListener('visibilitychange', keepAwake);
+// Only while something is shown or a screen is connected: an idle control PC may sleep.
+const keepAwake = keepScreenOn(() => !!(live.cue || link.kind));
 live.on('live', keepAwake);
 
 // ------------------------------------------------------------ storage problems
@@ -855,15 +851,17 @@ window.addEventListener('selah-migrate', (e) => {
   else if (d.error) ui.toast('Not all saved data could be moved yet (' + d.error + '). It is tried again next time; nothing was lost.', 'err', 9000);
 });
 window.addEventListener('selah-storage', () => ui.toast('This browser is not letting Church Service save (private window or storage turned off). Everything works, but changes are lost when it closes.', 'err', 10000));
-// A full disk, or any other failure nobody waited for: tell the operator plainly instead of failing silently.
+// A full disk: tell the operator plainly instead of failing silently. db.js reports every save that failed
+// for lack of space (also the ones nobody waits for); other code that runs out of space ends up here unhandled.
 let fullShown = 0;
+const sayFull = () => {
+  if (Date.now() - fullShown > 15000) { fullShown = Date.now(); ui.toast('This device is out of storage space, so the last change was not saved. Delete unused slides or videos (or free space on the device).', 'err', 10000); }
+};
+window.addEventListener('selah-storage-full', sayFull);
 window.addEventListener('unhandledrejection', (e) => {
   const r = e.reason;
   const name = r && r.name, msg = (r && r.message) || String(r || '');
-  if (name === 'QuotaExceededError' || /quota|disk|space/i.test(msg)) {
-    e.preventDefault();
-    if (Date.now() - fullShown > 15000) { fullShown = Date.now(); ui.toast('This device is out of storage space, so the last change was not saved. Delete unused slides or videos (or free space on the device).', 'err', 10000); }
-  }
+  if (name === 'QuotaExceededError' || /quota|disk|space/i.test(msg)) { e.preventDefault(); sayFull(); }
 });
 
 // Anything else that fails without being caught (usually a lost internet connection) must never stop

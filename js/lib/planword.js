@@ -1,12 +1,12 @@
 // The service plan as a Word document: a title block, an order-of-service table (times, parts, what is
 // shown, who leads) and, if wanted, the Scripture readings and hymn words on the pages after it.
 // planWord(model) takes plain data (see plan.js → exportWord) and returns a .docx Blob.
-import { run, para, cell, row, table, line, sideBorders, buildDocx, contentWidth, DOCX_TYPE } from './docx.js';
+import { pad2 } from '../core/util.js';
+import { run, para, cell, row, table, sideBorders, buildDocx, contentWidth, DOCX_TYPE } from './docx.js';
 
 const NAVY = '1F4068', GOLD = 'B8892B', INK = '222222', MUTED = '6B7280', RULE = 'D5D9E0', BAND = 'F4F6FA';
 const KIND = { bible: '1D4ED8', hymns: '6D28D9', slides: 'B45309', video: 'B91C1C', web: '0E7490', ai: '047857', note: '6B7280' };
 
-const pad2 = (n) => (n < 10 ? '0' : '') + n;
 export const clock = (mins) => pad2(Math.floor(mins / 60) % 24) + ':' + pad2(Math.round(mins % 60));
 export const duration = (mins) => { mins = Math.round(mins); const h = Math.floor(mins / 60), m = mins % 60; return h ? h + ' h' + (m ? ' ' + m + ' min' : '') : m + ' min'; };
 

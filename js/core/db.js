@@ -111,6 +111,14 @@ function wrap(req) {
   return new Promise((resolve, reject) => { req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); });
 }
 
+/** A save that failed because the device is full: said once here (app.js shows it), whether or not the caller
+ *  waits for the result, so a change that was not kept is never lost silently. */
+function reportFull(err) {
+  const msg = (err && (err.name + ' ' + err.message)) || '';
+  if (/QuotaExceeded|quota|disk|space/i.test(msg)) { try { window.dispatchEvent(new CustomEvent('selah-storage-full')); } catch (e) { /* not in a page */ } }
+  return err;
+}
+
 async function tx(store, mode, fn) {
   const d = await open();
   if (!d) return fn.memory ? fn.memory(mem.get(store)) : undefined;
@@ -118,7 +126,11 @@ async function tx(store, mode, fn) {
   const s = t.objectStore(store);
   const r = fn(s);
   const res = r && typeof r.onsuccess !== 'undefined' ? wrap(r) : Promise.resolve(r);
-  await new Promise((resolve, reject) => { t.oncomplete = resolve; t.onerror = () => reject(t.error); t.onabort = () => reject(t.error); });
+  await new Promise((resolve, reject) => {
+    t.oncomplete = resolve;
+    t.onerror = () => reject(reportFull(t.error));
+    t.onabort = () => reject(reportFull(t.error));
+  });
   return res;
 }
 

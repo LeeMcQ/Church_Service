@@ -61,7 +61,7 @@ async function screenFor(role) {
 
 /** Open one output on its screen. Browsers allow one new window per click, so the caller opens one at a time. */
 export async function openRole(role) {
-  if (role === 'projector') return link.openWindow({ prompt: true });
+  if (role === 'projector') return link.openWindow();
   if (role === 'projector2') return link.openMirror(await screenFor('projector2'));
   if (role === 'stage') return hub.openWindow(1);
   if (role === 'stage2') return hub.openWindow(2);

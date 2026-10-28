@@ -91,6 +91,14 @@ export function songText(hy) {
   return parts.join('\n\n');
 }
 
+/** A comment or suggestion as a new public GitHub issue (when the cloud is not set up). No email address:
+ *  everything in an issue can be read by anyone. */
+export function feedbackUrl(kind, text, info) {
+  const title = ({ idea: 'Idea: ', problem: 'Problem: ', praise: 'Thanks: ', other: '' }[kind] || '') + text.replace(/\s+/g, ' ').slice(0, 60);
+  return 'https://github.com/' + REPO + '/issues/new?' + new URLSearchParams({ title, body: text + (info ? '\n\n---\n' + JSON.stringify(info) : '') });
+}
+export const FEEDBACK_PUBLIC_NOTE = 'Sending opens a public page on GitHub (a free account is needed) with your message filled in: press “Create”. Anyone can read it, so leave out names, phone numbers and email addresses.';
+
 /** The address of a new GitHub issue with the song filled in (the "Share a chorus" form). */
 export function shareUrl(hy, { church = '', rights = '' } = {}) {
   const p = new URLSearchParams({ template: 'chorus.yml', title: 'Chorus: ' + hy.t, 'song-title': hy.t, author: hy.a || '', lyrics: songText(hy), church });

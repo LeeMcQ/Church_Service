@@ -18,7 +18,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PAGES = ['index.html', 'display.html', 'stage.html', 'obs.html', 'privacy.html', 'terms.html', 'companion.html', 'feedback.html', 'admin.html']
 TABS = ['bible', 'hymns', 'ai', 'slides', 'video', 'web', 'plan', 'tools', 'settings']
 # Requests that are allowed to fail on a plain web server (the companion's /api is only there when it runs).
-OK_404 = ('/api/', 'favicon')
+# The published website is not what is tested: off github.io the app asks it for shared choruses and the
+# companion downloads, and before the first deploy of a feature those files are not online yet.
+OK_404 = ('/api/', 'favicon', '://leemcq.github.io/')
 
 results = []
 

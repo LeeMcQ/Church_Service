@@ -8,7 +8,7 @@
 // (#c=CODE), on the church network through the companion (?via=lan), or as the preview in the app.
 // Nothing about the connection is ever drawn on the stream once it is connected.
 import { h, clear, uid, APP_SCOPE } from './core/util.js';
-import { createStage, fitBody, sanitizeSlideHtml } from './core/render.js';
+import { createStage, fitBody, sanitizeSlideHtml, frameOf } from './core/render.js';
 import { createEncoder, createDecoder } from './core/wire.js';
 import { normCode, joinStageRoom, relaysFrom, createFollower, canVerify } from './core/stagenet.js';
 
@@ -74,12 +74,6 @@ const pill = h('div.obs-pill', { hidden: true });
 canvas.append(lt, tk, bug, pill);
 
 // ------------------------------------------------------------ helpers
-const frameOf = (cue, i) => {
-  if (!cue || !cue.deck) return null;
-  const d = cue.deck;
-  if (d.frames && d.frames.length) return d.frames[Math.max(0, Math.min(i || 0, d.frames.length - 1))];
-  return d.frame || null;
-};
 function htmlLines(html) {
   const t = document.createElement('template');
   t.innerHTML = String(html || '');

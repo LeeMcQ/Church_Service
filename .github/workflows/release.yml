@@ -1,4 +1,4 @@
-# Builds the one-file Selah companion for Windows, Linux (PC + Raspberry Pi) and macOS and
+# Builds the one-file Church Service companion for Windows, Linux (PC + Raspberry Pi) and macOS and
 # attaches them to a GitHub Release. Push a tag like v1.0.0 to run it.
 name: Release companion
 
@@ -16,12 +16,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: windows-latest, target: x86_64-pc-windows-msvc,    name: selah-windows-x64.exe }
-          - { os: ubuntu-latest,  target: x86_64-unknown-linux-gnu,  name: selah-linux-x64 }
-          - { os: ubuntu-latest,  target: aarch64-unknown-linux-gnu, name: selah-linux-arm64, linker: aarch64-linux-gnu-gcc, pkg: gcc-aarch64-linux-gnu }
-          - { os: ubuntu-latest,  target: armv7-unknown-linux-gnueabihf, name: selah-linux-armv7, linker: arm-linux-gnueabihf-gcc, pkg: gcc-arm-linux-gnueabihf }
-          - { os: macos-latest,   target: aarch64-apple-darwin,      name: selah-macos-arm64 }
-          - { os: macos-latest,   target: x86_64-apple-darwin,       name: selah-macos-x64 }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc,    name: church-service-windows-x64.exe }
+          - { os: ubuntu-latest,  target: x86_64-unknown-linux-gnu,  name: church-service-linux-x64 }
+          - { os: ubuntu-latest,  target: aarch64-unknown-linux-gnu, name: church-service-linux-arm64, linker: aarch64-linux-gnu-gcc, pkg: gcc-aarch64-linux-gnu }
+          - { os: ubuntu-latest,  target: armv7-unknown-linux-gnueabihf, name: church-service-linux-armv7, linker: arm-linux-gnueabihf-gcc, pkg: gcc-arm-linux-gnueabihf }
+          - { os: macos-latest,   target: aarch64-apple-darwin,      name: church-service-macos-arm64 }
+          - { os: macos-latest,   target: x86_64-apple-darwin,       name: church-service-macos-x64 }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -45,7 +45,7 @@ jobs:
       - name: Rename
         shell: bash
         run: |
-          src=companion/target/${{ matrix.target }}/release/selah
+          src=companion/target/${{ matrix.target }}/release/church-service
           [ -f "$src.exe" ] && src="$src.exe"
           cp "$src" "${{ matrix.name }}"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -59,9 +59,9 @@ jobs:
         with: { python-version: '3.12' }
       - run: |
           python tools/build.py
-          zip -qr selah-web-offline.zip index.html display.html stage.html obs.html privacy.html terms.html companion.html feedback.html admin.html manifest.webmanifest sw.js asset-manifest.json css js vendor fonts icons data
+          zip -qr church-service-web-offline.zip index.html display.html stage.html obs.html privacy.html terms.html companion.html feedback.html admin.html manifest.webmanifest sw.js asset-manifest.json css js vendor fonts icons data
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with: { name: selah-web-offline.zip, path: selah-web-offline.zip }
+        with: { name: church-service-web-offline.zip, path: church-service-web-offline.zip }
 
   release:
     needs: [build, web-zip]
@@ -76,7 +76,7 @@ jobs:
         with:
           files: dist/*
           body: |
-            **Windows:** download `selah-windows-x64.exe`, double-click it, and Selah opens in your browser. Run it once with `--install` to add Start-menu and desktop shortcuts.
-            **Raspberry Pi / Linux:** `selah-linux-arm64` (Pi 4/5, 64-bit OS), `selah-linux-armv7` (older Pi), `selah-linux-x64` (PC). Make it executable with `chmod +x` and run it.
-            **Mac:** `selah-macos-arm64` (M1 and newer) or `selah-macos-x64` (Intel).
-            `selah-web-offline.zip` is the web app on its own, for hosting on any web server.
+            **Windows:** download `church-service-windows-x64.exe`, double-click it, and Church Service opens in your browser. Run it once with `--install` to add Start-menu and desktop shortcuts.
+            **Raspberry Pi / Linux:** `church-service-linux-arm64` (Pi 4/5, 64-bit OS), `church-service-linux-armv7` (older Pi), `church-service-linux-x64` (PC). Make it executable with `chmod +x` and run it.
+            **Mac:** `church-service-macos-arm64` (M1 and newer) or `church-service-macos-x64` (Intel).
+            `church-service-web-offline.zip` is the web app on its own, for hosting on any web server.

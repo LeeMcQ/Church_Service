@@ -79,7 +79,7 @@ export function openWelcome({ onClose, only } = {}) {
     if (step === 'stats') {
       card.append(head('Help make Church Service better'),
         h('div.col', { style: { gap: '12px' } },
-          cloud.enabled() ? statsToggle() : h('p.note', 'Usage statistics are not switched on for this copy.'),
+          statsToggle(),
           h('p', 'Ideas or problems? Use ', h('b', 'the speech-bubble button'), ' at the top, or Settings → Account, to send a comment or suggestion at any time.')),
         nav());
       return;

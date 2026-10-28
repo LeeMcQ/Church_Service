@@ -50,13 +50,13 @@ Church Service is built to run a whole service with no internet:
 
 One program (about 25 MB — most of it the hymn-music instrument sounds; no installer, no other software) that contains the whole app:
 
-- **Windows:** download `selah-windows-x64.exe` from the **[companion download page](https://leemcq.github.io/Church_Service/companion.html)** (also linked in the app under Settings and Tools → Stream; it is rebuilt with every website update) and double-click it.
+- **Windows:** download `church-service-windows-x64.exe` from the **[companion download page](https://leemcq.github.io/Church_Service/companion.html)** (also linked in the app under Settings and Tools → Stream; it is rebuilt with every website update) and double-click it.
   Church Service opens at `http://localhost:7777`. To add Start-menu and desktop shortcuts in one go:
 
   ```powershell
-  irm https://leemcq.github.io/Church_Service/download/selah-windows-x64.exe -OutFile $env:TEMP\selah.exe; & $env:TEMP\selah.exe --install
+  irm https://leemcq.github.io/Church_Service/download/church-service-windows-x64.exe -OutFile $env:TEMP\church-service.exe; & $env:TEMP\church-service.exe --install
   ```
-- **Raspberry Pi / Linux / Mac:** `selah-linux-arm64`, `selah-linux-x64`, `selah-macos-arm64` — `chmod +x` and run.
+- **Raspberry Pi / Linux / Mac:** `church-service-linux-arm64`, `church-service-linux-x64`, `church-service-macos-arm64` — `chmod +x` and run.
 
 What it adds:
 
@@ -64,7 +64,7 @@ What it adds:
 |---|---|
 | **Phone remote** | Phones on the church Wi-Fi open `http://<pc>:7777/remote` (or scan the QR code in Settings → Displays) and enter the PIN. |
 | **TV or second PC as the screen** | Open `http://<pc>:7777/display` in the TV's browser. |
-| **Videos from the PC** | Files in `Videos\Selah` appear in the Video tab on every device, and stream with seeking. The list needs the PIN, but the files themselves can be opened by anyone on the same Wi-Fi who knows a file’s name, so keep private files out of that folder. |
+| **Videos from the PC** | Files in `Videos\Church Service` (or `Videos\Selah` if the PC already has that folder) appear in the Video tab on every device, and stream with seeking. The list needs the PIN, but the files themselves can be opened by anyone on the same Wi-Fi who knows a file’s name, so keep private files out of that folder. |
 | **Exact PowerPoint** | If LibreOffice is installed, .pptx files are converted to PDF so they look exactly as designed. Without it Church Service uses its built-in renderer (text, pictures, shapes, backgrounds). |
 
 **Safe on the church PC:** only the companion's own pages (opened from its address) may use it without the PIN. A website
@@ -73,7 +73,8 @@ for this PC are refused (protection against DNS rebinding). Slides that reach a 
 (or Cast) are cleaned before they are drawn.
 
 Options: `--port`, `--media <folder>`, `--pin <NNNN>`, `--no-browser`, `--install`. The PIN and folder
-are remembered in `%APPDATA%\Selah\companion.txt`. Windows asks once to allow network access — allow
+are remembered in `%APPDATA%\Church Service\companion.txt` (taken over once from an older
+`%APPDATA%\Selah\companion.txt`). It installs into its own folders, so the SDA Sabbath companion on the same PC is left alone. Windows asks once to allow network access — allow
 it for private networks.
 
 ### Casting to a TV or wireless display
@@ -109,13 +110,14 @@ after Present the Live monitor offers **Open Projector 2 / Open Stage screen** f
 
 ### Account, statistics and suggestions (optional cloud)
 
-With the Church Service cloud switched on (see `supabase/SETUP.md`), the first start asks to sign in with an email
-code (or Google) and runs a short setup: language, church, screens, usage statistics. **Settings → Account** shows the
+With the Church Service cloud switched on (see `supabase/SETUP.md`), the first start offers a sign-in with an email
+code (or Google) and runs a short setup: language, church, screens, and whether to send usage statistics (off
+unless the church switches them on). **Settings → Account** shows the
 account, the statistics switch, *My messages* (with replies) and *Delete my account*. The speech-bubble button at the
 top sends a comment or suggestion (it waits on the device when offline); the website has the same form at
 `feedback.html`. The maintainer sees installs, active churches, hours used and presenting, feature use, versions,
 layouts and all messages at `admin.html`. Without the cloud the app works as before (the setup still runs once; the
-suggestion button opens a GitHub issue). **Google Slides** links (shared as *Anyone with the link*) then download as
+suggestion button opens a public GitHub issue, so no email address is asked for). **Google Slides** links (shared as *Anyone with the link*) then download as
 offline slides that step with Next, and **⋯ → Update from Google Slides** fetches the latest version.
 
 [← Back to the README](../README.md)

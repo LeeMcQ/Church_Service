@@ -2,7 +2,6 @@
 // re-render counts on a 2 GB phone or an old church PC.
 
 export const $ = (s, r = document) => r.querySelector(s);
-export const $$ = (s, r = document) => Array.prototype.slice.call(r.querySelectorAll(s));
 
 /** h('button.btn.sm', {onclick, title}, 'Text', childNode, [more]) */
 export function h(tag, attrs, ...kids) {
@@ -48,7 +47,19 @@ export const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 export const pad2 = (n) => (n < 10 ? '0' : '') + n;
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-export const raf = () => new Promise((r) => requestAnimationFrame(() => r()));
+
+/** Keep the screen from sleeping while wanted() is true (asked again whenever the page is shown).
+ *  Returns the function that asks, to call when wanted() may have become true. */
+export function keepScreenOn(wanted = () => true) {
+  let lock = null;
+  const ask = async () => {
+    if (lock && !lock.released) return; // one lock is enough
+    try { if ('wakeLock' in navigator && document.visibilityState === 'visible' && wanted()) lock = await navigator.wakeLock.request('screen'); }
+    catch (e) { /* refused (battery saver, page not active): asked again next time the page is shown */ }
+  };
+  document.addEventListener('visibilitychange', ask);
+  return ask;
+}
 
 export function debounce(fn, ms) {
   let t;
@@ -109,15 +120,6 @@ export function lowPowerDevice() {
   const mem = navigator.deviceMemory || 4;
   const cores = navigator.hardwareConcurrency || 4;
   return mem <= 2 || cores <= 2;
-}
-
-export function pickFiles({ accept = '', multiple = true } = {}) {
-  return new Promise((resolve) => {
-    const inp = h('input', { type: 'file', accept, multiple, style: { display: 'none' } });
-    inp.addEventListener('change', () => { resolve(Array.from(inp.files || [])); inp.remove(); });
-    document.body.appendChild(inp);
-    inp.click();
-  });
 }
 
 export function download(blob, name) {

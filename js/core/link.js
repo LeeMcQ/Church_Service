@@ -177,7 +177,7 @@ link.fullscreenDisplay = () => {
   catch (e) { try { w.postMessage({ t: 'fullscreen' }, location.origin); } catch (er) { /* closed */ } return false; }
 };
 
-link.openWindow = async ({ prompt = false } = {}) => {
+link.openWindow = async () => {
   link.close(true);
   const url = new URL('display.html', location.href).href;
   // Reuse an already-open display window (e.g. after this control page was reloaded).

@@ -49,8 +49,3 @@ export function startRemote({ origin, pin, onCommand, status }) {
   wanted = { origin, pin };
   if (!ws) connect();
 }
-export function stopRemote() {
-  wanted = null; clearTimeout(timer);
-  if (ws) { try { ws.close(); } catch (e) { /* */ } }
-  setState('off');
-}

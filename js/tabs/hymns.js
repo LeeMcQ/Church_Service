@@ -821,7 +821,10 @@ export default function create(ctx) {
     const num = hymn.n, bid = book.id;
     if (has) {
       return h('button.btn.sm', { type: 'button', title: 'Stop using your MIDI file for this hymn', onclick: async () => {
-        music.stop(); await db.del('files', 'midi:' + bid + ':' + num).catch(() => {}); toast('MIDI file removed.', 'ok', 2000); renderMusic();
+        music.stop();
+        try { await db.del('files', 'midi:' + bid + ':' + num); toast('MIDI file removed.', 'ok', 2000); }
+        catch (e) { toast('Could not remove the MIDI file: ' + (e.message || e), 'err', 6000); }
+        renderMusic();
       } }, icon('trash'), h('span', 'Remove my MIDI'));
     }
     const inp = h('input', { type: 'file', accept: '.mid,.midi,audio/midi,audio/x-midi', hidden: true, onchange: async () => {

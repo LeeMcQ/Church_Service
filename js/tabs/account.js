@@ -5,6 +5,7 @@ import { icon } from '../core/icons.js';
 import { seg, toggle, toast, modal, closeModal, confirmBox } from '../core/ui.js';
 import { settings } from '../core/settings.js';
 import { cloud } from '../core/cloud.js';
+import { feedbackUrl, FEEDBACK_PUBLIC_NOTE } from '../core/community.js';
 
 const okEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(s || '').trim());
 
@@ -12,7 +13,7 @@ const okEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(s || '').trim
 export function signInBox({ onDone, compact = false } = {}) {
   const box = h('div.col.signin', { style: { gap: '10px', maxWidth: '440px' } });
   let email = (cloud.user && cloud.user.email) || '';
-  const paint = (step, msg) => {
+  const paint = (step) => {
     clear(box);
     if (!cloud.enabled()) { box.append(h('p.note', 'Accounts are not switched on for this copy of Church Service.')); return; }
     if (navigator.onLine === false) { box.append(h('p.note', 'No internet connection now. You can sign in later in Settings → Account; everything else works without it.')); return; }
@@ -55,7 +56,7 @@ export function signInBox({ onDone, compact = false } = {}) {
 /** The "Help improve Church Service" switch with what it means. */
 export function statsToggle() {
   return h('div.col', { style: { gap: '6px' } },
-    toggle('Help improve Church Service: send usage statistics', settings.v.app.stats !== false, (v) => { settings.set('app.stats', v); if (v) cloud.ping(); }),
+    toggle('Help improve Church Service: send usage statistics', settings.v.app.stats === true, (v) => { settings.set('app.stats', v); if (v) cloud.ping(); }),
     h('p.note', 'Counts only: how many minutes the app is used and presenting, how often Bible verses, hymns, slides and videos go on screen, the app version, browser and screen layout, and your church’s name and town. Never what you show. ',
       h('a', { href: 'privacy.html', target: '_blank', rel: 'noopener' }, 'Privacy notice')));
 }
@@ -64,7 +65,8 @@ export function statsToggle() {
 export function openFeedback(ctx, { kind = 'idea', page = '' } = {}) {
   let k = kind;
   const msg = h('textarea.field', { rows: 7, maxlength: 4000, placeholder: 'What would make Church Service better for your church? Or what went wrong, and what were you doing?', style: { width: '100%' } });
-  const email = h('input.field', { type: 'email', value: (cloud.user && cloud.user.email) || '', placeholder: 'Your email (optional, for an answer)', style: { width: '100%' } });
+  // An email address only goes to the cloud (kept private); without it the message becomes a public GitHub issue.
+  const email = cloud.enabled() ? h('input.field', { type: 'email', value: (cloud.user && cloud.user.email) || '', placeholder: 'Your email (optional, for an answer)', style: { width: '100%' } }) : null;
   let withInfo = true;
   const tech = () => ({ tab: page || (ctx && ctx.currentTab) || settings.v.app.lastTab || '', ua: navigator.userAgent.slice(0, 200), screen: screen.width + 'x' + screen.height,
     layout: settings.v.display.mirror ? 'two projectors' : 'one projector', stage: settings.v.stage.useWindow ? (settings.v.stage.second ? 'two stage screens' : 'stage screen') : 'none',
@@ -72,12 +74,7 @@ export function openFeedback(ctx, { kind = 'idea', page = '' } = {}) {
   const send = async () => {
     const text = msg.value.trim();
     if (text.length < 3) { toast('Write a few words first.', 'err'); return false; }
-    if (!cloud.enabled()) {
-      // No cloud set up: a GitHub issue with the text filled in.
-      const u = 'https://github.com/LeeMcQ/Church_Service/issues/new?' + new URLSearchParams({ title: ({ idea: 'Idea: ', problem: 'Problem: ', praise: 'Thanks: ', other: '' }[k] || '') + text.slice(0, 60), body: text + (withInfo ? '\n\n---\n' + JSON.stringify(tech()) : '') });
-      window.open(u, '_blank', 'noopener');
-      return true;
-    }
+    if (!cloud.enabled()) { window.open(feedbackUrl(k, text, withInfo ? tech() : null), '_blank', 'noopener'); return true; }
     try {
       const r = await cloud.feedback({ kind: k, message: text, email: email.value.trim(), page: page || (ctx && ctx.currentTab) || settings.v.app.lastTab || '', info: withInfo ? tech() : null });
       toast(r === 'queued' ? 'Saved. It will be sent when this device is online.' : 'Thank you! Your message was sent.', 'ok', 5000);
@@ -89,6 +86,7 @@ export function openFeedback(ctx, { kind = 'idea', page = '' } = {}) {
     seg([['idea', 'Idea'], ['problem', 'Something is wrong'], ['praise', 'Thanks'], ['other', 'Other']], k, (v) => { k = v; }),
     msg, email,
     toggle('Add technical details (app version, browser, screen layout)', true, (v) => { withInfo = v; }),
+    cloud.enabled() ? null : h('p.note', FEEDBACK_PUBLIC_NOTE),
     cloud.user ? h('button.btn.ghost.sm', { type: 'button', style: { alignSelf: 'flex-start' }, onclick: () => { closeModal(); myFeedback(); } }, icon('msg'), h('span', 'My earlier messages and replies')) : null),
     actions: [{ label: 'Cancel' }, { label: 'Send', primary: true, onclick: send }] });
   setTimeout(() => msg.focus(), 50);

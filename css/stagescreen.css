@@ -230,7 +230,7 @@ textarea.ss-field { resize: vertical; }
 @media (prefers-reduced-motion: reduce) { .ss-dot, .ss-msg.flash, .ss-tm.over.feat, .ss-big.over .ss-big-t { animation: none !important; } }
 
 
-/* ---------- review fixes ---------- */
+/* ---------- layout bands and slide sizes ---------- */
 /* Each band keeps its own row, also when the message band is hidden (otherwise the control bar took the
    stretching row and the slides were squeezed). */
 body.ss > .ss-top { grid-row: 1; } body.ss > .ss-msg { grid-row: 2; } body.ss > .ss-main { grid-row: 3; } body.ss > .ss-ctrl { grid-row: 4; }

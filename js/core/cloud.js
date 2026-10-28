@@ -122,7 +122,7 @@ async function fromRedirect() {
 }
 
 // ------------------------------------------------------------ usage statistics
-cloud.statsOn = () => cloud.enabled() && settings.v.app.stats !== false;
+cloud.statsOn = () => cloud.enabled() && settings.v.app.stats === true;
 const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
 function pending() { try { return JSON.parse(LS(K_PENDING) || '{}') || {}; } catch (e) { return {}; } }
 function addUsage(fn) {

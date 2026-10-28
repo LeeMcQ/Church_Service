@@ -227,7 +227,6 @@ export function songText(p) {
  *  asked again until the app restarts (no error per search result, no wait). Same title: answered from memory. */
 let midiDown = false;
 const midiMemo = new Map();
-export function midiSearchAvailable() { return !midiDown; }
 export async function findMidi(title) {
   const q = String(title || '').trim();
   if (!q || midiDown) return [];
