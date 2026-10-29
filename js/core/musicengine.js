@@ -72,36 +72,77 @@ async function midiBytes(book, entry) {
 // data/music/hq.sf3 (18 MB): a recorded concert grand (Salamander) and a recorded pipe organ (GrandOrgue demo).
 // It is not part of the offline install; it downloads the first time it is switched on and is kept in its own
 // cache, which app updates leave alone, so it downloads once per device.
-const HQ_FILE = 'data/music/hq.sf3';
+// Equaliser bands: bass, low middle, middle, presence, treble (gains in dB, -12 … +12).
+// Shelves sit where hymn accompaniment has its bass and air (a shelf gives half its gain at its corner frequency).
+export const EQ_BANDS = [['lowshelf', 150, 'Bass'], ['peaking', 350, 'Low'], ['peaking', 1000, 'Middle'], ['peaking', 3000, 'Presence'], ['highshelf', 6500, 'Treble']];
+export const EQ_PRESETS = {
+  flat: ['Flat', [0, 0, 0, 0, 0]],
+  warm: ['Warm', [3, 1, 0, -1, -2]],
+  clear: ['Clear words', [-1, -1, 1, 3, 2]],
+  small: ['Small speakers', [-4, -1, 2, 2, 0]],
+  hall: ['Big hall', [-2, -2, 0, 2, 1]],
+  bass: ['Bass boost', [6, 3, 0, 0, 0]],
+  organ: ['Organ', [2, 2, -1, -1, 1]],
+};
+/** Sound presets: instruments, room and quality together. Values are the Hymn options settings they set. */
+export const SOUND_PRESETS = {
+  best: ['Best (church PC)', { musicHQ: 'studio', musicRoom: 'church', musicNatural: true, musicInterp: 'hermite', musicVoices: 350, musicEqPreset: 'flat' }],
+  balanced: ['Balanced', { musicHQ: 'auto', musicRoom: 'church', musicNatural: true, musicInterp: 'hermite', musicVoices: 256, musicEqPreset: 'flat' }],
+  light: ['Light (phone, old PC)', { musicHQ: 'off', musicRoom: 'off', musicNatural: true, musicInterp: 'linear', musicVoices: 96, musicReverb: 40, musicChorus: 20, musicEqPreset: 'small' }],
+  hall: ['Large church, organ', { musicHQ: 'on', musicRoom: 'large', musicNatural: true, musicInterp: 'hermite', musicVoices: 350, musicEqPreset: 'organ' }],
+  practice: ['Small room, clear', { musicHQ: 'auto', musicRoom: 'small', musicNatural: true, musicInterp: 'hermite', musicVoices: 256, musicEqPreset: 'clear' }],
+};
+
+// Two optional sound packs, downloaded once when chosen and kept in their own cache (not part of the offline install):
+//   hq      High quality (18 MB): concert grand (5 recorded loudness layers) and a church pipe organ.
+//   studio  Studio (larger, for the church PC): all 16 loudness layers, the piano's full natural decay, finer
+//           audio and a fuller organ. Built by tools/build_hq_soundfont.mjs (STUDIO=1).
+export const PACKS = { hq: { file: 'data/music/hq.sf3', mb: 18, label: 'High quality' }, studio: { file: 'data/music/studio.sf3', mb: 83, label: 'Studio' } };
 const HQ_CACHE = CACHE_NS + 'sounds-v1';           // this app's own name (storens.js)
 const HQ_CACHE_OLD = 'sda-sabbath-sounds-v1';      // its first name: moved over once
 export const HQ_MB = 18;
-/** 'on' / 'off', or 'auto': on for PCs and laptops, off for phones and slow devices (decided by the device that plays). */
+/** 'studio' / 'on' / 'off', or 'auto': on for PCs and laptops, off for phones and slow devices (decided by the device
+ *  that plays). True when a sound pack is wanted. */
 export function hqFor(v) {
-  if (v === true || v === 'on') return true;
+  if (v === true || v === 'on' || v === 'studio') return true;
   if (v === false || v === 'off' || v == null) return false;
   const mem = navigator.deviceMemory || 4, cores = navigator.hardwareConcurrency || 4;
   const phone = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
   return !phone && mem > 2 && cores > 2;
 }
-export async function hqStored() {
-  try { if ((await caches.keys()).includes(HQ_CACHE_OLD)) return true; } catch (e) { /* */ }
-  try { return !!(await (await caches.open(HQ_CACHE)).match(url(HQ_FILE))); } catch (e) { return false; }
+/** Which pack a setting asks for: 'studio', 'hq' or null (the standard GeneralUser GS sounds). Studio needs a PC with
+ *  memory to spare (it is decoded as notes are played); elsewhere it falls back to High quality. */
+export function packFor(v) {
+  if (!hqFor(v)) return null;
+  if (v === 'studio') { const mem = navigator.deviceMemory || 8; return mem >= 4 ? 'studio' : 'hq'; }
+  return 'hq';
 }
-export async function hqRemove() { try { await caches.delete(HQ_CACHE); await caches.delete(HQ_CACHE_OLD); } catch (e) { /* */ } }
-async function hqBytes(onProgress) {
+export async function hqStored(pack = 'hq') {
+  if (pack === 'hq') try { if ((await caches.keys()).includes(HQ_CACHE_OLD)) return true; } catch (e) { /* */ }
+  try { return !!(await (await caches.open(HQ_CACHE)).match(url(PACKS[pack].file))); } catch (e) { return false; }
+}
+/** Remove one pack, or both. */
+export async function hqRemove(pack) {
+  try {
+    if (!pack || pack === 'hq') await caches.delete(HQ_CACHE_OLD);
+    if (!pack) { await caches.delete(HQ_CACHE); return; }
+    await (await caches.open(HQ_CACHE)).delete(url(PACKS[pack].file));
+  } catch (e) { /* */ }
+}
+async function hqBytes(onProgress, pack = 'hq') {
+  const P = PACKS[pack];
   let cache = null;
   try {   // a download kept under the first name: move it (no second 18 MB download)
     if ((await caches.keys()).includes(HQ_CACHE_OLD)) {
-      const hit = await (await caches.open(HQ_CACHE_OLD)).match(url(HQ_FILE));
-      if (hit) await (await caches.open(HQ_CACHE)).put(url(HQ_FILE), hit);
+      const hit = await (await caches.open(HQ_CACHE_OLD)).match(url(PACKS.hq.file));
+      if (hit) await (await caches.open(HQ_CACHE)).put(url(PACKS.hq.file), hit);
       await caches.delete(HQ_CACHE_OLD);
     }
   } catch (e) { /* */ }
-  try { cache = await caches.open(HQ_CACHE); const hit = await cache.match(url(HQ_FILE)); if (hit) return hit.arrayBuffer(); } catch (e) { /* no Cache API: download each time */ }
-  const res = await fetch(url(HQ_FILE), { cache: 'no-store' });
-  if (!res.ok) throw new Error('Could not download the high-quality sounds (' + res.status + ').');
-  const total = +res.headers.get('content-length') || HQ_MB * 1048576;
+  try { cache = await caches.open(HQ_CACHE); const hit = await cache.match(url(P.file)); if (hit) return hit.arrayBuffer(); } catch (e) { /* no Cache API: download each time */ }
+  const res = await fetch(url(P.file), { cache: 'no-store' });
+  if (!res.ok) throw new Error('Could not download the ' + P.label + ' sounds (' + res.status + ').');
+  const total = +res.headers.get('content-length') || P.mb * 1048576;
   const parts = []; let got = 0;
   const rd = res.body && res.body.getReader ? res.body.getReader() : null;
   if (rd) {
@@ -109,25 +150,26 @@ async function hqBytes(onProgress) {
       const { done, value } = await rd.read();
       if (done) break;
       parts.push(value); got += value.length;
-      onProgress && onProgress('Downloading high-quality instruments (once): ' + Math.min(99, Math.round(got / total * 100)) + '%');
+      const pct = Math.min(99, Math.round(got / total * 100));
+      onProgress && onProgress('Downloading ' + P.label + ' instruments (once): ' + pct + '%', pct);
     }
   } else parts.push(new Uint8Array(await res.arrayBuffer()));
   const buf = await new Blob(parts).arrayBuffer();
-  if (cache) { try { await cache.put(url(HQ_FILE), new Response(buf, { headers: { 'Content-Type': 'application/octet-stream' } })); } catch (e) { /* storage full: still plays this time */ } }
+  if (cache) { try { await cache.put(url(P.file), new Response(buf, { headers: { 'Content-Type': 'application/octet-stream' } })); } catch (e) { /* storage full: still plays this time */ } }
   return buf;
 }
 
-/** Download the high-quality instruments in the background (once; nothing plays). Resolves true when stored. */
-let prefetchP = null;
-export function hqPrefetch() {
-  if (prefetchP) return prefetchP;
-  prefetchP = (async () => {
-    if (await hqStored()) return true;
+/** Download a pack in the background (once; nothing plays). Resolves true when stored. onProgress(text, percent). */
+const prefetchP = {};
+export function hqPrefetch(pack = 'hq', onProgress) {
+  if (prefetchP[pack]) return prefetchP[pack];
+  prefetchP[pack] = (async () => {
+    if (await hqStored(pack)) return true;
     if (navigator.onLine === false) return false;
-    await hqBytes();
-    return hqStored();
-  })().catch(() => false).finally(() => { setTimeout(() => { prefetchP = null; }, 1000); });
-  return prefetchP;
+    await hqBytes(onProgress, pack);
+    return hqStored(pack);
+  })().catch(() => false).finally(() => { setTimeout(() => { prefetchP[pack] = null; }, 1000); });
+  return prefetchP[pack];
 }
 
 // ------------------------------------------------------------------ engine
@@ -168,7 +210,16 @@ export class MusicEngine {
       this.gain = ctx.createGain(); this.gain.gain.value = this.volume;
       const lim = ctx.createDynamicsCompressor();
       lim.threshold.value = -1.5; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.002; lim.release.value = 0.2;
-      synth.connect(this.gain); this.gain.connect(lim); lim.connect(ctx.destination);
+      // Equaliser (5 bands, Hymn options → Equaliser) between the volume and the limiter.
+      this.eq = EQ_BANDS.map(([type, freq], i) => {
+        const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.gain.value = 0;
+        if (type === 'peaking') f.Q.value = i === 2 ? 0.8 : 1.0;
+        return f;
+      });
+      synth.connect(this.gain);
+      this.eq.reduce((a, b) => { a.connect(b); return b; }, this.gain).connect(lim);
+      lim.connect(ctx.destination);
+      this.out = lim; // the finished sound (tests and level meters listen here)
       // Church echo: synth → convolver (the room) → wet level → the same volume control, beside the dry sound.
       this.conv = ctx.createConvolver();
       this.wet = ctx.createGain(); this.wet.gain.value = 0;
@@ -178,7 +229,7 @@ export class MusicEngine {
       const sf = await (await fetch(url('data/music/' + ((idx && idx.soundfont) || 'hymnal.sf3')))).arrayBuffer();
       await synth.soundBankManager.addSoundBank(sf, 'main');
       await synth.isReady;
-      synth.setSystemParameter('interpolationType', 2); // Hermite: SpessaSynth's highest quality
+      synth.setSystemParameter('interpolationType', 2); // Hermite: SpessaSynth's highest quality (Hymn options can lower it)
       synth.setSystemParameter('deviceID', -1);
       this.synth = synth;
       this.applyEffects();
@@ -218,36 +269,46 @@ export class MusicEngine {
     s.systemExclusive(gs([0x01, 0x3a], [cho]));    // chorus level (Falcosoft recommendation: 43)
     // Lock them: otherwise each new song's reset would restore the GS defaults (64 / 64).
     s.setSystemParameter('reverbLock', true); s.setSystemParameter('chorusLock', true);
-    if (this.fx && this.fx.hq != null) this._wantHQ(hqFor(this.fx.hq), false).catch(() => {});
+    // Quality: sample interpolation (2 Hermite = best, 0 linear = lighter) and how many notes may sound at once.
+    const q = this.fx || {};
+    try { s.setSystemParameter('interpolationType', q.interp === 'linear' ? 0 : 2); } catch (e) { /* older engine */ }
+    try { s.setSystemParameter('voiceCap', Math.max(32, Math.min(350, +q.voices || 350))); } catch (e) { /* */ }
+    const eq = Array.isArray(q.eq) ? q.eq : [];
+    if (this.eq) this.eq.forEach((f, i) => f.gain.setTargetAtTime(Math.max(-12, Math.min(12, +eq[i] || 0)), this.ctx.currentTime, 0.05));
+    if (q.hq != null) this._wantHQ(packFor(q.hq), false).catch(() => {});
   }
 
-  /** Switch the high-quality instruments on or off (downloads them the first time). */
+  /** Use a sound pack ('hq' / 'studio', true = 'hq') or none (false/null); downloads it the first time. */
   async setHQ(on, onProgress) {
     if (!this.synth) return;
     if (this._hqP) await this._hqP.catch(() => {});
-    if (on === !!this._hq) return;
+    const want = on === true ? 'hq' : on || null;
+    if (want === (this._hq || null)) return;
     this._hqP = (async () => {
       const mgr = this.synth.soundBankManager;
-      if (on) {
-        const buf = await hqBytes(onProgress);
+      if (this._hq) { await mgr.deleteSoundBank('hq'); this._hq = null; }
+      if (want) {
+        const buf = await hqBytes(onProgress, want);
         await mgr.addSoundBank(buf, 'hq');
         mgr.priorityOrder = ['hq', 'main'];   // its piano and organ win over GeneralUser GS's
-        this._hq = true;
-      } else {
-        await mgr.deleteSoundBank('hq');
-        this._hq = false;
+        this._hq = want;
       }
     })();
     try { await this._hqP; } finally { this._hqP = null; }
   }
   get hq() { return !!this._hq; }
+  /** The pack in use: 'studio', 'hq' or null. */
+  get pack() { return this._hq || null; }
   /** Use the high-quality instruments if they are already on this device; otherwise start their download in the
    *  background and keep the standard sounds for now (a hymn never waits for an 18 MB download). */
   async _wantHQ(want, onProgress) {
-    if (!want) { if (this._hq) await this.setHQ(false); return; }
-    if (this._hq) return;
-    if (await hqStored()) { await this.setHQ(true, onProgress); return; }
-    hqPrefetch();
+    if (want === true) want = 'hq';
+    if (!want) { if (this._hq) await this.setHQ(null); return; }
+    if (this._hq === want) return;
+    if (await hqStored(want)) { await this.setHQ(want, onProgress); return; }
+    // Not downloaded yet: fetch it in the background; Studio plays with High quality meanwhile, if that is here.
+    hqPrefetch(want).then((ok) => { if (ok && this.fx && packFor(this.fx.hq) === want && this.synth) this.setHQ(want).catch(() => {}); });
+    if (want === 'studio' && this._hq !== 'hq' && await hqStored('hq')) await this.setHQ('hq', onProgress);
   }
 
   _meta(d) {
@@ -283,17 +344,19 @@ export class MusicEngine {
     const smf = parseSMF(await midiBytes(req.book, entry));
     const segs = req.segs && req.segs.length ? req.segs : [{ from: 0, to: entry.last != null ? entry.last + 1 : smf.events.reduce((m, e) => Math.max(m, e.tick), 0) + 1, label: 'Hymn', kind: 'all', slide: null }];
     this.arr = buildArrangement(smf, segs, { channels: channelMap(req.instrument), humanize: !(req.fx && req.fx.natural === false) });
-    this.req = req;
+    this.req = req; this._smf = smf; this._segs = segs;   // kept for rearrange()
     if (req.fx) {
       const { hq, ...rest } = req.fx;
       this.applyEffects(rest);
       this.fx.hq = hq;
       // High-quality instruments when they are stored (loads in about a second); never wait for their download.
-      try { await this._wantHQ(hqFor(hq), onProgress); } catch (e) { /* the standard sounds play */ }
+      try { await this._wantHQ(packFor(hq), onProgress); } catch (e) { /* the standard sounds play */ }
     }
-    // Light mode (old PCs, 1–2 GB phones): linear interpolation and fewer voices, ~25% less CPU.
-    this.synth.setSystemParameter('interpolationType', req.light ? 0 : 2);
-    this.synth.setSystemParameter('voiceCap', req.light ? 96 : 256);
+    // The chosen quality (Hymn options); light mode (old PCs, 1–2 GB phones) caps it: linear interpolation and
+    // at most 96 voices, ~25% less CPU.
+    const fx = this.fx || {};
+    this.synth.setSystemParameter('interpolationType', req.light || fx.interp === 'linear' ? 0 : 2);
+    this.synth.setSystemParameter('voiceCap', Math.max(32, Math.min(req.light ? 96 : 350, +fx.voices || 256)));
     const seq = this.seq;
     if (this.playing) { seq.pause(); this.synth.stopAll(true); }
     this.gain.gain.cancelScheduledValues(this.ctx.currentTime);
@@ -318,8 +381,11 @@ export class MusicEngine {
     if (this.playing) { seq.pause(); this.synth.stopAll(true); }
     this.arr = { sections: [], duration: 0 };
     this.req = { title, n: null, book: null };
-    this.synth.setSystemParameter('interpolationType', 2);
-    this.synth.setSystemParameter('voiceCap', 256);
+    this._smf = null; this._segs = null;
+    // Same quality as the hymns (Hymn options → Sound quality / Notes at once); the equaliser applies as well.
+    const q = this.fx || {};
+    this.synth.setSystemParameter('interpolationType', q.interp === 'linear' ? 0 : 2);
+    this.synth.setSystemParameter('voiceCap', Math.max(32, Math.min(350, +q.voices || 256)));
     this.gain.gain.cancelScheduledValues(this.ctx.currentTime);
     if (volume != null) this.volume = volume;
     this.gain.gain.setValueAtTime(this.volume, this.ctx.currentTime);
@@ -386,6 +452,25 @@ export class MusicEngine {
     if (this.gain && !this._fadeT) { const now = this.ctx.currentTime; this.gain.gain.cancelScheduledValues(now); this.gain.gain.setTargetAtTime(this.volume, now, 0.03); }
     this._state();
   }
+  /**
+   * Change the instrument or natural playing while a hymn plays: the arrangement is rebuilt and carries on from
+   * the same moment (no restart). o: { instrument?, natural? }.
+   */
+  rearrange(o = {}) {
+    if (!this.playing || !this._smf || !this.req) return false;
+    const req = this.req;
+    if (o.instrument) req.instrument = o.instrument;
+    if (o.natural != null) req.fx = Object.assign({}, req.fx || {}, { natural: !!o.natural });
+    const seq = this.seq, at = seq.currentTime, paused = this.paused;
+    this.arr = buildArrangement(this._smf, this._segs, { channels: channelMap(req.instrument), humanize: !(req.fx && req.fx.natural === false) });
+    this.synth.stopAll(true);
+    seq.loadNewSongList([{ binary: this.arr.bytes.buffer.slice(0), fileName: 'hymn-' + req.n + '.mid' }]);
+    seq.playbackRate = this.rate;
+    seq.currentTime = at;
+    if (paused) seq.pause(); else seq.play();
+    this._state();
+    return true;
+  }
   seekSection(i) {
     if (!this.arr || !this.arr.sections[i]) return;
     const s = this.arr.sections[i];
@@ -408,6 +493,7 @@ export class MusicEngine {
       case 'volume': this.setVolume(v); break;
       case 'seek': this.seekSection(v); break;
       case 'effects': this.applyEffects(v); break;
+      case 'rearrange': this.rearrange(v); break;
     }
   }
 }

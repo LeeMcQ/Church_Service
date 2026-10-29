@@ -213,19 +213,41 @@ function attachWindow(w, label) {
 }
 
 // ------------------------------------------------------------ this device
-link.openSelf = async (createDisplay) => {
+/**
+ * This device as the screen. mini: a small screen in a corner of the app (phones with nothing connected);
+ * ⤢ makes it full screen, and leaving full screen brings it back to the corner. Drag it to another corner.
+ */
+link.openSelf = async (createDisplay, { mini = false } = {}) => {
   link.close(true);
-  const wrap = h('div.self-display');
+  const wrap = h('div.self-display' + (mini ? '.mini.c-br' : ''));
   const close = h('button.btn.self-close', { type: 'button', onclick: () => link.close() }, 'Exit display');
   wrap.appendChild(close);
+  const goFull = async () => {
+    wrap.classList.remove('mini');
+    try { await (wrap.requestFullscreen ? wrap.requestFullscreen({ navigationUI: 'hide' }) : wrap.webkitRequestFullscreen && wrap.webkitRequestFullscreen()); } catch (e) { /* */ }
+    try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape'); } catch (e) { /* */ }
+    setTimeout(() => window.dispatchEvent(new Event('resize')), 60);
+  };
+  if (mini) {
+    const bar = h('div.mini-bar',
+      h('button.mini-b', { type: 'button', title: 'Full screen', 'aria-label': 'Full screen', onclick: (e) => { e.stopPropagation(); goFull(); } }, '⤢'),
+      h('button.mini-b', { type: 'button', title: 'Close the small screen', 'aria-label': 'Close the small screen', onclick: (e) => { e.stopPropagation(); link.close(); } }, '✕'));
+    wrap.appendChild(bar);
+    miniDrag(wrap);
+  }
   document.body.appendChild(wrap);
   const display = createDisplay(wrap, { post: (m) => setTimeout(() => onDisplayMsg(m), 0), self: true });
-  link.self = { wrap, display };
+  link.self = { wrap, display, mini };
   sendImpl = (m) => display.handle(m);
-  setState('self', true, 'This device');
-  try { await (wrap.requestFullscreen ? wrap.requestFullscreen({ navigationUI: 'hide' }) : wrap.webkitRequestFullscreen && wrap.webkitRequestFullscreen()); } catch (e) { /* */ }
-  try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape'); } catch (e) { /* */ }
-  const onFs = () => { if (!document.fullscreenElement && link.kind === 'self') link.close(); };
+  setState('self', true, mini ? 'Small screen' : 'This device');
+  if (!mini) await goFull();
+  const onFs = () => {
+    if (document.fullscreenElement || link.kind !== 'self' || !link.self) return;
+    if (!link.self.mini) { link.close(); return; }
+    wrap.classList.add('mini');   // back to the corner
+    try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (e) { /* */ }
+    setTimeout(() => window.dispatchEvent(new Event('resize')), 60);
+  };
   document.addEventListener('fullscreenchange', onFs);
   link.self.onFs = onFs;
   // Swipe left/right on the screen to move through slides. A long press (or two-finger tap) shows
@@ -233,6 +255,7 @@ link.openSelf = async (createDisplay) => {
   let sx = null, sy = null, holdT = null, hideT = null;
   const reveal = () => { wrap.classList.add('reveal'); clearTimeout(hideT); hideT = setTimeout(() => wrap.classList.remove('reveal'), 2500); };
   wrap.addEventListener('touchstart', (e) => {
+    if (wrap.classList.contains('mini')) { sx = null; return; }   // in the corner a touch moves the box
     sx = e.touches[0].clientX; sy = e.touches[0].clientY;
     clearTimeout(holdT);
     if (e.touches.length >= 2) { reveal(); return; }
@@ -251,6 +274,40 @@ link.openSelf = async (createDisplay) => {
   if (lastStream) display.setStream(lastStream);
   return true;
 };
+
+/** Drag the small screen; it settles in the nearest corner (kept for next time). */
+function miniDrag(wrap) {
+  let saved = 'br';
+  try { saved = localStorage.getItem(lsKey('mini.corner')) || 'br'; } catch (e) { /* */ }
+  const setCorner = (c) => { wrap.classList.remove('c-tl', 'c-tr', 'c-bl', 'c-br'); wrap.classList.add('c-' + c); };
+  setCorner(saved);
+  let start = null;
+  wrap.addEventListener('pointerdown', (e) => {
+    if (!wrap.classList.contains('mini') || e.target.closest('button')) return;
+    const r = wrap.getBoundingClientRect();
+    start = { x: e.clientX, y: e.clientY, l: r.left, t: r.top, moved: false };
+    try { wrap.setPointerCapture(e.pointerId); } catch (er) { /* */ }
+  });
+  wrap.addEventListener('pointermove', (e) => {
+    if (!start) return;
+    const dx = e.clientX - start.x, dy = e.clientY - start.y;
+    if (!start.moved && Math.hypot(dx, dy) < 6) return;
+    start.moved = true;
+    Object.assign(wrap.style, { left: (start.l + dx) + 'px', top: (start.t + dy) + 'px', right: 'auto', bottom: 'auto' });
+  });
+  const end = () => {
+    if (!start) return;
+    const moved = start.moved; start = null;
+    if (!moved) { wrap.classList.toggle('show-bar'); return; }   // a tap shows or hides ⤢ ✕
+    const r = wrap.getBoundingClientRect();
+    const c = (r.top + r.height / 2 < innerHeight / 2 ? 't' : 'b') + (r.left + r.width / 2 < innerWidth / 2 ? 'l' : 'r');
+    Object.assign(wrap.style, { left: '', top: '', right: '', bottom: '' });
+    setCorner(c);
+    try { localStorage.setItem(lsKey('mini.corner'), c); } catch (er) { /* */ }
+  };
+  wrap.addEventListener('pointerup', end);
+  wrap.addEventListener('pointercancel', end);
+}
 
 // ------------------------------------------------------------ Cast / wireless display
 let keepAliveTimer = null;

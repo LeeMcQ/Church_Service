@@ -24,7 +24,7 @@ const lazyWelcome = () => import('./tabs/welcome.js');
 const openFeedback = (c, o) => import('./tabs/account.js').then((m) => m.openFeedback(c, o));
 
 export const VERSION = '1.6.0';
-export const BUILD = 'dd1cc6e';
+export const BUILD = '8afcd37';
 
 const TABS = [
   { id: 'bible', label: 'Bible', icon: 'bible', file: 'bible.js', load: () => import('./tabs/bible.js') },
@@ -56,6 +56,7 @@ export const isMobile = () => matchMedia('(max-width: 760px)').matches;
 // ------------------------------------------------------------ context passed to tabs
 const ctx = {
   live, link, settings, db, bgAudio, ui, toast: ui.toast, isMobile, VERSION, BUILD,
+  castHelp: () => castHelp(null), clickerSetup: () => clickerSetup(), // Settings → Displays
   setStaged(id, cue, opts) {
     stagedBy.set(id, cue || null);
     if (id === current) live.stage(cue || null, opts);
@@ -215,7 +216,9 @@ async function doPresent() {
   const a = document.activeElement;
   if (a && (a.tagName === 'INPUT' || a.tagName === 'SELECT') && a !== document.body) a.blur();
   // Always present on the extended screen, full screen.
-  if (!link.ready) {
+  // A phone with nothing connected: the small screen in the corner (a pop-up window would open as a new tab).
+  if (!link.ready && !link.kind && isMobile()) { if (!(await live.ensureDisplay())) return; }
+  if (!link.ready && !isMobile()) {
     const opened = await link.openWindow();
     if (!opened) return;
     // Wait briefly for the display window to be ready.
@@ -387,12 +390,12 @@ function displayMenu(anchor) {
     items.push({ label: 'Open display on second screen', icon: 'present', onclick: () => link.openWindow() });
     if ('getScreenDetails' in window) items.push({ label: 'Choose screen…', icon: 'pc', onclick: () => chooseScreen() });
   }
+  if (isMobile() && link.kind !== 'self') items.push({ label: 'Small screen in the corner', icon: 'pip', onclick: () => link.openSelf(createDisplay, { mini: true }) });
   items.push({ label: 'Use this device as the screen', icon: 'phone', onclick: () => link.openSelf(createDisplay) });
   if (link.canCast() && link.kind !== 'cast') items.push({ label: 'Cast (Chromecast, Google TV, Android TV)', icon: 'cast', onclick: () => startCast() });
   if (onWindows()) items.push({ label: 'Connect to a wireless display (Windows)…', icon: 'pc', onclick: wirelessDialog });
   items.push({ label: 'Church Service companion on the network…', icon: 'link', onclick: companionDialog });
-  if (link.canCast() || onWindows()) items.push({ label: 'TV not found? Help…', icon: 'info', onclick: () => castHelp(null) });
-  items.push({ label: 'Clicker setup and test…', icon: 'settings', onclick: () => clickerSetup() });
+  // TV help and clicker setup live in Settings → Displays (ctx.castHelp, ctx.clickerSetup).
   if (pipSupported()) items.push('-', { label: 'Mini controller (stays on top)', icon: 'pip', onclick: () => openPip().catch((e) => ui.toast('The mini controller could not open: ' + e.message, 'err')) });
   ui.menu(anchor, items);
 }
@@ -561,6 +564,15 @@ paintAudioBtn();
 
 live.ensureDisplay = () => new Promise((resolve) => {
   if (!isMobile() && !matchMedia('(pointer: coarse)').matches) { link.openWindow().then(resolve); return; }
+  // A phone with no screen connected: the presentation opens as a small screen in the corner straight away.
+  // The display button connects a TV, casts, or makes it full screen.
+  if (isMobile()) {
+    link.openSelf(createDisplay, { mini: true }).then((ok) => {
+      if (ok && !ctx.miniTold) { ctx.miniTold = true; ui.toast('Showing in the corner. Tap ⤢ for full screen; the display button connects a TV.', '', 5000); }
+      resolve(ok);
+    });
+    return;
+  }
   let done = false;
   const opt = (ic, title, desc, fn) => h('button', { type: 'button', onclick: async () => { done = true; ui.closeModal(); try { resolve(await fn()); } catch (e) { ui.toast(e.message, 'err'); resolve(false); } } },
     icon(ic), h('div.grow', h('div', { style: { fontWeight: 700 } }, title), h('div.note', desc)));
@@ -629,6 +641,8 @@ function offlineState() {
 window.addEventListener('selah-cache', instNotify);
 window.addEventListener('selah-health', instNotify);
 const instCard = startInstallPrompt({ promptInstall, installAvailable: () => !!ctx.installPrompt, offline: offlineState, onChange: (f) => instFns.add(f) });
+ctx.offlineState = offlineState;                 // the first-start setup shows these too
+ctx.onInstallChange = (f) => instFns.add(f);
 // Asked once the first-start setup is done, never while something is on screen (the card would cover the controls).
 function instMaybe(delay) {
   setTimeout(() => { if (!live.cue && settings.v.app.setupDone && !ui.modalOpen()) { checkOffline(false); instCard.show(); } }, delay);
@@ -642,7 +656,7 @@ let hqTried = false;
 function hqBackground() {
   if (hqTried || !offlineState().ready || navigator.onLine === false) return;
   hqTried = true;
-  setTimeout(() => import('./core/hymnmusic.js').then((m) => { if (m.hqFor(settings.v.hymns.musicHQ || 'auto')) m.hqPrefetch(); }).catch(() => {}), 45000);
+  setTimeout(() => import('./core/hymnmusic.js').then((m) => { if (m.hqFor(settings.v.hymns.musicHQ || 'auto')) m.hqPrefetch(m.packFor(settings.v.hymns.musicHQ || 'auto')); }).catch(() => {}), 45000);
 }
 instFns.add(hqBackground);
 const mq = matchMedia('(max-width: 760px)');

@@ -35,6 +35,15 @@ Church Service is built to run a whole service with no internet:
 - Install Church Service (browser menu → Install app) and press **Protect data**, so the browser never clears it to
   free disk space.
 
+### First start
+
+A short setup runs once (Settings → About → Run the setup again): the language of your services and your church
+(name, conference, location for sunset times), the screens this PC drives, **Hymn music** — this device (church PC,
+laptop or phone), your hall (small, medium, large) and what the music is heard through (sound desk, small
+speakers, TV) set the best sound, with *Download now* for the Studio or High-quality instruments and *Play a
+test* — and **Ready for Sabbath**: saved for use without internet, install the app, keep the data safe, and a
+clicker test.
+
 ### 2. Projector setup (PC)
 
 1. Connect the projector as an **extended** display (Windows: Win+P → Extend).
@@ -94,6 +103,8 @@ it for private networks.
 ### Phones and tablets
 
 Press **Present** and choose:
+- **Nothing connected:** Present opens a **small screen in the corner** of the phone. Drag it to any corner; tap it
+  for ⤢ (full screen; leaving full screen brings it back to the corner) and ✕ (close).
 - **This device** — full screen on the phone itself (HDMI adapter or screen mirroring).
 - **Cast** — Chromecast or a wireless display (Chrome on Android).
 - **Church Service companion** — use the phone as a remote for the church PC or TV.

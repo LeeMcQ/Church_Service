@@ -236,7 +236,8 @@ input[type=range] { accent-color: var(--next); }
 .seekbar { display: flex; align-items: center; gap: 8px; flex: 1 1 260px; min-width: 160px; }
 .seekbar input { flex: 1; }
 .seekbar .tm { font-variant-numeric: tabular-nums; font-size: 0.8125rem; color: var(--muted); white-space: nowrap; }
-.audio-mini { display: flex; align-items: center; gap: 8px; padding-left: 10px; border-left: 1px solid var(--line); }
+.audio-mini { display: flex; align-items: center; gap: 8px; padding-left: 10px; border-left: 1px solid var(--line); min-width: 0; }
+.audio-mini .mm-title { max-width: 170px; min-width: 0; }
 
 /* ---------- Modal / toast / menu ---------- */
 .modal-back { position: fixed; inset: 0; background: rgba(5,8,14,.62); z-index: 80; display: flex; align-items: center; justify-content: center; padding: 16px; }
@@ -360,6 +361,26 @@ input[type=range] { accent-color: var(--next); }
 @media (hover: hover) and (pointer: fine) { .self-display:hover .self-close { opacity: .8; } }
 .self-display .self-close:focus-visible, .self-display.reveal .self-close { opacity: .8; }
 
+/* Small screen in the corner (phones with nothing connected): 16:9, above the control bar, drag to any corner. */
+.self-display.mini { inset: auto; width: min(48vw, 380px); aspect-ratio: 16 / 9; height: auto; border-radius: 10px; overflow: hidden; z-index: 70;
+  box-shadow: 0 8px 28px rgb(0 0 0 / .55); outline: 2px solid var(--live); touch-action: none; cursor: grab; }
+.self-display.mini.c-br { right: 10px; bottom: calc(var(--tab-h) + var(--bar-real, 0px) + 10px); }
+.self-display.mini.c-bl { left: 10px; bottom: calc(var(--tab-h) + var(--bar-real, 0px) + 10px); }
+.self-display.mini.c-tr { right: 10px; top: calc(var(--top-h) + 10px); }
+.self-display.mini.c-tl { left: 10px; top: calc(var(--top-h) + 10px); }
+.self-display.mini .self-close { display: none; }
+.self-display .mini-bar { display: none; }
+.self-display.mini .mini-bar { display: flex; position: absolute; top: 4px; right: 4px; gap: 4px; z-index: 6; opacity: 0; transition: opacity .15s; }
+.self-display.mini.show-bar .mini-bar, .self-display.mini:hover .mini-bar { opacity: 1; }
+.self-display .mini-b { width: 34px; height: 34px; border-radius: 8px; border: 0; background: rgb(0 0 0 / .65); color: #fff; font-size: 18px; line-height: 1; }
+
+/* Hymn music equaliser (Hymn options → Music); the video tab's vertical .eq is separate. */
+.meq { display: grid; gap: 4px; }
+.meq-band { display: grid; grid-template-columns: 74px minmax(0, 1fr) 56px; align-items: center; gap: 8px; }
+.meq-band .meq-n { font-size: var(--fs-sm); color: var(--muted); }
+.meq-band .meq-v { font-size: var(--fs-sm); text-align: right; font-variant-numeric: tabular-nums; }
+.meq-band input { width: 100%; }
+
 /* ---------- Tablet ---------- */
 @media (max-width: 1180px) {
   :root { --mon-w: 270px; }
@@ -393,6 +414,7 @@ input[type=range] { accent-color: var(--next); }
 /* ---------- Phone ---------- */
 @media (max-width: 760px) {
   :root { --top-h: 56px; --tab-h: 62px; --bar-h: 58px; }
+  html { overflow-x: hidden; } /* nothing may make the phone browser zoom the whole app out */
   body { font-size: 0.9375rem; }
   .app, .app.rail-right, .app.no-monitors, .app.rail-right.no-monitors {
     grid-template-columns: minmax(0, 1fr);
@@ -455,7 +477,11 @@ input[type=range] { accent-color: var(--next); }
   /* Stanza / translation buttons get their own row on phones, so nothing covers them (Black, Logo, Clear stay on top). */
   .ctrlbar .cb-type { order: 5; flex: 1 0 100%; }
   .ctrlbar .cb-type:not(:has(> :not(.hide-sm))) { display: none; }
-  .ctrlbar .audio-mini { order: 6; }
+  /* Music player: its own full row that never runs off the screen (a wider row made the browser shrink the whole page). */
+  .ctrlbar .audio-mini { order: 6; flex: 1 0 100%; padding-left: 0; border-left: 0; gap: 6px; }
+  .ctrlbar .audio-mini .mm-title { flex: 1 1 auto; max-width: none; }
+  .ctrlbar .audio-mini .tm { flex: none; }
+  .ctrlbar .audio-mini .btn.sm { flex: none; }
   .ctrlbar .cb-chips { flex: 1 1 0; }
   .form { grid-template-columns: 1fr; gap: 4px 0; }
   .form > * { min-width: 0; }

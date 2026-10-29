@@ -370,6 +370,9 @@ export function createDisplay(root, { post, self = false, mirror = false } = {})
   }
   async function musicCmd(msg) {
     try {
+      // A setting changed while no music has played here: the next 'play' carries the settings, so the engine
+      // (and its sound files) is not loaded just for that.
+      if (!musicEng && !musicEngP && msg.op !== 'play') return;
       const eng = await getMusic();
       if (msg.op === 'play') {
         try { eng.unlock(); } catch (e) { /* reported below */ }

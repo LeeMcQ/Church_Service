@@ -7,7 +7,7 @@ const KEY = lsKey('settings.v1');
 const AIKEY = lsKey('aikey.session');
 
 export const DEFAULTS = {
-  app: { theme: 'dark', railSide: 'left', monitors: true, lowPower: null, lastTab: 'bible', clickerKeys: true, webPart: 'web', toolsPart: 'stage', stats: false, setupDone: false },
+  app: { theme: 'dark', railSide: 'left', monitors: true, lowPower: null, lastTab: 'bible', clickerKeys: true, webPart: 'web', toolsPart: 'stage', stats: false, setupDone: false, deviceRole: '', speakers: '' },
   display: {
     font: 'sans', fg: '#ffffff', bg: '#000000', accent: '#f2cf7a', shadow: true, align: 'center',
     pad: 96, minFont: 58, maxFont: 150, fade: 250, transition: 'fade', aspect: 'auto',
@@ -27,6 +27,8 @@ export const DEFAULTS = {
     musicReverb: 59, musicChorus: 43, musicOutput: 'auto',
     // Sound quality: recorded piano and pipe organ (18 MB download, 'auto' = on for PCs), church echo, natural playing
     musicHQ: 'auto', musicRoom: 'church', musicNatural: true,
+    // Sound preset (or 'custom'), equaliser preset and band gains (dB), sample interpolation and note limit.
+    musicPreset: 'balanced', musicEqPreset: 'flat', musicEq: [0, 0, 0, 0, 0], musicInterp: 'hermite', musicVoices: 256,
   },
   slides: { fit: 'contain', autoSec: 8, quality: 0.9 },
   video: { volume: 1, autoNext: true, repeat: 'off', fit: 'contain', keepCopies: 'ask' },

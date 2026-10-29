@@ -1,4 +1,8 @@
-// Builds data/music/hq.sf3, the optional "High-quality sound" pack: a recorded concert grand piano and a recorded
+// Builds data/music/hq.sf3, the optional "High-quality sound" pack (18 MB), or with STUDIO=1 data/music/studio.sf3,
+// the "Studio" pack for the church PC: all 16 recorded loudness layers of the piano, a longer natural decay, finer
+// Ogg Vorbis (quality 5) and a fuller organ (adds Flûte harmonique 8' and Octavin 2'). Same licences.
+//
+// The "High-quality sound" pack: a recorded concert grand piano and a recorded
 // pipe organ that replace the matching GeneralUser GS sounds (the pack is loaded on top of hymnal.sf3).
 //
 //   Piano: Salamander Grand Piano V3 by Alexander Holm (Yamaha C5), CC BY 3.0
@@ -23,7 +27,8 @@ const run = promisify(execFile);
 const [salDir, orgDir, outPath = 'data/music/hq.sf3'] = process.argv.slice(2);
 if (!salDir || !orgDir) { console.error('usage: node tools/build_hq_soundfont.mjs <Salamander dir> <GrandOrgue demo dir> [out.sf3]'); process.exit(1); }
 const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'hq-'));
-const QUALITY = process.env.Q || '4';   // Vorbis quality 4 ≈ 128 kbit/s stereo
+const STUDIO = process.env.STUDIO === '1';
+const QUALITY = process.env.Q || (STUDIO ? '5' : '4');   // Vorbis quality 4 ≈ 128 kbit/s, 5 ≈ 160 kbit/s stereo
 let n = 0;
 
 async function decode(file, rate) {   // any audio file -> { l, r } Float32 at `rate`
@@ -46,10 +51,10 @@ async function vorbis(data, rate) {
 }
 
 const bank = new BasicSoundBank();
-bank.soundBankInfo.name = 'Church Service high-quality hymn sounds';
+bank.soundBankInfo.name = STUDIO ? 'Church Service studio hymn sounds' : 'Church Service high-quality hymn sounds';
 bank.soundBankInfo.engineer = 'Salamander Grand Piano V3: Alexander Holm (CC BY 3.0). Pipe organ: GrandOrgue demo, recordings by Lars Palo (CC BY-SA 2.5).';
 bank.soundBankInfo.copyright = 'Piano samples CC BY 3.0 (Alexander Holm); organ samples CC BY-SA 2.5 (Lars Palo / GrandOrgue contributors). This pack: CC BY-SA 2.5.';
-bank.soundBankInfo.comment = 'Built by tools/build_hq_soundfont.mjs for Church Service. Samples in Ogg Vorbis (SF3).';
+bank.soundBankInfo.comment = 'Built by tools/build_hq_soundfont.mjs' + (STUDIO ? ' (STUDIO=1)' : '') + ' for Church Service. Samples in Ogg Vorbis (SF3).';
 
 /** Adds a stereo pair; returns [left, right]. */
 function stereo(name, rate, key, cents, l, r, loopStart = 0, loopEnd = 0) {
@@ -67,11 +72,14 @@ const NONE = ModulatorSource.fromSourceEnum(0);
 // ------------------------------------------------------------ piano
 const NOTES = ['A0', 'C1', 'D#1', 'F#1', 'A1', 'C2', 'D#2', 'F#2', 'A2', 'C3', 'D#3', 'F#3', 'A3', 'C4', 'D#4', 'F#4', 'A4', 'C5', 'D#5', 'F#5', 'A5', 'C6', 'D#6', 'F#6', 'A6', 'C7', 'D#7', 'F#7', 'A7', 'C8'];
 const KEY0 = 21;   // A0
-// Five of the sixteen recorded layers, spread over the velocities the hymnal files use most (40-104).
-const LAYERS = [[5, 1, 52], [8, 53, 70], [10, 71, 86], [12, 87, 102], [14, 103, 127]];
+// Five of the sixteen recorded layers, spread over the velocities the hymnal files use most (40-104); the Studio
+// pack has all sixteen, so every change in touch is a different recording.
+const LAYERS = STUDIO
+  ? Array.from({ length: 16 }, (_, i) => [i + 1, i === 0 ? 1 : Math.round(i * 127 / 16) + 1, Math.round((i + 1) * 127 / 16)])
+  : [[5, 1, 52], [8, 53, 70], [10, 71, 86], [12, 87, 102], [14, 103, 127]];
 const piano = new BasicInstrument(); piano.name = 'Salamander Grand';
 // Recorded layers already carry the loudness change, so velocity lowers the volume half as much as the default.
-piano.globalZone.addModulators(new Modulator(VEL_SRC, NONE, G.initialAttenuation, 480, 0));
+piano.globalZone.addModulators(new Modulator(VEL_SRC, NONE, G.initialAttenuation, STUDIO ? 300 : 480, 0));
 piano.globalZone.setGenerator(G.reverbEffectsSend, 0);   // room sound comes from the app's church reverb
 piano.globalZone.setGenerator(G.chorusEffectsSend, 0);
 const PIANO_RATE = 44100;
@@ -81,7 +89,7 @@ for (const [v, lo, hi] of LAYERS) {
     const file = path.join(salDir, 'Samples', NOTES[i] + 'v' + v + '.flac');
     const { l, r } = await decode(file, PIANO_RATE);
     // Low notes ring long, high notes die away fast: keep 13 s at the bottom down to 3.5 s at the top, then fade.
-    const keepS = 13 - (key - 21) / 87 * 9.5;
+    const keepS = STUDIO ? 18 - (key - 21) / 87 * 12 : 13 - (key - 21) / 87 * 9.5;   // Studio: 18 s down to 6 s (under GitHub's 100 MB)
     const len = Math.min(l.length, Math.round(keepS * PIANO_RATE));
     const fade = Math.round(0.6 * PIANO_RATE);
     const L = l.slice(0, len), R = r.slice(0, len);
@@ -195,13 +203,20 @@ function addRank(inst, samples, { shift = 0, atten = 0 }) {
 }
 const montre = await rank('Montre8', 'Montre8');
 const bourdon = await rank('Bourdon8', 'Bourdon8');
-const organ = new BasicInstrument(); organ.name = 'Church Organ (Montre 8, Prestant 4, Bourdon 8)';
+const flute = STUDIO ? await rank('FlHarm8', 'FlHarm8') : null;
+const octavin = STUDIO ? await rank('Octavin2', 'Octavin2') : null;
+const organ = new BasicInstrument();
+organ.name = STUDIO ? 'Church Organ (Montre 8, Prestant 4, Bourdon 8, Flute 8, Octavin 2)' : 'Church Organ (Montre 8, Prestant 4, Bourdon 8)';
 organ.globalZone.addModulators(new Modulator(VEL_SRC, NONE, G.initialAttenuation, 0, 0));   // organs ignore how hard a key is hit
 organ.globalZone.setGenerator(G.reverbEffectsSend, 0);
 organ.globalZone.setGenerator(G.chorusEffectsSend, 0);
 addRank(organ, montre, { atten: 30 });                  // Montre 8'
 addRank(organ, montre, { shift: -12, atten: 90 });      // Prestant 4' (the Montre pipes an octave up)
 addRank(organ, bourdon, { atten: 70 });                 // Bourdon 8': warmth
+if (STUDIO) {
+  addRank(organ, flute, { atten: 110 });                // Flûte harmonique 8': roundness under the principal
+  addRank(organ, octavin, { atten: 150 });              // Octavin 2': a little brightness on top
+}
 bank.addInstruments(organ);
 console.log('organ: ' + organ.zones.length + ' zones');
 

@@ -4,9 +4,9 @@ import { emitter, debounce } from './util.js';
 import { settings } from './settings.js';
 import { link } from './link.js';
 import { db } from './db.js';
-import { MusicEngine, loadIndex, planSegments, INSTRUMENTS, hqFor, hqStored, hqRemove, hqPrefetch, HQ_MB } from './musicengine.js';
+import { MusicEngine, loadIndex, planSegments, INSTRUMENTS, hqFor, packFor, PACKS, hqStored, hqRemove, hqPrefetch, HQ_MB, EQ_BANDS, EQ_PRESETS, SOUND_PRESETS } from './musicengine.js';
 
-export { INSTRUMENTS, planSegments, hqFor, hqStored, hqRemove, hqPrefetch, HQ_MB };
+export { INSTRUMENTS, planSegments, hqFor, packFor, PACKS, hqStored, hqRemove, hqPrefetch, HQ_MB, EQ_BANDS, EQ_PRESETS, SOUND_PRESETS };
 
 // ------------------------------------------------------------------ controller (UI side)
 export const music = emitter({ state: { playing: false }, where: 'here', hymnKey: null, entryInfo: null });
@@ -123,9 +123,25 @@ music.setVolume = (v) => { send('volume', v); saveSoon('musicVolume', v); };
 music.fx = () => {
   const m = settings.v.hymns;
   return { reverb: m.musicReverb == null ? 59 : m.musicReverb, chorus: m.musicChorus == null ? 43 : m.musicChorus,
-    room: m.musicRoom || 'church', hq: m.musicHQ || 'auto', natural: m.musicNatural !== false };
+    room: m.musicRoom || 'church', hq: m.musicHQ || 'auto', natural: m.musicNatural !== false,
+    eq: Array.isArray(m.musicEq) ? m.musicEq.slice(0, 5) : [0, 0, 0, 0, 0], interp: m.musicInterp === 'linear' ? 'linear' : 'hermite', voices: +m.musicVoices || 256 };
 };
 music.applyEffects = () => send('effects', music.fx());
+/** A few seconds of hymn 73 with the current sound settings (the setup's "Play a test"), on this device. */
+music.playTest = async () => {
+  const m = settings.v.hymns;
+  if (music.where === 'display' && music.state.playing) link.send({ t: 'music', op: 'stop' });
+  music.where = 'here';
+  const eng = bindLocal();
+  eng.unlock();
+  setState(Object.assign({}, music.state, { playing: true, loading: true, n: 73, title: 'Sound test' }));
+  try {
+    await eng.play({ book: 'sda-online', n: 73, title: 'Sound test', instrument: m.musicInstrument || 'arranged', rate: 1, key: 0,
+      volume: m.musicVolume == null ? 1.3 : m.musicVolume, fx: music.fx(), light: settings.lowPower() });
+  } catch (e) { setState({ playing: false }); throw e; }
+};
+/** Instrument or natural playing changed: the playing hymn carries on from the same moment with it. */
+music.rearrange = (o) => send('rearrange', o);
 music.isPlaying = () => !!(music.state && music.state.playing);
 /** For diagnostics and tests. */
 music.engine = () => local;

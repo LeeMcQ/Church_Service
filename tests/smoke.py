@@ -317,6 +317,61 @@ def main():
                 assert r['ir'] and r['ir'] > 1.5 and r['wet'] > 0.1, 'church echo not on: %r' % r
             t_music_hq()
 
+            @check('Studio piano and organ (all 16 piano layers)')
+            def t_music_studio():
+                r = pg.evaluate("""async () => {
+                  const m = await import('./js/core/musicengine.js');
+                  await m.hqRemove('studio');
+                  const pre = await m.hqPrefetch('studio');
+                  const e = new m.MusicEngine(); e.unlock(); await e.init();
+                  const an = e.ctx.createAnalyser(); an.fftSize = 2048; e.gain.connect(an);
+                  const peakFor = async (instrument) => {
+                    await e.play({ book: 'sda-online', n: 73, instrument, fx: { hq: 'studio', room: 'church' } });
+                    await new Promise((r) => setTimeout(r, 3500));
+                    const buf = new Float32Array(an.fftSize); let peak = 0;
+                    for (let k = 0; k < 20; k++) { an.getFloatTimeDomainData(buf); for (const x of buf) peak = Math.max(peak, Math.abs(x)); await new Promise((r) => setTimeout(r, 50)); }
+                    e.stop(); return peak;
+                  };
+                  const piano = await peakFor('piano'), organ = await peakFor('organ');
+                  const out = { pre, piano, organ, pack: e.pack, mem: navigator.deviceMemory, banks: e.synth.soundBankManager.priorityOrder, stored: await m.hqStored('studio'), hqKept: await m.hqStored('hq') };
+                  await m.hqRemove('studio'); out.afterRemove = await m.hqStored('studio');
+                  return out;
+                }""")
+                if r['mem'] is not None and r['mem'] < 4:
+                    return  # low-memory devices use High quality instead
+                assert r['pack'] == 'studio' and r['banks'][0] == 'hq', 'Studio pack not in use: %r' % r
+                assert r['stored'] and r['hqKept'], 'packs not kept side by side: %r' % r
+                assert r['piano'] > 0.05 and r['organ'] > 0.05, 'no sound: %r' % r
+                assert not r['afterRemove'], 'Remove Studio did not remove it'
+            t_music_studio()
+
+            @check('sound settings change while a hymn plays')
+            def t_music_live():
+                r = pg.evaluate("""async () => {
+                  const m = await import('./js/core/musicengine.js');
+                  const e = new m.MusicEngine(); e.unlock(); await e.init();
+                  const pre = e.ctx.createAnalyser(), post = e.ctx.createAnalyser();
+                  [pre, post].forEach((a) => { a.fftSize = 8192; a.smoothingTimeConstant = 0; });
+                  e.gain.connect(pre); e.eq[e.eq.length - 1].connect(post);
+                  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+                  const band = async (lo, hi) => { const a = new Float32Array(pre.frequencyBinCount), b = new Float32Array(post.frequencyBinCount); let sa = 0, sb = 0;
+                    for (let k = 0; k < 10; k++) { pre.getFloatFrequencyData(a); post.getFloatFrequencyData(b);
+                      for (let i = Math.floor(lo / (e.ctx.sampleRate / 2) * a.length); i <= Math.ceil(hi / (e.ctx.sampleRate / 2) * a.length); i++) if (isFinite(a[i]) && isFinite(b[i]) && a[i] > -110) { sa += 10 ** (a[i] / 10); sb += 10 ** (b[i] / 10); }
+                      await wait(60); }
+                    return 10 * Math.log10(sb / sa); };
+                  await e.play({ book: 'sda-online', n: 73, fx: { hq: 'off', room: 'church', eq: [0, 0, 0, 0, 0] } });
+                  await wait(2500);
+                  e.applyEffects({ eq: [12, 0, 0, 0, -12], room: 'large' }); await wait(400);
+                  const bass = await band(40, 90), treble = await band(8000, 12000), wet = e.wet.gain.value;
+                  const t0 = e.seq.currentTime; e.rearrange({ instrument: 'organ', natural: false }); await wait(600);
+                  const r = { bass, treble, wet, carried: e.seq.currentTime >= t0 - 0.2, playing: e.playing };
+                  e.stop(); return r;
+                }""")
+                assert r['bass'] > 8 and r['treble'] < -8, 'equaliser not applied while playing: %r' % r
+                assert r['wet'] > 0.3, 'church echo not changed while playing: %r' % r
+                assert r['carried'] and r['playing'], 'instrument change restarted or stopped the hymn: %r' % r
+            t_music_live()
+
             @check('phones: nothing runs off the screen (portrait and landscape)')
             def t_phone():
                 bad_tabs = []

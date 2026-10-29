@@ -127,6 +127,10 @@ export default function create(ctx) {
       rc.append(h('a.btn.primary', { href: 'companion.html', target: '_blank', rel: 'noopener' }, icon('download'), h('span', 'Download the companion')));
     }
     box.append(rc);
+    box.append(h('div.card', { style: { marginTop: '14px' } }, h('h3', 'Clickers and TVs'),
+      h('p.note', 'Set up a presentation clicker or Bluetooth remote and test its buttons, or find out how to reach a TV that Cast does not list (Smart View, Miracast, HDMI).'),
+      h('div.row.wrap', h('button.btn', { type: 'button', onclick: () => ctx.clickerSetup() }, icon('settings'), h('span', 'Clicker setup and test…')),
+        h('button.btn', { type: 'button', onclick: () => ctx.castHelp() }, icon('info'), h('span', 'TV not found? Help…')))));
   });
 
   // ------------------------------------------------------------ Bibles & hymns

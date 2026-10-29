@@ -28,6 +28,9 @@ export function createControlBar(el, getTab) {
   };
   live.on('history', paintBack);
   let renderedFor = null;
+  // Its real height (one to three rows on a phone), so the small corner screen sits just above it.
+  const barH = () => document.documentElement.style.setProperty('--bar-real', (el.hidden ? 0 : el.offsetHeight) + 'px');
+  if (window.ResizeObserver) new ResizeObserver(barH).observe(el);
 
   async function render() {
     const cue = live.cue;
@@ -76,7 +79,7 @@ export function createControlBar(el, getTab) {
     if (!mUi || rebuild) {
       clear(musicBox);
       const playB = btn('pause', 'Pause / continue the music (M)', () => { music.unlock(); music.toggle(); }, { cls: 'sm' });
-      const ttl = h('span.cb-sub.trunc', { style: { maxWidth: '170px' } }, '');
+      const ttl = h('span.cb-sub.trunc.mm-title', '');
       const tm = h('span.tm.cb-sub', '');
       musicBox.append(icon('music'), ttl, playB, tm,
         btn('fade', 'Fade out the music', () => music.fade(3000), { cls: 'sm' }),
@@ -111,7 +114,7 @@ export function createControlBar(el, getTab) {
       clear(audioBox);
       const playB = btn('pause', 'Play / pause the music', () => bgAudio.toggle(), { cls: 'sm' });
       const tm = h('span.tm.cb-sub', '');
-      const ttl = h('span.cb-sub.trunc', { style: { maxWidth: '140px' } }, bgAudio.title);
+      const ttl = h('span.cb-sub.trunc.mm-title', bgAudio.title);
       audioBox.append(icon('music'), ttl,
         hasQueue ? btn('prev', 'Previous piece', () => bgAudio.queue && bgAudio.queue.prev(), { cls: 'sm' }) : '',
         playB,
