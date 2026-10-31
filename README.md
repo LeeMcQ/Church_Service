@@ -19,6 +19,21 @@ Progressive Web App: install it once and it runs with **no internet**, on old PC
 Nothing reaches the projector until **Present** (F5 or Ctrl+Enter). Each tab keeps its own
 “next” item, shown in the green **Next** monitor; the red **Live** monitor shows the projector.
 
+## Basic and Advanced
+
+The switch at the top left changes between two views; the choice is kept on each device.
+
+- **Basic** (the default) is for the volunteer at the media desk: the order of service on the left, what is
+  on screen (red) and what comes next (green) on the right, and three big buttons — **Back**, **Next** and
+  **Blank**. Tap a part to put it on Next, or **Show** to put it on the screen. **Next** steps through the
+  slides, then moves on to the next part of the service (a part with nothing to show puts the logo up).
+  Hymns have a ▶ button that shows the words and starts the music. **Edit** opens the plan in Advanced.
+- **Advanced** is everything below: every tab and tool. The plan shows a small picture of each part's first
+  slide, and **Listen for verses** (under Black / Logo / Clear; on phones in **More**) listens to the sermon
+  and offers the Bible verses and hymns that are mentioned — “John 3:16 · Put on Next / Present”. Nothing
+  goes on screen by itself. It uses the browser's online speech service (Chrome or Edge), so it needs the
+  internet while it listens, and it follows the language of your main Bible (English or Afrikaans).
+
 ## What each tab does
 
 | Tab | What you can do |

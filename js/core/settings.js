@@ -7,7 +7,9 @@ const KEY = lsKey('settings.v1');
 const AIKEY = lsKey('aikey.session');
 
 export const DEFAULTS = {
-  app: { theme: 'dark', railSide: 'left', monitors: true, lowPower: null, lastTab: 'bible', clickerKeys: true, webPart: 'web', toolsPart: 'stage', stats: false, setupDone: false, deviceRole: '', speakers: '' },
+  app: { theme: 'dark', railSide: 'left', monitors: true, lowPower: null, lastTab: 'bible', clickerKeys: true, webPart: 'web', toolsPart: 'stage', stats: false, setupDone: false, deviceRole: '', speakers: '',
+    // Basic: the order of service, what is on screen and big Back / Next / Blank buttons. Advanced: every tab and tool.
+    mode: 'basic', modeTold: false, listenOk: false },
   display: {
     font: 'sans', fg: '#ffffff', bg: '#000000', accent: '#f2cf7a', shadow: true, align: 'center',
     pad: 96, minFont: 58, maxFont: 150, fade: 250, transition: 'fade', aspect: 'auto',

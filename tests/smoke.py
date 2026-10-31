@@ -166,6 +166,47 @@ def main():
                 assert on and not off, 'blank %r then %r' % (on, off)
             t_black()
 
+            @check('Basic mode: order of service, Show, Next and Blank')
+            def t_basic():
+                pg.evaluate("window.selah.setMode('basic')"); pg.wait_for_timeout(800)
+                assert pg.locator('.basic-panel').is_visible(), 'the Basic order of service is not shown'
+                assert not pg.locator('#rail').is_visible(), 'the tabs still show in Basic'
+                if not pg.locator('.bp-row').count():
+                    pg.click('.bp-empty .btn.primary'); pg.wait_for_timeout(1500)
+                row = pg.locator('.bp-row:not(.empty)').filter(has=pg.locator('.bp-play')).first   # a hymn part
+                row.locator('.bp-show').click(); pg.wait_for_timeout(1500)
+                i0 = pg.evaluate("import('./js/core/live.js').then(m => m.live.cue ? m.live.index : -1)")
+                assert i0 >= 0, 'Show put nothing on screen'
+                pg.click('.bb-next'); pg.wait_for_timeout(600)
+                i1 = pg.evaluate("import('./js/core/live.js').then(m => m.live.index)")
+                assert i1 == i0 + 1, 'Next: slide %s -> %s' % (i0, i1)
+                pg.click('.bb-blank'); pg.wait_for_timeout(300)
+                assert pg.evaluate("import('./js/core/live.js').then(m => m.live.blank)") == 'black', 'Blank did not black out'
+                pg.click('.bb-blank'); pg.wait_for_timeout(300)
+                assert not pg.evaluate("import('./js/core/live.js').then(m => m.live.blank)"), 'Blank did not show the screen again'
+                assert not errs, '; '.join(errs[:3])
+            t_basic()
+
+            @check('Advanced mode: tabs, plan pictures, verse suggestions')
+            def t_advanced():
+                pg.click('.mode-sw [data-mode="advanced"]'); pg.wait_for_timeout(800)
+                assert pg.locator('#rail').is_visible(), 'the tabs do not come back in Advanced'
+                assert not pg.locator('.basic-panel').is_visible(), 'the Basic panel still shows'
+                pg.evaluate("window.selah.showTab('plan')"); pg.wait_for_timeout(800)
+                assert pg.locator('.plan-item .pi-slide').count() > 0, 'no slide pictures in the plan'
+                got = pg.evaluate("""import('./js/core/spokenref.js').then(m => [
+                    'as it says in John chapter three verse sixteen', 'Romans 8 28', 'first Corinthians thirteen verses four to seven',
+                    'let us sing hymn number one hundred', 'Johannes drie vers sestien', 'the Lord is my shepherd'
+                  ].map(t => m.findRefs(t).map(r => r.kind === 'hymn' ? 'hymn ' + r.n : r.ref).join(',')))""")
+                assert got == ['John 3:16', 'Romans 8:28', '1 Corinthians 13:4-7', 'hymn 100', 'John 3:16', ''], 'heard %r' % got
+                pg.evaluate("window.selah.listener.hear('turn with me to John chapter three verse sixteen')"); pg.wait_for_timeout(1500)
+                assert pg.locator('.ls-card').count() == 1, 'no suggestion card'
+                pg.locator('.ls-card .btn.primary').click(); pg.wait_for_timeout(1200)
+                st = pg.evaluate("import('./js/core/live.js').then(m => m.live.staged && m.live.staged.title)")
+                assert st and 'John 3' in st, 'Put on Next staged %r' % st
+                assert not errs, '; '.join(errs[:3])
+            t_advanced()
+
             @check('a shared plan file opens')
             def t_plan():
                 data = list(open(os.path.join(HERE, 'fixtures', 'sample.sdaplan'), 'rb').read())
@@ -382,6 +423,7 @@ def main():
                     p2.goto(base + 'index.html'); p2.wait_for_timeout(800)
                     p2.evaluate("import('./js/core/settings.js').then(m => m.settings.set('app.setupDone', true))")
                     p2.reload(); p2.wait_for_selector('#presentBtn'); p2.wait_for_timeout(1200)
+                    p2.evaluate("window.selah.setMode('advanced')"); p2.wait_for_timeout(300)   # the tabs (Basic is checked below)
                     p2.evaluate("window.selah.showTab('plan')"); p2.wait_for_timeout(300)
                     for q in ['Closing prayer', 'hymn 135', 'John 3:16']:   # parts with buttons, so the plan rows are tested too
                         bx = p2.locator('.tabpanel:not([hidden]) input.field').first; bx.fill(q); bx.press('Enter'); p2.wait_for_timeout(300)
@@ -394,6 +436,12 @@ def main():
                         over = p2.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth')
                         present = p2.evaluate("(() => { const r = document.getElementById('presentBtn').getBoundingClientRect(); return r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1; })()")
                         if over > 1 or not present: bad_tabs.append('%dx%d %s (%dpx wider%s)' % (w, hh, t, over, '' if present else ', Present off screen'))
+                    # Basic: the same plan, the big buttons and the Present button all on the screen.
+                    p2.evaluate("window.selah.setMode('basic')"); p2.wait_for_timeout(500)
+                    over = p2.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth')
+                    fits = p2.evaluate("""(() => ['#presentBtn', '.bb-next', '.bb-blank', '.mode-sw'].every((q) => { const r = document.querySelector(q).getBoundingClientRect();
+                      return r.width > 0 && r.left >= -1 && r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1; }))()""")
+                    if over > 1 or not fits: bad_tabs.append('%dx%d Basic (%dpx wider%s)' % (w, hh, over, '' if fits else ', a button off screen'))
                     assert not e2, '%dx%d: %s' % (w, hh, e2[0])
                     c2.close()
                 assert not bad_tabs, '; '.join(bad_tabs[:4])

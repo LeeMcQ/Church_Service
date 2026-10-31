@@ -511,20 +511,48 @@ export default function create(ctx) {
   const ICONS = { bible: 'bible', hymns: 'hymn', slides: 'slides', video: 'video', web: 'web', ai: 'banner' };
   function kindColor(it) { return KIND_COLOR[it.heading ? 'note' : it.tab] || KIND_COLOR.note; }
 
+  /**
+   * A small picture of the part's first slide, in the projector's own colours: the reference and first verse of a
+   * reading, the number and title of a hymn. Cheap DOM text (no rendering), so long plans stay light on weak PCs.
+   */
+  function slideTile(col, title, accent, text) {
+    const d = (ctx.settings && ctx.settings.v.display) || {};
+    const words = h('span.pi-slide-w', text || '');
+    const tile = h('div.pi-tile.pi-slide', { style: { background: d.bg || '#000', color: d.fg || '#fff', borderColor: col }, title },
+      h('span.pi-slide-in', accent ? h('span.pi-slide-a', { style: { color: d.accent || '#f2cf7a' } }, accent) : null, words));
+    return { tile, words };
+  }
+  const versePeek = new Map(); // "tr|ref" -> first verse text (one Bible book is read once, then kept)
   function previewTile(it) {
     const col = kindColor(it);
-    const tile = h('div.pi-tile', { style: { background: col + '22', borderColor: col }, title: kindText(it) || 'Part' });
     if (it.heading) {
-      tile.appendChild(h('span.pi-tile-t', '—'));
+      // No media yet: a dashed box that attaches media in one tap.
+      return h('button.pi-tile.pi-add', { type: 'button', title: 'Attach a Bible passage, hymn, slides, video, web page or banner', 'aria-label': 'Attach media to ' + titleOf(it),
+        onclick: (e) => { e.stopPropagation(); openPicker({ target: it }); }, ondblclick: (e) => e.stopPropagation() }, icon('plus'), h('span', 'Media'));
+    }
+    if (it.tab === 'bible' && it.ref) {
+      const { tile, words } = slideTile(col, kindText(it) + ' · ' + it.ref, it.ref, '');
+      const tr = it.tr || ctx.settings.v.bible.primary;
+      const key = tr + '|' + it.ref;
+      const fill = (t) => { words.textContent = t; };
+      if (versePeek.has(key)) fill(versePeek.get(key));
+      else if (!ctx.settings.lowPower()) {
+        const r = parseRef(it.ref);
+        if (r) versesFor(tr, r.book, r.segs.slice(0, 1)).then((vs) => {
+          const t = vs && vs[0] ? clip(verseText(vs[0].text), 90) : '';
+          versePeek.set(key, t); fill(t);
+        }).catch(() => {});
+      }
       return tile;
     }
+    if (it.tab === 'hymns') {
+      const name = (it.label || '').replace(/^[^\d—-]*\d+\s*[—-]\s*/, '') || 'Hymn';
+      return slideTile(col, kindText(it) + (it.label ? ' · ' + it.label : ''), it.n ? String(it.n) : '♪', clip(name, 48)).tile;
+    }
+    const tile = h('div.pi-tile', { style: { background: col + '22', borderColor: col }, title: kindText(it) || 'Part' });
     if (it.tab === 'bible') {
       tile.appendChild(h('span.pi-tile-t', it.ref || 'Bible'));
       tile.appendChild(h('span.pi-tile-s', 'Verse'));
-    } else if (it.tab === 'hymns') {
-      tile.appendChild(h('span.pi-tile-t', it.n ? String(it.n) : '♪'));
-      const short = (it.label || '').replace(/^Hymn\s+\d+\s*[—-]\s*/i, '').slice(0, 12);
-      tile.appendChild(h('span.pi-tile-s', short || 'Hymn'));
     } else if (it.tab === 'slides') {
       tile.appendChild(h('span.pi-tile-t', icon('slides')));
       if (it.deck) {
@@ -566,6 +594,7 @@ export default function create(ctx) {
 
   // Which plan item is on the screen now (so the row can say "On screen"), and which was put on Next.
   const shownCue = new Map(); // item id -> cue id
+  const watchers = new Set(); // called whenever the plan or what is on screen changes (see api.subscribe)
   const onScreen = (it) => !!(live.cue && shownCue.get(it.id) === live.cue.id);
   live.on('live', () => {
     if (!plan) return;
@@ -585,6 +614,7 @@ export default function create(ctx) {
 
   /** The order of service as the stage screens show it (names, who leads, planned time, where we are). */
   function publishStage() {
+    watchers.forEach((fn) => { try { fn(); } catch (e) { console.warn(e); } }); // Basic mode's order of service
     if (!ctx.stage) return;
     if (!plan) { ctx.stage.setPlan(null); return; }
     ctx.stage.setPlan({
@@ -1117,6 +1147,35 @@ export default function create(ctx) {
     addItem: (ref) => addItem(ref),
     /** Move to the next (+1) or previous (-1) part of the plan on the Next screen (remote control). */
     step: async (d) => { await ready; if (!plan) return false; await step(d); return true; },
+    // ---- used by Basic mode (js/modes.js), which shows the same plan in a simpler list
+    /** Call fn whenever the plan or what is on screen changes. Returns a function that stops it. */
+    subscribe(fn) { watchers.add(fn); return () => watchers.delete(fn); },
+    whenReady: () => ready,
+    /** The open plan as plain data: name and each part with its state (now = on screen, next = on Next). */
+    snapshot() {
+      if (!plan) return null;
+      const items = plan.items.map((it, i) => {
+        const now = onScreen(it);
+        return { i, title: titleOf(it), media: it.heading ? '' : (mediaLabel(it) || kindText(it)), kind: it.heading ? '' : it.tab,
+          empty: !!it.heading, done: !!it.done, now, next: !now && !it.heading && !!live.staged && shownCue.get(it.id) === live.staged.id };
+      });
+      const real = items.filter((x) => !x.empty);
+      return { name: plan.name, cur, items, shown: real.filter((x) => x.done).length, total: real.length };
+    },
+    /** Put part i on the Next screen (returns its cue, or null for a part without media). */
+    select: async (i) => { await ready; return plan ? select(i) : null; },
+    /** The next part with media after the current one (or -1). */
+    nextIndex() {
+      if (!plan) return -1;
+      let i = cur;
+      do { i++; } while (plan.items[i] && plan.items[i].heading);
+      return i < plan.items.length ? i : -1;
+    },
+    /** Show a hymn part with its music (Present & play). */
+    presentAndPlay: async (i) => { await ready; if (plan) await presentItem(i, true); },
+    /** Start a plan from the default template (today's order of service). */
+    async createDefault() { await ready; const t = tplByKey(defTpl) || tplByKey('b:Divine Service'); await createFromTemplate(t.key); },
+    importPlan: () => importPlan(),
     onShow() { render(); },
     open() { return null; },
   };

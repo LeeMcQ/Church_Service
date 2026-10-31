@@ -1309,3 +1309,176 @@ a.btn { text-decoration: none; }
 /* Phones: the hymn list fills the page before it has loaded, so the hymn pane below never jumps when it arrives. */
 @media (max-width: 760px) { .hymn-split > .pane:first-child { min-height: 100%; } }
 @media (max-width: 760px) { .present .pn-pre { display: none; } }
+
+/* ===================================================================================================== */
+/* Basic / Advanced mode                                                                                  */
+/* Basic: the order of service on the left, Next / Live on the right (larger), big Back / Next / Blank    */
+/* underneath. No tabs, no control bar. Advanced is the full app as before.                               */
+/* ===================================================================================================== */
+.mode-sw { display: flex; flex: none; height: 38px; padding: 3px; gap: 2px; border-radius: var(--r); border: 1px solid var(--line); background: var(--panel); }
+.mode-sw button { border: 0; background: transparent; color: var(--muted); padding: 0 12px; border-radius: var(--r-sm); font-weight: 700; font-size: var(--fs-sm); white-space: nowrap; }
+.mode-sw button:hover { color: var(--text); }
+.mode-sw button[aria-checked="true"] { background: var(--brass); color: var(--brass-ink); }
+.mode-sw .ms-short { display: none; }
+
+:root { --mon-b: clamp(300px, 38vw, 600px); }
+.app.mode-basic, .app.mode-basic.rail-right, .app.mode-basic.no-monitors, .app.mode-basic.rail-right.no-monitors {
+  grid-template-columns: minmax(0, 1fr) var(--mon-b);
+  grid-template-areas: "top top" "work mon" "bar bar";
+}
+.app.mode-basic .rail-nav, .app.mode-basic .ctrlbar { display: none !important; }
+.app.mode-basic #work > :not(.basic-panel) { display: none !important; }
+/* Basic always shows what is on screen, even where the monitors were switched off for Advanced. */
+html.no-mon .app.mode-basic .monitors, .app.mode-basic.no-monitors .monitors { display: flex; }
+.app.mode-basic .monitors { border-left: 1px solid var(--line); }
+.app.mode-basic .monitors .mon-actions, .app.mode-basic .listen-box { display: none; } /* Blank is in the big bar */
+
+.basic-panel { display: none; }
+.app.mode-basic .basic-panel { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.bp-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); min-width: 0; }
+.bp-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; flex: 1 1 auto; min-width: 0; }
+.bp-title h2 { margin: 0; font-size: var(--fs-xl); }
+.bp-name { font-weight: 700; }
+.bp-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 10px 12px 18px; }
+.bp-list { display: flex; flex-direction: column; gap: 6px; }
+.bp-row { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 12px; align-items: center; min-height: 64px; padding: 8px 10px 8px 12px;
+  border: 1px solid var(--line); border-left-width: 4px; border-radius: 10px; background: var(--panel); cursor: pointer; }
+.bp-row:hover { border-color: var(--muted); }
+.bp-row:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.bp-row.now { border-color: var(--live); background: var(--live-soft); }
+.bp-row.next { border-color: var(--next); background: var(--next-soft); }
+.bp-row.done:not(.now):not(.next) .bp-t { color: var(--muted); }
+.bp-row.empty { background: transparent; border-style: dashed; border-left-style: solid; cursor: default; }
+.bp-row.empty .bp-t { color: var(--muted); font-weight: 600; }
+.bp-n { width: 30px; height: 30px; border-radius: 50%; background: var(--sunk); color: var(--muted); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: var(--fs-sm); }
+.bp-txt { min-width: 0; }
+.bp-t { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 700; font-size: var(--fs-lg); }
+.bp-t .trunc { min-width: 0; }
+.bp-s { color: var(--muted); font-size: var(--fs-sm); margin-top: 2px; }
+.bp-done { color: var(--next); display: inline-flex; }
+.bp-done svg.i { width: 18px; height: 18px; }
+.bp-act { display: flex; gap: 6px; }
+.bp-act .btn { min-height: 44px; }
+.bp-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 560px; margin: 0 auto; padding: 48px 16px; text-align: center; color: var(--muted); }
+.bp-empty > svg.i { width: 40px; height: 40px; }
+.bp-empty h3 { margin: 0; color: var(--text); font-size: var(--fs-xl); }
+.bp-empty p { margin: 0; }
+.bp-empty .row { justify-content: center; margin-top: 6px; }
+
+.basic-bar { display: none; }
+.app.mode-basic .basic-bar { grid-area: bar; display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 12px; padding: 12px; background: var(--sunk); border-top: 1px solid var(--line); }
+.app.mode-basic .basic-bar:has(.bb-music:not([hidden])) { grid-template-columns: 1fr 2fr 1fr auto; }
+.bb { display: flex; align-items: center; justify-content: center; gap: 10px; min-width: 0; min-height: 68px; padding: 6px 14px; border-radius: 14px;
+  border: 2px solid var(--line); background: var(--panel); color: var(--text); font-weight: 700; font-size: var(--fs-xl); }
+.bb svg.i { width: 26px; height: 26px; stroke-width: 2.2; }
+.bb:hover:not(:disabled) { border-color: var(--muted); }
+.bb:disabled { opacity: .4; cursor: default; }
+.bb-next { flex-direction: column; gap: 2px; background: var(--next-strong); border-color: var(--next-strong); color: #fff; }
+.bb-next:hover:not(:disabled) { border-color: #fff; }
+.bb-main { display: flex; align-items: center; gap: 6px; font-size: 1.625rem; line-height: 1.1; }
+.bb-sub { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-sm); font-weight: 600; opacity: .92; }
+.bb-sub:empty { display: none; }
+.bb-blank { background: #000; color: #fff; }
+.bb-blank.on { border-color: var(--live); box-shadow: inset 0 0 0 2px var(--live); }
+.bb-music { font-size: var(--fs-md); }
+html:not(.lp) .bb:active:not(:disabled) { transform: translateY(1px); }
+
+/* Tablets and small PCs: a narrower switch. */
+@media (max-width: 1024px) and (min-width: 761px) {
+  .mode-sw button { padding: 0 9px; }
+  :root { --mon-b: clamp(280px, 40vw, 420px); }
+}
+@media (max-width: 900px) and (min-width: 761px) {
+  .mode-sw .ms-long { display: none; }
+  .mode-sw .ms-short { display: inline; }
+  .mode-sw button { padding: 0 7px; }
+  .topbar .quick { min-width: 96px; flex-basis: 96px; }
+  .topbar .disp-btn { flex: 0 1 auto; min-width: 44px; overflow: hidden; }
+}
+/* Phones: the switch takes the place of the logo; the big buttons take the place of the tabs. */
+@media (max-width: 760px) {
+  .topbar .brand { display: none; }
+  .mode-sw { height: 40px; padding: 2px; }
+  .mode-sw button { padding: 0 7px; font-size: var(--fs-xs); }
+  .mode-sw .ms-long { display: none; }
+  .present { flex: 1 1 96px; min-width: 92px; } /* room for the switch: the label shortens, the button stays */
+  .topbar .disp-btn { flex: 0 1 auto; min-width: 44px; overflow: hidden; } /* "No display" shortens before anything leaves the screen */
+  .topbar .spacer { min-width: 0; }
+  .mode-sw .ms-short { display: inline; }
+  .app.mode-basic, .app.mode-basic.rail-right, .app.mode-basic.no-monitors, .app.mode-basic.rail-right.no-monitors {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: var(--top-h) auto minmax(0, 1fr) auto;
+    grid-template-areas: "top" "mon" "work" "bar";
+  }
+  html.basic { --tab-h: var(--bbar-h, 80px); } /* things that float above the tabs float above the big buttons */
+  .app.mode-basic .monitors { border-left: 0; }
+  .app.mode-basic .basic-bar, .app.mode-basic .basic-bar:has(.bb-music:not([hidden])) {
+    grid-template-columns: 1fr 1.5fr 1fr; gap: 8px; padding: 8px 8px max(8px, env(safe-area-inset-bottom, 0px)); }
+  .app.mode-basic .bb-music:not([hidden]) { grid-column: 1 / -1; min-height: 40px; }
+  .bb { min-height: 60px; padding: 4px 6px; gap: 2px; flex-direction: column; font-size: var(--fs-md); border-radius: 12px; }
+  .bb svg.i { width: 22px; height: 22px; }
+  .bb-main { font-size: 1.375rem; }
+  .bb-music { flex-direction: row; gap: 8px; }
+  .bp-head { padding: 10px 12px; }
+  .bp-title h2 { font-size: var(--fs-lg); }
+  .bp-scroll { padding: 8px 8px 14px; }
+  .bp-row { grid-template-columns: 26px minmax(0, 1fr) auto; gap: 8px; min-height: 58px; padding: 6px 8px; }
+  .bp-n { width: 26px; height: 26px; font-size: var(--fs-xs); }
+  .bp-t { font-size: var(--fs-md); }
+  .bp-t .trunc { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .bp-act .btn { min-height: 42px; padding: 0 10px; }
+  .bp-play { padding: 0 8px; }
+}
+@media (max-width: 380px) {
+  .mode-sw button { padding: 0 5px; }
+  .topbar { gap: 4px; }
+  .bp-show span { display: none; }
+}
+
+/* ---------- Plan (Advanced): a small picture of each part's first slide ---------- */
+.plan-item { grid-template-columns: 32px 96px 1fr auto; }
+.plan-item .pi-tile { width: 96px; height: 54px; border-radius: 6px; }
+.pi-slide { padding: 3px; }
+.pi-slide-in { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; width: 100%; height: 100%; overflow: hidden;
+  text-align: center; font-weight: 700; font-size: 7.5px; line-height: 1.2; }
+.pi-slide-a { font-size: 8px; line-height: 1.1; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.pi-slide-w { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.pi-add { flex-direction: row !important; gap: 4px; border: 1px dashed var(--line) !important; background: transparent; color: var(--muted); font-size: var(--fs-xs); font-weight: 600; cursor: pointer; padding: 0; }
+.pi-add:hover { color: var(--text); border-color: var(--muted) !important; background: var(--panel); }
+.pi-add svg.i { width: 16px; height: 16px; }
+@media (max-width: 560px) {
+  .plan-item { grid-template-columns: 28px 72px minmax(0, 1fr); }
+  .plan-item .pi-tile { width: 72px; height: 40px; }
+  .pi-slide { padding: 2px; }
+  .pi-slide-in { font-size: 6px; }
+  .pi-slide-a { font-size: 7px; }
+  .pi-slide-w { -webkit-line-clamp: 2; }
+  .pi-add span { display: none; }
+}
+
+/* ---------- Verse suggestions (Advanced) ---------- */
+.listen-box { display: flex; flex-direction: column; gap: 8px; }
+.ls-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ls-start { width: 100%; justify-content: center; }
+.ls-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--live); flex: none; }
+html:not(.lp) .listen-box.on .ls-dot { animation: ls-pulse 1.6s ease-in-out infinite; }
+@keyframes ls-pulse { 50% { opacity: .35; } }
+.ls-state { flex: 1 1 auto; min-width: 0; font-size: var(--fs-sm); font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ls-list { display: flex; flex-direction: column; gap: 8px; }
+.ls-list:empty { display: none; }
+.ls-card { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 10px; background: var(--raised); border: 1px solid var(--brass); min-width: 0; }
+.ls-k { display: flex; align-items: center; gap: 6px; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--brass-text); min-width: 0; }
+.ls-k svg.i { width: 15px; height: 15px; }
+.ls-heard { flex: 1 1 auto; min-width: 0; text-transform: none; letter-spacing: 0; font-weight: 400; font-style: italic; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ls-ref { font-size: var(--fs-lg); font-weight: 700; }
+.ls-peek { font-size: var(--fs-sm); color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ls-act { display: flex; gap: 6px; }
+.ls-act .btn.primary { flex: 1 1 auto; justify-content: center; }
+/* Phones: the monitors are a row of two screens, so suggestions float above the tabs while listening. */
+@media (max-width: 760px) {
+  .monitors .listen-box { display: none; }
+  .monitors .listen-box.on { display: flex; position: fixed; z-index: 30; left: 8px; right: 8px;
+    bottom: calc(var(--tab-h) + var(--bar-real, 0px) + 8px); max-height: 46vh; overflow: auto;
+    padding: 10px; border-radius: 12px; background: var(--sunk); border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0,0,0,.45); }
+  .ls-act .btn { min-height: 42px; }
+}
