@@ -26,7 +26,7 @@ const lazyWelcome = () => import('./tabs/welcome.js');
 const openFeedback = (c, o) => import('./tabs/account.js').then((m) => m.openFeedback(c, o));
 
 export const VERSION = '1.6.0';
-export const BUILD = '5a3d71b';
+export const BUILD = '526aad3';
 
 const TABS = [
   { id: 'bible', label: 'Bible', icon: 'bible', file: 'bible.js', load: () => import('./tabs/bible.js') },
@@ -164,7 +164,7 @@ TABS.forEach((t, i) => {
 });
 const moreBtn = h('button.rail-more', { type: 'button', 'aria-label': 'More tabs', 'aria-haspopup': 'menu', onclick: () => ui.menu(moreBtn,
   MORE_MENU.map((id) => { const t = TABS.find((x) => x && x.id === id); return { label: t.label, icon: t.icon, hint: current === id ? 'Open' : '', onclick: () => showTab(id) }; })
-    .concat(ctx.listener && ctx.listener.supported ? ['-', { label: ctx.listener.on ? 'Stop listening for verses' : 'Listen for verses…', icon: 'mic', onclick: () => ctx.listener.toggle() }] : [])) },
+    .concat(ctx.listener && ctx.listener.supported ? ['-', { label: ctx.listener.on ? 'Stop listening' : 'Listen for verses & hymns…', icon: 'mic', onclick: () => ctx.listener.toggle() }] : [])) },
 icon('grid'), h('span', 'More'));
 rail.parentNode.appendChild(moreBtn);
 live.on('live', (cue) => {

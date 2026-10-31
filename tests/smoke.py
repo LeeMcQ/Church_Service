@@ -207,6 +207,24 @@ def main():
                 assert not errs, '; '.join(errs[:3])
             t_advanced()
 
+            @check('listening: hymns by name and following the singing')
+            def t_hymn_listen():
+                pg.evaluate("window.selah.listener.ready()"); pg.wait_for_timeout(800)
+                pg.evaluate("window.selah.listener.hear('please stand and let us sing great is thy faithfulness')"); pg.wait_for_timeout(1200)
+                ref = pg.locator('.ls-card:not(.ls-follow) .ls-ref').first.inner_text()
+                assert '100' in ref, 'hymn by name offered %r' % ref
+                # Hymn 4 on screen at its title; the congregation sings the third stanza.
+                pg.evaluate("window.selah.tab('hymns').then(t => t.open({ n: 4, book: 'sda-online' }))"); pg.wait_for_timeout(1000)
+                pg.click('#presentBtn'); pg.wait_for_timeout(1200)
+                pg.evaluate("import('./js/core/live.js').then(m => m.live.go(0))"); pg.wait_for_timeout(300)
+                pg.evaluate("window.selah.listener.hear('tenderly he shields and spares us well our feeble frame he knows')"); pg.wait_for_timeout(600)
+                assert pg.locator('.ls-follow').count() == 1, 'no "being sung now" card'
+                pg.locator('.ls-follow .btn.primary').click(); pg.wait_for_timeout(500)
+                lab = pg.evaluate("import('./js/core/live.js').then(m => m.live.cue.labels[m.live.index])")
+                assert lab.startswith('3'), 'showing %r instead of stanza 3' % lab
+                assert not errs, '; '.join(errs[:3])
+            t_hymn_listen()
+
             @check('a shared plan file opens')
             def t_plan():
                 data = list(open(os.path.join(HERE, 'fixtures', 'sample.sdaplan'), 'rb').read())

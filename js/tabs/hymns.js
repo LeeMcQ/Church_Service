@@ -991,6 +991,12 @@ export default function create(ctx) {
       return out;
     },
     whenReady() { return ready; },
+    /** Number, title and first line of every hymn in the open book, plus its id (for hymns announced by name). */
+    catalog() {
+      if (!book) return { id: '', list: [] };
+      if (!book._cat || book._cat.length !== book.hymns.length) book._cat = book.hymns.map((x) => ({ n: x.n, t: x.t, first: (x.v && x.v[0] && x.v[0][0]) || '' }));
+      return { id: book.id, name: book.short || book.name, list: book._cat };
+    },
     search(qq, k = 5) {
       const out = [];
       if (!book) return out;

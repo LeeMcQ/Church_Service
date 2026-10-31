@@ -1482,3 +1482,6 @@ html:not(.lp) .listen-box.on .ls-dot { animation: ls-pulse 1.6s ease-in-out infi
     padding: 10px; border-radius: 12px; background: var(--sunk); border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0,0,0,.45); }
   .ls-act .btn { min-height: 42px; }
 }
+/* "Being sung now": following the singing of the hymn on screen (green, like Next). */
+.ls-card.ls-follow { border-color: var(--next); }
+.ls-card.ls-follow .ls-k { color: var(--next); }

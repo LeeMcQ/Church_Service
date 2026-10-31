@@ -29,9 +29,11 @@ The switch at the top left changes between two views; the choice is kept on each
   slides, then moves on to the next part of the service (a part with nothing to show puts the logo up).
   Hymns have a ▶ button that shows the words and starts the music. **Edit** opens the plan in Advanced.
 - **Advanced** is everything below: every tab and tool. The plan shows a small picture of each part's first
-  slide, and **Listen for verses** (under Black / Logo / Clear; on phones in **More**) listens to the sermon
-  and offers the Bible verses and hymns that are mentioned — “John 3:16 · Put on Next / Present”. Nothing
-  goes on screen by itself. It uses the browser's online speech service (Chrome or Edge), so it needs the
+  slide, and **Listen for verses & hymns** (under Black / Logo / Clear; on phones in **More**) listens to the
+  service and offers the Bible verses and hymns that are mentioned — by number (“hymn 100”, “number 73 in
+  our hymnal”) or by name (“let us sing Great Is Thy Faithfulness”). While a hymn is on screen it follows the
+  singing and offers the stanza being sung (“Being sung now · Verse 3 · Show verse 3”). Nothing goes on
+  screen by itself. It uses the browser's online speech service (Chrome or Edge), so it needs the
   internet while it listens, and it follows the language of your main Bible (English or Afrikaans).
 
 ## What each tab does

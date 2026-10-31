@@ -1,11 +1,14 @@
-// Verse suggestions while the preacher speaks (Advanced mode).
-// The browser's speech recogniser turns the sermon into text; references to Bible verses and hymns are offered
-// to the operator as cards ("John 3:16 — Put on Next / Present"). Nothing ever goes on screen by itself.
+// Verse and hymn suggestions while the service runs (Advanced mode).
+// The browser's speech recogniser turns what is said into text. Bible verses and hymns (by number or by name:
+// "let us sing Great Is Thy Faithfulness") are offered to the operator as cards ("John 3:16 — Put on Next /
+// Present"). While a hymn is on screen it also follows the singing and offers the stanza being sung.
+// Nothing ever goes on screen by itself.
 // Chrome and Edge send the audio to their own speech service, so this needs the internet; it is off by default.
 import { h, clear } from './core/util.js';
 import { icon } from './core/icons.js';
 import { settings } from './core/settings.js';
-import { findRefs } from './core/spokenref.js';
+import { findRefs, findHymnTitle, stanzaScores } from './core/spokenref.js';
+import { live } from './core/live.js';
 import { parseRef, refText, EN, AF } from './core/books.js';
 import { versesFor, verseText } from './core/bibledata.js';
 
@@ -18,10 +21,18 @@ export function createListener({ ctx, getTab, present, ui }) {
   let on = false, rec = null, restartT = null, problem = '', testing = false;
   const seen = new Map(); // key -> time offered
   const cards = [];       // { key, el, t }
+  let hyApi = null;       // the Hymns tab, once loaded (its hymn list is used to find hymns announced by name)
+  let music = null;       // hymn music: while it plays, the slides already follow the music
+  let sung = '';          // what was heard while the hymn on screen was sung (for following the singing)
+  let follow = null;      // { el, i } the "being sung now" card
+  const loadHelpers = () => {
+    if (!hyApi) getTab('hymns').then(async (t) => { await t.whenReady(); hyApi = t; }).catch(() => {});
+    if (!music) import('./core/hymnmusic.js').then((m) => { music = m.music; }).catch(() => {});
+  };
 
   const head = h('div.ls-head');
   const list = h('div.ls-list', { 'aria-live': 'polite' });
-  const box = h('div.listen-box', { 'aria-label': 'Verse suggestions' }, head, list);
+  const box = h('div.listen-box', { 'aria-label': 'Verse and hymn suggestions' }, head, list);
 
   const lang = () => (settings.v.bible.primary === 'afr53' ? 'af-ZA' : 'en-ZA');
   const afr = () => lang() === 'af-ZA';
@@ -30,8 +41,8 @@ export function createListener({ ctx, getTab, present, ui }) {
     clear(head);
     box.classList.toggle('on', on);
     if (!on) {
-      head.append(h('button.btn.ls-start', { type: 'button', title: 'Listen to the sermon and suggest the Bible verses and hymns that are mentioned', onclick: () => start() },
-        icon('mic'), h('span', 'Listen for verses')));
+      head.append(h('button.btn.ls-start', { type: 'button', title: 'Listen to the service: suggests the Bible verses and hymns that are mentioned, and follows the singing', onclick: () => start() },
+        icon('mic'), h('span', 'Listen for verses & hymns')));
       return;
     }
     head.append(
@@ -44,19 +55,21 @@ export function createListener({ ctx, getTab, present, ui }) {
   function start() {
     if (on) return;
     if (!SR) {
-      ui.toast('This browser cannot listen for verses. Use Chrome or Edge on a PC or Android phone.', 'err', 6000);
+      ui.toast('This browser cannot listen. Use Chrome or Edge on a PC or Android phone.', 'err', 6000);
       return;
     }
     if (!settings.v.app.listenOk) { explain(); return; }
     on = true; problem = '';
+    loadHelpers();
     begin();
     paintHead();
   }
   function explain() {
     ui.modal({
-      title: 'Listen for verses',
+      title: 'Listen for verses and hymns',
       body: h('div.col', { style: { gap: '10px' } },
-        h('p', 'Church Service listens through the microphone and, when the preacher mentions a Bible verse or a hymn, offers it here. You choose whether to put it on Next or present it. Nothing goes on the screen by itself.'),
+        h('p', 'Church Service listens through the microphone. When a Bible verse or a hymn is mentioned (by number, “hymn 100”, or by name, “let us sing Great Is Thy Faithfulness”), it is offered here. While a hymn is on the screen it also follows the singing and offers the stanza being sung.'),
+        h('p', 'You choose whether to put it on Next or show it. Nothing goes on the screen by itself.'),
         h('p.note', 'The browser turns speech into text with its own online speech service (Google for Chrome, Microsoft for Edge), so it needs the internet while it listens. It only listens while “Listening” shows, and you can stop it at any time.'),
         h('p.note', 'Language: ' + (afr() ? 'Afrikaans' : 'English') + ' (follows your main Bible in Settings).')),
       actions: [{ label: 'Cancel' }, { label: 'Start listening', primary: true, onclick: () => { settings.set('app.listenOk', true); start(); } }],
@@ -93,6 +106,7 @@ export function createListener({ ctx, getTab, present, ui }) {
   }
   function stop() {
     on = false; problem = '';
+    sung = ''; clearFollow();
     clearTimeout(restartT);
     if (rec) { try { rec.onend = null; rec.abort(); } catch (e) { /* already stopped */ } rec = null; }
     paintHead();
@@ -102,6 +116,47 @@ export function createListener({ ctx, getTab, present, ui }) {
   function heard(text, final) {
     const found = findRefs(text);
     found.forEach((r) => offer(r, text, final));
+    // A hymn announced by name ("our closing hymn is Blessed Assurance"): only on the finished sentence.
+    if (final && hyApi && !found.some((r) => r.kind === 'hymn')) {
+      const c = hyApi.catalog();
+      const m = findHymnTitle(text, c.list);
+      if (m) offer({ kind: 'hymn', n: m.n, book: c.id }, text, final);
+    }
+    followSinging(text, final);
+  }
+
+  // ------------------------------------------------------------ following the singing
+  const slideLabel = (lab) => (lab === 'T' ? 'Title' : /^C/.test(lab) ? 'Chorus' : 'Verse ' + String(lab || '').replace(/a$/, ''));
+  function clearFollow() { if (follow) { follow.el.remove(); follow = null; } }
+  live.on('live', () => { sung = ''; clearFollow(); }); // another item on screen: start listening afresh
+  live.on('go', () => { if (follow && follow.i === live.index) clearFollow(); });
+
+  function followSinging(text, final) {
+    const cue = live.cue;
+    if (!cue || cue.tab !== 'hymns' || !cue.cards || !(on || testing)) return;
+    if (music && music.isPlaying() && music.hymnKey === cue.hymnKey) return; // the music already moves the slides
+    const recent = (sung + ' ' + text).slice(-400);
+    if (final) sung = recent;
+    const slides = cue.cards.map((c) => (c.p && c.p.kind === 'title' ? null : c.lines));
+    const { scores, best } = stanzaScores(recent, slides);
+    if (best < 2) return;
+    const tops = scores.map((v, i) => (v === best ? i : -1)).filter((i) => i >= 0);
+    if (tops.includes(live.index)) { clearFollow(); return; } // already showing what is sung
+    const i = tops.find((x) => x > live.index) ?? tops[0]; // a chorus sung again: the next one
+    if (follow && follow.i === i) return;
+    clearFollow();
+    const name = slideLabel(cue.labels && cue.labels[i]);
+    const first = (cue.cards[i].lines || [])[0] || '';
+    const el = h('article.ls-card.ls-follow',
+      h('div.ls-k', icon('music'), h('span', 'Being sung now')),
+      h('div.ls-ref', name),
+      first ? h('div.ls-peek', first) : null,
+      h('div.ls-act',
+        h('button.btn.primary', { type: 'button', onclick: () => { if (live.cue === cue) live.go(i); clearFollow(); } }, icon('next'), h('span', 'Show ' + name.toLowerCase())),
+        h('button.btn.icon', { type: 'button', title: 'Dismiss', 'aria-label': 'Dismiss', onclick: () => clearFollow() }, icon('x'))));
+    follow = { el, i };
+    list.prepend(el);
+    paintHead();
   }
 
   async function offer(r, text, final) {
@@ -177,7 +232,8 @@ export function createListener({ ctx, getTab, present, ui }) {
   async function hymnCard(r, text) {
     let hy;
     try { hy = await getTab('hymns'); await hy.whenReady(); } catch (e) { return null; }
-    const m = hy.lookup(r.n)[0];
+    const all = hy.lookup(r.n);
+    const m = (r.book && all.find((x) => x.bookId === r.book)) || all[0];
     if (!m) return null;
     return cardEl('hymn', 'Hymn ' + m.n + ' · ' + m.t, m.book, text, async () => hy.open({ n: m.n, book: m.bookId }));
   }
@@ -190,6 +246,8 @@ export function createListener({ ctx, getTab, present, ui }) {
     start, stop,
     toggle() { if (on) stop(); else start(); },
     /** For tests: offer what a sentence mentions, as if it had been heard. */
-    hear(text) { testing = true; heard(text, true); },
+    hear(text) { testing = true; loadHelpers(); heard(text, true); },
+    /** For tests: load what hymns by name and following the singing need. */
+    ready: async () => { loadHelpers(); const t = await getTab('hymns'); await t.whenReady(); hyApi = t; },
   };
 }

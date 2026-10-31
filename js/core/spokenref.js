@@ -20,8 +20,12 @@ const ORDINAL = { first: '1', second: '2', third: '3', '1st': '1', '2nd': '2', '
 const CHAPTER = new Set(['chapter', 'chapters', 'hoofstuk', 'hoofstukke']);
 const VERSE = new Set(['verse', 'verses', 'vers', 'verse', 'versie', 'v']);
 const RANGE = new Set(['to', 'through', 'thru', 'until', 'till', 'tot', 'and', 'en', '-']);
-const HYMN = new Set(['hymn', 'hymns', 'hymne', 'lied', 'gesang']);
-const NUMBER_WORD = new Set(['number', 'no', 'nommer', 'nr']);
+const HYMN = new Set(['hymn', 'hymns', 'hymne', 'lied', 'gesang', 'hymnal', 'hymnbook', 'songbook', 'liedboek', 'gesangeboek']);
+const NUMBER_WORD = new Set(['number', 'no', 'nommer', 'nr', 'page', 'bladsy']);
+// Words that show a number is a hymn: "number 100 in our hymnal", "let us sing number 73", "song number 12".
+const HYMN_HINT = new Set(['sing', 'singing', 'sung', 'song', 'songs', 'hymnal', 'hymnbook', 'songbook', 'liedboek', 'gesangeboek', 'hymn', 'hymne', 'lied', 'gesang', 'stand', 'opstaan']);
+// Words that announce a hymn by its name: "let us sing Amazing Grace", "our closing hymn is Blessed Assurance".
+const SING_TRIGGER = new Set(['sing', 'singing', 'sung', 'hymn', 'hymne', 'song', 'lied', 'gesang', 'hymnal']);
 
 const fold = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
@@ -111,6 +115,11 @@ export function findRefs(text) {
       if (isNum(t[j]) && +t[j] > 0) { out.push({ kind: 'hymn', n: +t[j] }); i = j; }
       continue;
     }
+    // "let us sing number 73", "number 100 in our hymnal", "song number 12": a number with a hymn word nearby.
+    if (NUMBER_WORD.has(t[i]) && isNum(t[i + 1]) && +t[i + 1] > 0) {
+      const near = t.slice(Math.max(0, i - 4), i).concat(t.slice(i + 2, i + 7));
+      if (near.some((w) => HYMN_HINT.has(w))) { out.push({ kind: 'hymn', n: +t[i + 1] }); i++; continue; }
+    }
     // Bible: a book name followed by a chapter number.
     let hit = null;
     for (const b of books) {
@@ -142,4 +151,59 @@ export function findRefs(text) {
     i = j - 1;
   }
   return out;
+}
+
+// ------------------------------------------------------------------------------------------------ hymns by name
+const words = (s) => fold(s).replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter(Boolean);
+const LEAD = new Set(['the', 'a', 'o', 'oh', 'die', "'n", 'n']);
+
+/**
+ * A hymn announced by its name or first line: "let us sing Great Is Thy Faithfulness", "our opening hymn,
+ * Blessed Assurance". Only looks after a word such as sing / hymn / song, so a title quoted in the sermon is
+ * not offered. catalog: [{ n, t, first }] (number, title, first line). Returns { n, t, words } or null.
+ */
+export function findHymnTitle(text, catalog) {
+  if (!catalog || !catalog.length) return null;
+  const t = words(text);
+  let best = null;
+  for (let i = 0; i < t.length; i++) {
+    if (!SING_TRIGGER.has(t[i])) continue;
+    const after = t.slice(i + 1, i + 18);
+    for (const h of catalog) {
+      if (!h._w) {
+        h._w = [words(h.t), words(h.first || '').slice(0, 8)].map((w) => (LEAD.has(w[0]) && w.length > 2 ? w.slice(1) : w)).filter((w) => w.length);
+      }
+      for (const p of h._w) {
+        // The name may start a few words later ("let us all stand and sing together …").
+        for (let j = 0; j <= Math.min(5, after.length - 1); j++) {
+          let k = 0;
+          while (k < p.length && after[j + k] === p[k]) k++;
+          const full = k === p.length && (k >= 2 || p[0].length >= 6);
+          if (!(full || k >= 4)) continue;
+          const score = k / p.length + k * 0.02 - j * 0.01;
+          if (!best || score > best.score) best = { n: h.n, t: h.t, score, words: k };
+        }
+      }
+    }
+  }
+  return best && best.score >= 0.6 ? { n: best.n, t: best.t, words: best.words } : null;
+}
+
+/**
+ * Which slide of a hymn is being sung: the slide whose words share the most three-word runs with what was
+ * just heard. slides: [lines[]] (null for the title). Returns { scores, best } where best is the top score.
+ */
+export function stanzaScores(text, slides) {
+  const heard = words(text).slice(-24);
+  const grams = new Set();
+  for (let i = 0; i + 2 < heard.length; i++) grams.add(heard[i] + ' ' + heard[i + 1] + ' ' + heard[i + 2]);
+  const scores = slides.map((lines) => {
+    if (!lines || !grams.size) return 0;
+    const w = words(lines.join(' '));
+    let n = 0;
+    const seen = new Set();
+    for (let i = 0; i + 2 < w.length; i++) { const g = w[i] + ' ' + w[i + 1] + ' ' + w[i + 2]; if (grams.has(g) && !seen.has(g)) { seen.add(g); n++; } }
+    return n;
+  });
+  return { scores, best: Math.max(0, ...scores) };
 }
