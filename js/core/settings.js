@@ -173,10 +173,73 @@ settings.set = (path, value) => {
   let o = settings.v;
   for (let i = 0; i < keys.length - 1; i++) o = o[keys[i]] = o[keys[i]] || {};
   o[keys[keys.length - 1]] = value;
-  settings.save();
+  savePath(keys, value);
   settings.emit('change', path, value);
   settings.emit('change:' + keys[0], path, value);
 };
+
+const quotaFull = (e) => {
+  // A full device: say so (once per session) instead of losing the change quietly. Private windows also land
+  // here; there the change works until the window is closed.
+  if (/quota/i.test((e && (e.name + ' ' + e.message)) || '') && !settings.fullWarned) {
+    settings.fullWarned = true;
+    try { window.dispatchEvent(new CustomEvent('selah-storage-full')); } catch (er) { /* not in a page */ }
+  }
+};
+/**
+ * Save one change. Two windows of the app (a second monitor, a tab left open) each hold their own copy of the
+ * settings: writing the whole copy would undo what the other window changed meanwhile. So the stored settings
+ * are read again and only this one value is changed in them.
+ */
+function savePath(keys, value) {
+  let raw = null;
+  try { raw = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { raw = null; }
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) { settings.save(); return; }
+  try {
+    if (keys[0] === 'ai') {
+      // The AI section is written whole from this window, so a key kept for this session never reaches the disk.
+      const ai = Object.assign({}, settings.v.ai || {});
+      if (ai.keySession) { try { sessionStorage.setItem(AIKEY, ai.apiKey || ''); } catch (e) { /* */ } ai.apiKey = ''; }
+      else { try { sessionStorage.removeItem(AIKEY); } catch (e) { /* */ } }
+      raw.ai = ai;
+    } else {
+      let o = raw;
+      for (let i = 0; i < keys.length - 1; i++) {
+        if (!o[keys[i]] || typeof o[keys[i]] !== 'object' || Array.isArray(o[keys[i]])) o[keys[i]] = {};
+        o = o[keys[i]];
+      }
+      o[keys[keys.length - 1]] = value;
+    }
+    localStorage.setItem(KEY, JSON.stringify(raw));
+  } catch (e) { quotaFull(e); }
+}
+
+/** Every leaf that differs between two settings objects ('display.font', 'app.theme', …). */
+function changedPaths(a, b, pre, out) {
+  const keys = new Set(Object.keys(a || {}).concat(Object.keys(b || {})));
+  keys.forEach((k) => {
+    const x = a ? a[k] : undefined, y = b ? b[k] : undefined, p = pre ? pre + '.' + k : k;
+    const obj = (v) => v && typeof v === 'object' && !Array.isArray(v);
+    if (obj(x) && obj(y)) changedPaths(x, y, p, out);
+    else if (JSON.stringify(x) !== JSON.stringify(y)) out.push(p);
+  });
+  return out;
+}
+// Another window of the app changed a setting: take it over here too (theme, fonts, screen look …).
+try {
+  window.addEventListener('storage', (e) => {
+    if (e.key !== KEY || e.newValue == null) return;
+    let raw;
+    try { raw = JSON.parse(e.newValue); } catch (er) { return; }
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
+    const fresh = fixTypes(DEFAULTS, merge(DEFAULTS, raw));
+    if (settings.v.ai && settings.v.ai.keySession && fresh.ai && fresh.ai.keySession) fresh.ai.apiKey = settings.v.ai.apiKey; // this window's own session key
+    const paths = changedPaths(settings.v, fresh, '', []);
+    if (!paths.length) return;
+    settings.v = fresh;
+    paths.forEach((p) => { settings.emit('change', p, settings.get(p)); settings.emit('change:' + p.split('.')[0], p, settings.get(p)); });
+  });
+} catch (e) { /* not in a page */ }
 
 settings.save = () => {
   try {
@@ -189,14 +252,7 @@ settings.save = () => {
       try { sessionStorage.removeItem(AIKEY); } catch (e) { /* */ }
       localStorage.setItem(KEY, JSON.stringify(settings.v));
     }
-  } catch (e) {
-    // A full device: say so (once per session) instead of losing the change quietly. Private windows also land
-    // here; there the change works until the window is closed.
-    if (/quota/i.test((e && (e.name + ' ' + e.message)) || '') && !settings.fullWarned) {
-      settings.fullWarned = true;
-      try { window.dispatchEvent(new CustomEvent('selah-storage-full')); } catch (er) { /* not in a page */ }
-    }
-  }
+  } catch (e) { quotaFull(e); }
 };
 
 settings.reset = (section) => {

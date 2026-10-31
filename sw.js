@@ -1,6 +1,6 @@
 // Church Service service worker: installs the whole app (Bibles, hymns, fonts, pdf.js) in one go
 // so it runs with no internet. VERSION is rewritten by tools/build.py on every build.
-const VERSION = '4830d2f15772';
+const VERSION = '8ad730f824e5';
 // Caches are named per address ('selah-/Church_Service/|<version>'), so two apps on the same site
 // (for example this one and an older copy under another folder) never delete each other's offline files.
 const SCOPE = new URL(self.registration.scope).pathname;
@@ -250,7 +250,24 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== location.origin || NETWORK_ONLY.test(url.pathname)) return;
-  if (req.headers.get('range')) return; // media byte ranges go to the network / companion
+  if (req.headers.get('range')) {
+    // Audio and video ask for byte ranges. A stored file answers them itself, so it also plays offline once the
+    // browser's own short-lived cache is gone; anything not stored goes to the network (or the companion).
+    event.respondWith((async () => {
+      const hit = await (await caches.open(CACHE)).match(req, { ignoreSearch: true });
+      if (!hit) return fetch(req);
+      const blob = await hit.blob();
+      const m = /bytes=(\d*)-(\d*)/.exec(req.headers.get('range') || '');
+      let start = m && m[1] ? +m[1] : 0, end = m && m[2] ? +m[2] : blob.size - 1;
+      if (m && !m[1] && m[2]) { start = Math.max(0, blob.size - +m[2]); end = blob.size - 1; } // the last n bytes
+      if (!m || start >= blob.size || start > end) return new Response('', { status: 416, headers: { 'Content-Range': 'bytes */' + blob.size } });
+      end = Math.min(end, blob.size - 1);
+      return new Response(blob.slice(start, end + 1), { status: 206, statusText: 'Partial Content', headers: {
+        'Content-Type': hit.headers.get('content-type') || blob.type || 'application/octet-stream',
+        'Content-Range': 'bytes ' + start + '-' + end + '/' + blob.size, 'Content-Length': String(end - start + 1), 'Accept-Ranges': 'bytes' } });
+    })());
+    return;
+  }
   const rel = url.pathname.startsWith(SCOPE) ? url.pathname.slice(SCOPE.length) : url.pathname.replace(/^\//, '');
   const nav = req.mode === 'navigate';
   // A deep or odd address (…/index.html/, …/some/path, …/tab/bible): the page's own files would be looked for in

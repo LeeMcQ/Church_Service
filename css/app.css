@@ -1468,3 +1468,16 @@ html:not(.lp) .listen-box.on .ls-dot { animation: ls-pulse 1.6s ease-in-out infi
 .ls-toggle { min-height: 44px; }
 .ls-examples { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; }
 .ls-said { font-style: italic; }
+/* Larger text (browser or Windows text size above 100 %): the top bar shrinks its other items before the Present
+   button can be pushed off the screen. The Present button may narrow (its next-item line shortens), the search
+   box and the display button give up width, and the readiness badge and greeting shorten with "…". */
+@media (min-width: 761px) {
+  .topbar { min-width: 0; }
+  .topbar > * { min-width: 0; }
+  .topbar .present { flex: 0 1 auto; min-width: 11rem; }
+  .topbar .quick { flex: 1 1 8rem; min-width: 5rem; }
+  .topbar .disp-btn, .topbar .stage-btn { flex: 0 1 auto; overflow: hidden; }
+  .topbar .disp-btn .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar .brand { flex: 0 1 auto; min-width: 0; overflow: hidden; }
+  .ready-mark, .brand .sabbath-chip { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}

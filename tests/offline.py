@@ -227,6 +227,14 @@ def main():
                 assert r['staged'] == 'John 3:16' and r['rows'] > 100 and r['midi'] > 100000, 'offline: %r' % r
             if q: t_content()
 
+            @check('audio and video byte ranges are answered offline')
+            def t_range():
+                r = q.evaluate("""async () => { const a = await fetch('data/music/hymnal.sf3', { headers: { Range: 'bytes=100-199' } });
+                  const z = await fetch('data/music/hymnal.sf3', { headers: { Range: 'bytes=-50' } });
+                  return [a.status, (await a.arrayBuffer()).byteLength, a.headers.get('content-range'), z.status, (await z.arrayBuffer()).byteLength]; }""")
+                assert r[0] == 206 and r[1] == 100 and r[2].startswith('bytes 100-199/') and r[3] == 206 and r[4] == 50, 'range offline: %r' % r
+            if q: t_range()
+
             @check('every page opens offline')
             def t_pages():
                 bad = []

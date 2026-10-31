@@ -85,7 +85,8 @@ function open() {
   if (dbp) return dbp;
   dbp = new Promise((resolve) => {
     let req;
-    try { req = indexedDB.open(NAME, VERSION); } catch (e) { resolve(useMemory(e && e.message)); return; }
+    // Opened at whatever version it has (a newer app may have raised it); missing stores are added below.
+    try { req = indexedDB.open(NAME); } catch (e) { resolve(useMemory(e && e.message)); return; }
     const timer = setTimeout(() => resolve(useMemory('the database did not answer')), 8000);
     req.onupgradeneeded = () => {
       const d = req.result;
@@ -97,7 +98,19 @@ function open() {
       // A newer Church Service in another tab needs to upgrade the database: let it (this tab reopens it on its next
       // use instead of blocking the other tab for ever).
       d.onversionchange = () => { try { d.close(); } catch (e) { /* */ } dbp = null; };
-      copyFromOld(d).catch(() => {}).then(() => resolve(d));
+      const ready = (x) => copyFromOld(x).catch(() => {}).then(() => resolve(x));
+      // A database without all the stores (made by another version or a damaged profile): add them with one
+      // upgrade, so saving plans, slides and Bibles never fails quietly.
+      const lacking = STORES.filter((st) => !d.objectStoreNames.contains(st));
+      if (!lacking.length) { ready(d); return; }
+      const v = d.version + 1;
+      d.close();
+      let up;
+      try { up = indexedDB.open(NAME, v); } catch (e) { resolve(useMemory(e && e.message)); return; }
+      up.onupgradeneeded = () => { const u = up.result; STORES.forEach((st) => { if (!u.objectStoreNames.contains(st)) u.createObjectStore(st); }); };
+      up.onsuccess = () => { const u = up.result; u.onversionchange = () => { try { u.close(); } catch (e) { /* */ } dbp = null; }; ready(u); };
+      up.onerror = () => resolve(useMemory(up.error && up.error.message));
+      up.onblocked = () => console.warn('Database upgrade waiting for another Church Service tab to close.');
     };
     req.onerror = () => { clearTimeout(timer); resolve(useMemory(req.error && req.error.message)); };
     req.onblocked = () => console.warn('Database upgrade waiting for another Church Service tab to close.');
@@ -123,6 +136,7 @@ function wrap(req) {
 function reportFull(err) {
   const msg = (err && (err.name + ' ' + err.message)) || '';
   if (/QuotaExceeded|quota|disk|space/i.test(msg)) { try { window.dispatchEvent(new CustomEvent('selah-storage-full')); } catch (e) { /* not in a page */ } }
+  else if (err) { try { window.dispatchEvent(new CustomEvent('selah-save-failed', { detail: msg })); } catch (e) { /* not in a page */ } }
   return err;
 }
 
