@@ -91,7 +91,14 @@ function open() {
       const d = req.result;
       STORES.forEach((s) => { if (!d.objectStoreNames.contains(s)) d.createObjectStore(s); });
     };
-    req.onsuccess = () => { clearTimeout(timer); copyFromOld(req.result).catch(() => {}).then(() => resolve(req.result)); };
+    req.onsuccess = () => {
+      clearTimeout(timer);
+      const d = req.result;
+      // A newer Church Service in another tab needs to upgrade the database: let it (this tab reopens it on its next
+      // use instead of blocking the other tab for ever).
+      d.onversionchange = () => { try { d.close(); } catch (e) { /* */ } dbp = null; };
+      copyFromOld(d).catch(() => {}).then(() => resolve(d));
+    };
     req.onerror = () => { clearTimeout(timer); resolve(useMemory(req.error && req.error.message)); };
     req.onblocked = () => console.warn('Database upgrade waiting for another Church Service tab to close.');
   });

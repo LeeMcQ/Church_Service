@@ -1,6 +1,6 @@
 // Church Service service worker: installs the whole app (Bibles, hymns, fonts, pdf.js) in one go
 // so it runs with no internet. VERSION is rewritten by tools/build.py on every build.
-const VERSION = 'd6e1cde601fc';
+const VERSION = '4830d2f15772';
 // Caches are named per address ('selah-/Church_Service/|<version>'), so two apps on the same site
 // (for example this one and an older copy under another folder) never delete each other's offline files.
 const SCOPE = new URL(self.registration.scope).pathname;
@@ -14,16 +14,67 @@ async function broadcast(msg) {
   cs.forEach((c) => c.postMessage(msg));
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/**
+ * fetch() that cannot hang: Wi-Fi with no internet ("lie-fi") leaves requests open forever. It gives up when the
+ * answer does not start within headMs, or when the download stalls for stallMs (a slow line that keeps moving is
+ * fine). The whole body is read here, so a file cut off half-way is an error, not a short file.
+ */
+async function fetchT(url, opts = {}, headMs = 15000, stallMs = 20000) {
+  const ctl = new AbortController();
+  let timer = setTimeout(() => ctl.abort(), headMs);
+  try {
+    const r = await fetch(url, Object.assign({}, opts, { signal: ctl.signal }));
+    clearTimeout(timer);
+    if (!r.ok || !r.body) return r;
+    const reader = r.body.getReader();
+    const parts = [];
+    for (;;) {
+      timer = setTimeout(() => ctl.abort(), stallMs);
+      const { done, value } = await reader.read();
+      clearTimeout(timer);
+      if (done) break;
+      parts.push(value);
+    }
+    return new Response(new Blob(parts, { type: r.headers.get('content-type') || '' }), { status: r.status, statusText: r.statusText, headers: r.headers });
+  } finally { clearTimeout(timer); }
+}
 /** fetch() that tries again a few times: church Wi-Fi and phone hotspots drop requests. */
 async function fetchRetry(url, opts, tries = 3) {
   let last;
   for (let i = 0; i < tries; i++) {
-    try { const r = await fetch(url, opts); if (r.ok) return r; last = new Error('HTTP ' + r.status); if (r.status === 404) break; }
+    try { const r = await fetchT(url, opts); if (r.ok) return r; last = new Error('HTTP ' + r.status); if (r.status === 404) break; }
     catch (e) { last = e; }
-    await sleep(400 * (i + 1));
+    if (i < tries - 1) await sleep(400 * (i + 1));
   }
   throw last || new Error('fetch failed');
 }
+/** First 16 hex digits of the SHA-256 of a body: the same fingerprint tools/build.py writes into the file list. */
+async function sha16(blob) {
+  const d = new Uint8Array(await crypto.subtle.digest('SHA-256', await blob.arrayBuffer()));
+  let s = '';
+  for (let i = 0; i < 8; i++) s += d[i].toString(16).padStart(2, '0');
+  return s;
+}
+// A Wi-Fi login page ("captive portal") or a proxy error answers with an HTML page and status 200 in place of the
+// file. Such an answer is never stored as an app file.
+const htmlInstead = (f, r) => !/\.html?$/.test(f) && /text\/html/i.test(r.headers.get('content-type') || '');
+/**
+ * The response with its content checked against the file list: returns a stored-ready copy stamped as checked,
+ * or null when it is not the real file (wrong content, a login page, a stale copy from a cache).
+ */
+async function verified(f, r, want) {
+  if (!r || htmlInstead(f, r)) return null;
+  const blob = await r.blob();
+  if (want && (await sha16(blob)) !== want) return null;
+  const hd = new Headers(r.headers);
+  if (want) { hd.set('x-selah-hash', want); hd.set('x-selah-ok', want); }
+  return new Response(blob, { status: 200, statusText: 'OK', headers: hd });
+}
+/** A stored copy that was checked against this fingerprint already (cheap: a header). */
+const checkedFor = (r, want) => !!(r && want && r.headers.get('x-selah-ok') === want);
+// The app itself: without these nothing starts. The first install must store all of them before it takes over;
+// Bibles, hymns, music and the rest may follow later (the self-check fetches what is missing).
+const SHELL = (f) => /\.(html|webmanifest)$/.test(f) || /^(js|css|fonts|icons)\//.test(f);
 const appCaches = async () => (await caches.keys()).filter((k) => k.startsWith(PREFIX));
 /** Old-style caches whose files all belong to this app's address: they are ours to reuse and then remove.
  *  A cache holding another app's files (or nothing we can recognise) is left alone. */
@@ -68,36 +119,50 @@ self.addEventListener('install', (event) => {
     const hashes = man.hashes || {};
     const older = (await appCaches()).filter((k) => k !== CACHE).concat(await legacyOwn());
     // A file whose content did not change is copied from the previous version's cache, so an
-    // update only downloads what is new (the instruments and hymn music are about 6 MB).
+    // update only downloads what is new (the instruments and hymn music are about 6 MB). Its content is checked
+    // (once), so a login page stored by an older version is never carried over.
     async function unchanged(f) {
       const want = hashes[f];
       if (!want) return null;
       for (const k of older) {
         const r = await (await caches.open(k)).match(f);
-        if (r && r.headers.get('x-selah-hash') === want) return r;
+        if (!r || r.headers.get('x-selah-hash') !== want) continue;
+        if (checkedFor(r, want)) return r;
+        const ok = await verified(f, r, want);
+        if (ok) return ok;
       }
       return null;
     }
-    async function stamp(f, r) {
-      if (!hashes[f]) return r;
-      const hd = new Headers(r.headers);
-      hd.set('x-selah-hash', hashes[f]);
-      return new Response(await r.blob(), { status: 200, statusText: 'OK', headers: hd });
+    /** Download one file and store it only if it is the real file (checked against the file list). */
+    async function getOne(f) {
+      const here = await cache.match(f);                 // an earlier, interrupted attempt
+      if (here && (checkedFor(here, hashes[f]) || !hashes[f]) && !htmlInstead(f, here)) return;
+      const old = await unchanged(f);
+      if (old) { await cache.put(f, old); return; }
+      const ok = await verified(f, await fetchRetry(f, { cache: 'no-cache' }), hashes[f]);
+      if (!ok) throw new Error('not the real file: ' + f);
+      await cache.put(f, ok);
     }
-    let done = 0;
+    let done = 0, streak = 0;
     const missing = [];
-    // Small batches keep memory and connections low on weak devices.
-    for (let i = 0; i < files.length; i += 6) {
-      await Promise.all(files.slice(i, i + 6).map(async (f) => {
-        try {
-          if (await cache.match(f)) { done++; return; } // already there (an earlier, interrupted attempt)
-          const old = await unchanged(f);
-          if (old) await cache.put(f, old);
-          else await cache.put(f, await stamp(f, await fetchRetry(f, { cache: 'no-cache' })));
-        } catch (e) { missing.push(f); }
-        done++;
-      }));
-      broadcast({ t: 'progress', done, total: files.length });
+    const shell = files.filter(SHELL), rest = files.filter((f) => !SHELL(f));
+    // Small batches keep memory and connections low on weak devices. The app itself comes first.
+    for (const [group, isShell] of [[shell, true], [rest, false]]) {
+      for (let i = 0; i < group.length; i += 6) {
+        const batch = group.slice(i, i + 6);
+        // No answers at all for a while (no internet): stop trying the data now; the self-check fetches it later.
+        if (!isShell && !older.length && streak >= 12) { batch.forEach((f) => missing.push(f)); done += batch.length; continue; }
+        await Promise.all(batch.map(async (f) => {
+          try { await getOne(f); streak = 0; } catch (e) { missing.push(f); streak++; }
+          done++;
+        }));
+        broadcast({ t: 'progress', done, total: files.length });
+      }
+      // Without the app itself, a first install never takes over: the next visit tries again.
+      if (isShell && !older.length && missing.length) {
+        broadcast({ t: 'health', total: files.length, missing: missing.length, install: 'failed' });
+        throw new Error('First install incomplete: ' + missing.length + ' app files');
+      }
     }
     if (missing.length && older.length) {
       // An update that could not download everything is not used: the working version stays in
@@ -116,10 +181,12 @@ self.addEventListener('activate', (event) => {
     const man = await getManifest();
     // Before an old version is removed, anything the new one lacks is copied across.
     if (man) {
+      const hashes = man.hashes || {};
       for (const f of man.files) {
         if (await cache.match(f)) continue;
         const r = await fromAnyCache(f, CACHE);
-        if (r) await cache.put(f, r);
+        const ok = r && (checkedFor(r, hashes[f]) ? r : await verified(f, r, hashes[f]));
+        if (ok) await cache.put(f, ok);
       }
     }
     await Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)));
@@ -128,26 +195,45 @@ self.addEventListener('activate', (event) => {
   })());
 });
 
-/** Is every app file stored? Missing files are downloaded again when there is internet. */
-async function checkAndRepair(repair) {
+/** Is every app file stored, and is each one the real file? Missing files are downloaded again when there is
+ *  internet. One check at a time (the first one reads every file once to check it; later ones are quick). */
+let checking = Promise.resolve();
+function checkAndRepair(repair) {
+  const run = checking.then(() => checkOnce(repair));
+  checking = run.catch(() => {});
+  return run;
+}
+async function checkOnce(repair) {
   const man = await getManifest();
   if (!man) return { total: 0, have: 0, missing: [] };
   const cache = await caches.open(CACHE);
+  const hashes = man.hashes || {};
   const missing = [];
-  for (const f of man.files) if (!(await cache.match(f))) missing.push(f);
+  let bad = 0;
+  for (const f of man.files) {
+    const r = await cache.match(f);
+    if (!r) { missing.push(f); continue; }
+    if (checkedFor(r, hashes[f]) || (!hashes[f] && !htmlInstead(f, r))) continue;
+    // Not checked yet (stored by an older version): check it once; a wrong file counts as missing.
+    const ok = await verified(f, r, hashes[f]).catch(() => null);
+    if (ok) await cache.put(f, ok);
+    else { await cache.delete(f); missing.push(f); bad++; }
+  }
   let fixed = 0;
   if (repair && missing.length) {
     for (const f of missing.slice()) {
       try {
-        const r = await fetchRetry(f, { cache: 'no-cache' }, 2);
-        await cache.put(f, r); fixed++; missing.splice(missing.indexOf(f), 1);
+        const ok = await verified(f, await fetchRetry(f, { cache: 'no-cache' }, 2), hashes[f]);
+        if (!ok) throw new Error('not the real file');
+        await cache.put(f, ok); fixed++; missing.splice(missing.indexOf(f), 1);
       } catch (e) {
         const old = await fromAnyCache(f, CACHE);
-        if (old) { await cache.put(f, old); fixed++; missing.splice(missing.indexOf(f), 1); }
+        const ok = old && (checkedFor(old, hashes[f]) ? old : await verified(f, old, hashes[f]).catch(() => null));
+        if (ok) { await cache.put(f, ok); fixed++; missing.splice(missing.indexOf(f), 1); }
       }
     }
   }
-  return { total: man.files.length, have: man.files.length - missing.length, missing: missing.slice(0, 20), missingCount: missing.length, fixed, version: VERSION };
+  return { total: man.files.length, have: man.files.length - missing.length, missing: missing.slice(0, 20), missingCount: missing.length, fixed, bad, version: VERSION };
 }
 
 self.addEventListener('message', (e) => {
@@ -165,22 +251,44 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.origin !== location.origin || NETWORK_ONLY.test(url.pathname)) return;
   if (req.headers.get('range')) return; // media byte ranges go to the network / companion
+  const rel = url.pathname.startsWith(SCOPE) ? url.pathname.slice(SCOPE.length) : url.pathname.replace(/^\//, '');
+  const nav = req.mode === 'navigate';
+  // A deep or odd address (…/index.html/, …/some/path, …/tab/bible): the page's own files would be looked for in
+  // the wrong folder, so send it to the start page in the app's folder. (…/stage/ is the stage screen.)
+  if (nav && rel.includes('/')) {
+    const to = /^stage\/$/.test(rel) ? 'stage.html' : 'index.html';
+    event.respondWith(Response.redirect(new URL(to + url.search + url.hash, self.registration.scope).href, 302));
+    return;
+  }
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
-    const isPage = req.mode === 'navigate' || /\.html$/.test(url.pathname);
-    // The short address for phones (…/stage) is the stage screen page.
-    const isStage = /\/stage$/.test(url.pathname) || /\/stage\.html$/.test(url.pathname);
+    const isPage = nav || /\.html$/.test(url.pathname);
+    // The short address for phones (…/stage or …/stage/) is the stage screen page.
+    const isStage = /\/stage\/?$/.test(url.pathname) || /\/stage\.html$/.test(url.pathname);
     let hit = await cache.match(req, { ignoreSearch: isPage });
+    if (!hit && isPage && rel === '') hit = await cache.match('index.html'); // the folder address people bookmark
     if (!hit && isStage) hit = await cache.match('stage.html', { ignoreSearch: true });
     if (!hit && isPage) hit = await cache.match(req, { ignoreSearch: true });
     if (!hit && /[?&](v|r)=/.test(url.search)) hit = await cache.match(req, { ignoreSearch: true }); // cache-busting retries
+    if (hit && htmlInstead(url.pathname, hit)) { event.waitUntil(cache.delete(req).catch(() => {})); hit = null; } // a stored login page
     if (hit) return hit;
     try {
-      const res = await fetch(req);
-      // Keep a copy of app files that were missing, and of extra data added later (licensed Bibles).
-      if (res.ok && res.type === 'basic' && /\/(js|css|data|vendor|fonts|icons)\/|\.(html|webmanifest)$/.test(url.pathname)) {
+      // Never wait forever (Wi-Fi with no internet): pages give up after 4 s, other files after 8 s.
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), isPage ? 4000 : 8000);
+      let res;
+      try { res = await fetch(req, { signal: ctl.signal }); } finally { clearTimeout(timer); }
+      if (!res.ok && isPage) throw new Error('HTTP ' + res.status);
+      // Keep a copy of app files that were missing, and of extra data added later (licensed Bibles) — only
+      // the real file: checked against the file list, and never a login page in place of data.
+      if (res.ok && res.type === 'basic' && /\/(js|css|data|vendor|fonts|icons)\/|\.(html|webmanifest)$/.test(url.pathname) && !htmlInstead(url.pathname, res)) {
         const copy = res.clone();
-        event.waitUntil(cache.put(isPage ? new Request(url.pathname) : req, copy).catch(() => {}));
+        event.waitUntil((async () => {
+          const man = await getManifest();
+          const want = man && man.hashes && man.hashes[rel];
+          const ok = await verified(url.pathname, copy, want);
+          if (ok) await cache.put(isPage ? new Request(url.pathname) : req, ok);
+        })().catch(() => {}));
       }
       return res;
     } catch (e) {
@@ -188,7 +296,8 @@ self.addEventListener('fetch', (event) => {
       const old = await fromAnyCache(req, CACHE);
       if (old) return old;
       if (isPage) {
-        const page = await cache.match(/display\.html/.test(url.pathname) ? 'display.html' : isStage ? 'stage.html' : 'index.html', { ignoreSearch: true }) || await fromAnyCache('index.html', CACHE);
+        const page = await cache.match(/display\.html/.test(url.pathname) ? 'display.html' : isStage ? 'stage.html' : /\.html$/.test(url.pathname) ? url.pathname.split('/').pop() : 'index.html', { ignoreSearch: true })
+          || await cache.match('index.html', { ignoreSearch: true }) || await fromAnyCache('index.html', CACHE);
         if (page) return page;
       }
       return new Response('Offline and not stored on this device: ' + url.pathname, { status: 503, headers: { 'Content-Type': 'text/plain' } });

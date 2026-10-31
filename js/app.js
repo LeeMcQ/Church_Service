@@ -27,7 +27,7 @@ const lazyWelcome = () => import('./tabs/welcome.js');
 const openFeedback = (c, o) => import('./tabs/account.js').then((m) => m.openFeedback(c, o));
 
 export const VERSION = '1.6.0';
-export const BUILD = 'b4ad85e';
+export const BUILD = '162345d';
 
 const TABS = [
   { id: 'bible', label: 'Bible', icon: 'bible', file: 'bible.js', load: () => import('./tabs/bible.js') },
@@ -834,6 +834,15 @@ document.addEventListener('pointermove', () => {
   const a = document.activeElement;
   if (a && a.tagName === 'IFRAME') { a.blur(); window.focus(); }
 }, { passive: true });
+// A hard reload (Ctrl+Shift+R) skips the offline copy: with no internet that shows the browser's "no internet"
+// page. Offline it becomes a normal reload, which the offline copy answers. (F5 with or without Ctrl is Present.)
+document.addEventListener('keydown', (e) => {
+  if (navigator.onLine) return;
+  const hard = (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'R' || e.key === 'r');
+  if (!hard) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  location.reload();
+}, true);
 document.addEventListener('keydown', (e) => { if (handleKey(e, false)) e.preventDefault(); });
 // Keep the projector full screen: if it dropped out (Esc on the projector, a clicker's slide-show button,
 // another window), the next click or key press on this control screen puts it back.

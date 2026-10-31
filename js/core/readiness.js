@@ -38,13 +38,18 @@ export function readinessBadge(ctx, deps) {
   const el = h('button.ready-mark', { type: 'button', 'aria-live': 'polite', title: 'Offline readiness: tap for details' });
   let lastCheck = 0;
   let state = 'checking';
+  // Nearly full storage explains missing files better than anything else: say so in the badge.
+  let lowStorage = false;
+  const checkStorage = () => { try { if (navigator.storage && navigator.storage.estimate) navigator.storage.estimate().then((e) => { lowStorage = !!(e && e.quota && e.usage / e.quota > 0.9); }).catch(() => {}); } catch (e) { /* */ } };
+  checkStorage();
+  window.addEventListener('selah-health', checkStorage);
 
   function compute() {
     const prog = ctx.cacheProgress;
     const hh = ctx.offlineHealth;
     const waiting = deps.getWaiting();
     if (prog && prog.total > 1 && prog.done < prog.total) return { s: 'saving', t: 'Saving… ' + Math.floor(prog.done / prog.total * 100) + ' %' };
-    if (hh && hh.missingCount > 0) return { s: 'bad', t: '⚠ ' + hh.missingCount + ' files missing' };
+    if (hh && hh.missingCount > 0) return { s: 'bad', t: '⚠ ' + hh.missingCount + ' files missing' + (lowStorage ? ' · device full' : '') };
     if (waiting) return { s: 'update', t: 'Update ready' };
     if (hh && hh.total) return { s: 'ok', t: navigator.onLine ? '✔ Ready offline' : '✔ Offline · all stored' };
     if (!('serviceWorker' in navigator) || !window.isSecureContext) return { s: 'bad', t: 'Not stored offline' };

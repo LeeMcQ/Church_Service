@@ -15,6 +15,9 @@ What it checks:
   4. A broken update (a file that cannot be downloaded) is refused: the working version stays in charge offline.
   5. Updates are held during the Sabbath and while anything is on screen.
   6. The readiness badge shows "Ready offline" once everything is stored.
+  7. Bad networks (stress test 31 Oct 2026): a Wi-Fi login page in place of files is never stored, and one stored
+     by an older version is repaired; a file that hangs never blocks the install or the start page; a first install
+     without the app's own files never takes over; deep or odd addresses open the app offline.
 
 Each check prints PASS or FAIL; the exit code is the number of failures.
 """
@@ -30,6 +33,17 @@ TABS = ['bible', 'hymns', 'ai', 'slides', 'video', 'web', 'plan', 'tools', 'sett
 # this test proves the app works with all of them unreachable.
 OPTIONAL_HOSTS = ('leemcq.github.io', 'raw.githubusercontent.com')
 OVERRIDES = {}  # path -> bytes: lets a test publish a pretend new version without touching the files
+# path (or a 'folder/' prefix, or '*') -> 'portal' (a Wi-Fi login page with status 200) | 'hang' (never answers) |
+# 'down' (the connection is dropped): the bad networks churches meet.
+FAULTS = {}
+PORTAL = b'<!doctype html><html><head><title>Hotel Wi-Fi</title></head><body><h1>Hotel Wi-Fi login</h1><form>Room number <input></form></body></html>'
+
+
+def fault_for(path):
+    if path in FAULTS: return FAULTS[path]
+    for k, v in FAULTS.items():
+        if k.endswith('/') and path.startswith(k): return v
+    return FAULTS.get('*')
 
 results = []
 
@@ -58,6 +72,14 @@ def serve():
 
         def do_GET(self):
             path = urlparse(self.path).path.lstrip('/')
+            f = fault_for(path)
+            if f == 'portal':
+                self.send_response(200); self.send_header('Content-Type', 'text/html; charset=utf-8'); self.send_header('Content-Length', str(len(PORTAL)))
+                self.send_header('Cache-Control', 'no-store'); self.end_headers(); self.wfile.write(PORTAL); return
+            if f == 'hang':
+                time.sleep(240); self.close_connection = True; return   # longer than any test waits: it never answers
+            if f == 'down':
+                self.close_connection = True; return
             if path in OVERRIDES:
                 body = OVERRIDES[path]
                 if body is None:
@@ -87,9 +109,25 @@ CACHED = """async () => { const m = await (await fetch('asset-manifest.json', { 
   const c = await caches.open(ks[ks.length - 1]); const missing = [];
   for (const f of m.files) if (!(await c.match(f))) missing.push(f);
   return { have: m.files.length - missing.length, total: m.files.length, missing: missing.slice(0, 5), cache: ks[ks.length - 1] }; }"""
+# The self-check (with or without repair) of the service worker in charge.
+HEALTH = """async (repair) => { const c = navigator.serviceWorker.controller; if (!c) return { error: 'not controlled' };
+  return await new Promise((res) => { const ch = (e) => { if (e.data && e.data.t === 'health' && e.data.version) { navigator.serviceWorker.removeEventListener('message', ch); res(e.data); } };
+    navigator.serviceWorker.addEventListener('message', ch); c.postMessage({ t: 'check', repair }); setTimeout(() => res({ error: 'no answer' }), 90000); }); }"""
+# What is stored for one file: its first characters, or null.
+STORED = """async (f) => { const ks = (await caches.keys()).filter((k) => k.startsWith('selah-/')); if (!ks.length) return null;
+  const r = await (await caches.open(ks[ks.length - 1])).match(f); return r ? (await r.text()).slice(0, 40) : null; }"""
+# Wait until a service worker is in charge, or the install gave up: 'active', 'redundant' or 'timeout:…'.
+SW_SETTLED = """async (ms) => { const t0 = Date.now(); for (;;) { const r = await navigator.serviceWorker.getRegistration();
+  if (r && r.active) return 'active'; const n = r && (r.installing || r.waiting);
+  if (!n && Date.now() - t0 > 3000) return 'redundant';
+  if (Date.now() - t0 > ms) return 'timeout:' + (n ? n.state : 'none'); await new Promise((x) => setTimeout(x, 500)); } }"""
+# An older version stored a login page as Genesis (stamped as if it were the real file).
+POISON_OLD = """async () => { const ks = (await caches.keys()).filter((k) => k.startsWith('selah-/')); const c = await caches.open(ks[ks.length - 1]);
+  const m = await (await c.match('asset-manifest.json')).json();
+  await c.put('data/bibles/kjv/01.json', new Response('<html>Hotel Wi-Fi login</html>', { headers: { 'content-type': 'text/html', 'x-selah-hash': m.hashes['data/bibles/kjv/01.json'] } })); }"""
 # The version of the service worker in charge, asked through its self-check message.
 SW_VERSION = """async () => { const r = await navigator.serviceWorker.getRegistration(); if (!r || !r.active) return { active: false };
-  const v = await new Promise((res) => { const ch = (e) => { if (e.data && e.data.t === 'health') { navigator.serviceWorker.removeEventListener('message', ch); res(e.data.version); } };
+  const v = await new Promise((res) => { const ch = (e) => { if (e.data && e.data.t === 'health' && e.data.version) { navigator.serviceWorker.removeEventListener('message', ch); res(e.data.version); } };  // a refused update also announces its health, without a version
     navigator.serviceWorker.addEventListener('message', ch); navigator.serviceWorker.controller.postMessage({ t: 'check', repair: false }); setTimeout(() => res(null), 10000); });
   return { active: true, version: v }; }"""
 
@@ -243,6 +281,127 @@ def main():
                 assert ok == 'Psalm 23:1' or (ok and '23:1' in ok), 'offline after refused update: %r' % ok
                 w.close()
             t_bad_update()
+
+            # ---------------------------------------------------------------- bad networks (each in a fresh browser profile)
+            def fresh():
+                c = b.new_context(viewport={'width': 1280, 'height': 800})
+                w = watch(c.new_page())
+                failed.clear(); errs.clear()
+                return c, w
+
+            def first_visit(w):
+                w.goto(base + 'index.html', timeout=30000); w.wait_for_timeout(800)
+                w.evaluate(SETUP_DONE)
+
+            @check('a Wi-Fi login page is never stored as app files')
+            def t_portal():
+                FAULTS.update({'data/bibles/kjv/01.json': 'portal', 'data/hymns/sda-online.json': 'portal', 'js/tabs/plan.js': 'portal'})
+                c, w = fresh()
+                try:
+                    first_visit(w)
+                    st = w.evaluate(SW_SETTLED, 120000)
+                    # One of the app's own files (plan.js) was a login page: the first install must not take over.
+                    assert st == 'redundant', 'install with a login page in place of an app file: %s' % st
+                    FAULTS.clear()                                 # real internet again
+                    w.reload(); st = w.evaluate(SW_SETTLED, 180000)
+                    assert st == 'active', 'install with real internet: %s' % st
+                    w.reload(); w.wait_for_selector('#presentBtn', timeout=20000)
+                    h = w.evaluate(HEALTH, True)
+                    assert h.get('missingCount') == 0, 'after repair: %r' % h
+                    for f in ('data/bibles/kjv/01.json', 'data/hymns/sda-online.json', 'js/tabs/plan.js'):
+                        v = w.evaluate(STORED, f)
+                        assert v and 'Hotel' not in v and not v.lstrip().startswith('<'), '%s stored as: %r' % (f, v)
+                    # An older version stored a login page as Genesis: the self-check finds and repairs it.
+                    w.evaluate(POISON_OLD)
+                    h = w.evaluate(HEALTH, True)
+                    v = w.evaluate(STORED, 'data/bibles/kjv/01.json')
+                    assert h.get('bad', 0) >= 1 and v and v.lstrip().startswith('['), 'old login page not repaired: %r %r' % (h, v)
+                finally:
+                    FAULTS.clear(); c.close()
+            t_portal()
+
+            @check('a hanging file never blocks the first install')
+            def t_hang_install():
+                FAULTS.update({'data/bibles/kjv/05.json': 'hang'})
+                c, w = fresh()
+                try:
+                    first_visit(w)
+                    t0 = time.time(); st = w.evaluate(SW_SETTLED, 120000)
+                    assert st == 'active', 'install with one file that never answers: %s after %.0f s' % (st, time.time() - t0)
+                    FAULTS.clear()
+                    w.reload(); w.wait_for_selector('#presentBtn', timeout=20000)
+                    h = w.evaluate(HEALTH, True)
+                    assert h.get('missingCount') == 0, 'the hanging file was not fetched later: %r' % h
+                finally:
+                    FAULTS.clear(); c.close()
+            t_hang_install()
+
+            @check('first install: the app itself comes first and must be complete')
+            def t_shell_first():
+                # One of the app's own files cannot be downloaded: the install must not take over.
+                FAULTS.update({'data/': 'down', 'js/app.js': 'down'})
+                c, w = fresh()
+                try:
+                    first_visit(w)
+                    st = w.evaluate(SW_SETTLED, 90000)
+                    assert st == 'redundant', 'install without js/app.js: %s' % st
+                finally:
+                    FAULTS.clear(); c.close()
+                # The data cannot be downloaded, the app can: it installs quickly and starts offline.
+                FAULTS.update({'data/': 'down', 'vendor/': 'down'})
+                c, w = fresh()
+                try:
+                    first_visit(w)
+                    t0 = time.time(); st = w.evaluate(SW_SETTLED, 150000)
+                    assert st == 'active' and time.time() - t0 < 60, 'install with the data unreachable: %s after %.0f s' % (st, time.time() - t0)
+                    FAULTS.clear()
+                    c.set_offline(True)
+                    w.reload(); w.wait_for_selector('#presentBtn', timeout=20000); w.wait_for_timeout(1500)
+                    assert w.evaluate('!!window.__selahBooted'), 'the app did not start offline'
+                    c.set_offline(False)
+                finally:
+                    FAULTS.clear(); c.close()
+            t_shell_first()
+
+            @check('Wi-Fi with no internet: the start page opens at once')
+            def t_liefi():
+                FAULTS['*'] = 'hang'
+                try:
+                    bad = []
+                    for u in ('', 'index.html?tab=hymns'):
+                        w = watch(ctx.new_page())
+                        t0 = time.time()
+                        try:
+                            w.goto(base + u, timeout=15000); w.wait_for_selector('#presentBtn', timeout=15000)
+                            if time.time() - t0 > 6: bad.append('%r took %.1f s' % (u or '(folder)', time.time() - t0))
+                        except Exception as e:
+                            bad.append('%r: %s' % (u or '(folder)', str(e)[:80]))
+                        w.close()
+                    assert not bad, '; '.join(bad)
+                finally:
+                    FAULTS.clear()
+            t_liefi()
+
+            @check('deep or odd addresses open the app offline')
+            def t_deep():
+                ctx.set_offline(True)
+                try:
+                    bad = []
+                    for u, want in (('stage/', 'stage.html'), ('index.html/', 'index.html'), ('some/deep/path', 'index.html'), ('tab/bible', 'index.html')):
+                        w = ctx.new_page()
+                        try:
+                            w.goto(base + u, timeout=15000); w.wait_for_timeout(1500)
+                            styled = w.evaluate("[...document.styleSheets].some((s) => { try { return s.cssRules.length > 20; } catch (e) { return false; } })")
+                            ok = w.url.split('?')[0].endswith(want) and styled
+                            if want == 'index.html': ok = ok and w.evaluate('!!window.__selahBooted')
+                            if not ok: bad.append('%s -> %s (styled %s)' % (u, w.url.replace(base, ''), styled))
+                        except Exception as e:
+                            bad.append('%s: %s' % (u, str(e)[:80]))
+                        w.close()
+                    assert not bad, '; '.join(bad)
+                finally:
+                    ctx.set_offline(False)
+            t_deep()
 
             @check('updates are held during the Sabbath and while on screen')
             def t_hold():

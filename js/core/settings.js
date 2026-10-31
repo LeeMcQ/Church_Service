@@ -164,7 +164,11 @@ export const settings = emitter({ v: load() });
 
 settings.get = (path) => path.split('.').reduce((o, k) => (o == null ? o : o[k]), settings.v);
 
+// Settings live in the browser's small store (about 5 MB for everything): one value pasted by mistake must not
+// fill it. Text longer than this is cut (no real setting comes near it).
+const MAX_TEXT = 20000;
 settings.set = (path, value) => {
+  if (typeof value === 'string' && value.length > MAX_TEXT) value = value.slice(0, MAX_TEXT);
   const keys = path.split('.');
   let o = settings.v;
   for (let i = 0; i < keys.length - 1; i++) o = o[keys[i]] = o[keys[i]] || {};
@@ -185,7 +189,14 @@ settings.save = () => {
       try { sessionStorage.removeItem(AIKEY); } catch (e) { /* */ }
       localStorage.setItem(KEY, JSON.stringify(settings.v));
     }
-  } catch (e) { /* private mode */ }
+  } catch (e) {
+    // A full device: say so (once per session) instead of losing the change quietly. Private windows also land
+    // here; there the change works until the window is closed.
+    if (/quota/i.test((e && (e.name + ' ' + e.message)) || '') && !settings.fullWarned) {
+      settings.fullWarned = true;
+      try { window.dispatchEvent(new CustomEvent('selah-storage-full')); } catch (er) { /* not in a page */ }
+    }
+  }
 };
 
 settings.reset = (section) => {

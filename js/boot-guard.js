@@ -19,7 +19,8 @@
       '<button id="bgReload" style="padding:8px 14px">Reload</button>' +
       '<button id="bgRepair" style="padding:8px 14px">Repair offline files</button>' +
       '<button id="bgFresh" style="padding:8px 14px">Download a fresh copy (needs internet)</button></div>' +
-      '<p id="bgMsg" style="margin:12px 0 0;opacity:.8;font-size:14px">' + (why || '') + '</p></div>';
+      '<p id="bgMsg" style="margin:12px 0 0;opacity:.8;font-size:14px">' + (why || '') + '</p>' +
+      (navigator.onLine ? '' : '<p style="margin:10px 0 0;opacity:.8;font-size:14px">Offline: use the Reload button (or the browser’s reload), not Ctrl+Shift+R — a hard reload skips the offline copy.</p>') + '</div>';
     document.body.appendChild(d);
     var msg = d.querySelector('#bgMsg');
     d.querySelector('#bgReload').onclick = function () { location.reload(); };
