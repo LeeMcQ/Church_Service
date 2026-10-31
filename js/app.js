@@ -20,12 +20,13 @@ import { cloud } from './core/cloud.js';
 import { currentLayout } from './core/screens.js';
 import { remote, startRemote, sendStatus } from './core/remotectl.js';
 import { createListener } from './listen.js';
+import { startBackupReminder } from './backupnag.js';
 // Loaded when first needed, to keep start-up quick: OBS control, the first-start setup and the feedback form.
 const lazyWelcome = () => import('./tabs/welcome.js');
 const openFeedback = (c, o) => import('./tabs/account.js').then((m) => m.openFeedback(c, o));
 
 export const VERSION = '1.6.0';
-export const BUILD = '27fd3fd';
+export const BUILD = 'a7518ca';
 
 const TABS = [
   { id: 'bible', label: 'Bible', icon: 'bible', file: 'bible.js', load: () => import('./tabs/bible.js') },
@@ -858,6 +859,10 @@ const listener = createListener({ ctx, getTab, present: () => doPresent(), ui })
 { const mon = $('#monitors'); const acts = mon.querySelector('.mon-actions'); if (acts) acts.after(listener.el); else mon.appendChild(listener.el); }
 ctx.listener = listener;
 ctx.present = () => doPresent(); // the Plan tab's Basic view shows parts with the same Present as F5
+
+// ------------------------------------------------------------ backup reminder
+// At start-up: sign in to Google and back up; again whenever the app is opened 24 hours after the last time it asked.
+ctx.backupReminder = startBackupReminder({ ui });
 
 // ------------------------------------------------------------ keep the control screen awake during a service (phones)
 // Only while something is shown or a screen is connected: an idle control PC may sleep.

@@ -61,7 +61,7 @@ export const DEFAULTS = {
   ai: { provider: 'openai', apiKey: '', model: '', imageModel: '', auto: {}, keySession: false },
   // The church's details, used by Banners (name, town, sunset times, service countdown, giving QR code).
   church: { name: '', town: '', lat: null, lon: null, service: '09:30', givingUrl: '', givingLabel: '' },
-  backup: { slides: true, videos: false, lastDrive: null, lastFile: null },
+  backup: { slides: true, videos: false, lastDrive: null, lastFile: null, remind: true, remindAt: 0 }, // remind: ask to sign in and back up once a day (js/backupnag.js)
 };
 
 function merge(base, over) {

@@ -126,6 +126,7 @@ export function backupSection(box) {
     box.append(
       h('p', 'Keep a copy of your settings, plans, templates, hymnbooks, imported Bibles and banners, and move them to another PC, laptop or phone.'),
       h('div.col', { style: { gap: '6px' } }, h('b', 'Always included: settings, plans, templates, hymnbooks, Bibles you added, banners and their pictures.'), slidesT, videosT),
+      h('div', { style: { marginTop: '8px' } }, toggle('Remind me every day to sign in and back up (when the app is opened)', b.remind !== false, (v) => setB('remind', v))),
       gdrive.enabled()
         ? h('div.col', { style: { gap: '8px', marginTop: '10px' } },
           h('b', 'Google Drive'),

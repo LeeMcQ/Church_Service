@@ -107,7 +107,7 @@ def main():
             errs, bad = [], []
             pg = new_page(ctx, errs, bad)
             pg.goto(base + 'index.html'); pg.wait_for_timeout(1000)
-            pg.evaluate("import('./js/core/settings.js').then(m => m.settings.set('app.setupDone', true))")
+            pg.evaluate("import('./js/core/settings.js').then(m => (m.settings.set('app.setupDone', true), m.settings.set('backup', Object.assign({}, m.settings.v.backup, { remindAt: Date.now() }))))")
             pg.reload(); pg.wait_for_selector('#presentBtn'); pg.wait_for_timeout(1500)
 
             @check('every tab opens')
@@ -226,6 +226,19 @@ def main():
                 assert lab.startswith('3'), 'showing %r instead of stanza 3' % lab
                 assert not errs, '; '.join(errs[:3])
             t_hymn_listen()
+
+            @check('backup reminder: asks at start-up, then not again within 24 hours')
+            def t_backup_nag():
+                pg.evaluate("import('./js/core/settings.js').then(m => m.settings.set('backup', Object.assign({}, m.settings.v.backup, { remindAt: Date.now() - 25 * 3600 * 1000 })))")
+                pg.reload(); pg.wait_for_selector('#presentBtn'); pg.wait_for_timeout(4000)
+                title = pg.locator('.modal h2').first.inner_text() if pg.locator('.modal h2').count() else ''
+                assert 'back up' in title.lower(), 'no backup reminder at start-up (dialog: %r)' % title
+                assert pg.locator('.modal').get_by_role('button', name='Save a backup file').count() or pg.locator('.modal').get_by_role('button', name='Sign in with Google & back up').count(), 'no backup button'
+                pg.locator('.modal').get_by_role('button', name='Not now').click(); pg.wait_for_timeout(300)
+                pg.reload(); pg.wait_for_selector('#presentBtn'); pg.wait_for_timeout(4000)
+                assert not pg.locator('.modal').count(), 'the reminder came back within 24 hours'
+                assert not errs, '; '.join(errs[:3])
+            t_backup_nag()
 
             @check('a shared plan file opens')
             def t_plan():
@@ -441,7 +454,7 @@ def main():
                     p2 = c2.new_page(); e2 = []
                     p2.on('pageerror', lambda e: e2.append(str(e)[:120]))
                     p2.goto(base + 'index.html'); p2.wait_for_timeout(800)
-                    p2.evaluate("import('./js/core/settings.js').then(m => m.settings.set('app.setupDone', true))")
+                    p2.evaluate("import('./js/core/settings.js').then(m => (m.settings.set('app.setupDone', true), m.settings.set('backup', Object.assign({}, m.settings.v.backup, { remindAt: Date.now() }))))")
                     p2.reload(); p2.wait_for_selector('#presentBtn'); p2.wait_for_timeout(1200)
                     p2.evaluate("import('./js/core/settings.js').then(m => m.settings.set('app.planView', 'advanced'))"); p2.wait_for_timeout(300)   # the plan editor (Basic is checked below)
                     p2.evaluate("window.selah.showTab('plan')"); p2.wait_for_timeout(300)
@@ -473,7 +486,7 @@ def main():
                 c3 = b.new_context(viewport={'width': 1280, 'height': 800})
                 p3 = c3.new_page()
                 p3.goto(base + 'index.html'); p3.wait_for_timeout(800)
-                p3.evaluate("import('./js/core/settings.js').then(m => m.settings.set('app.setupDone', true))")
+                p3.evaluate("import('./js/core/settings.js').then(m => (m.settings.set('app.setupDone', true), m.settings.set('backup', Object.assign({}, m.settings.v.backup, { remindAt: Date.now() }))))")
                 st = None
                 for _ in range(150):   # the service worker stores every file of the app
                     st = p3.evaluate("""async () => { const m = await (await fetch('asset-manifest.json', { cache: 'no-store' })).json();
