@@ -59,6 +59,16 @@
 </ol>
 <p class="note"><b>OBS says “waiting for the media desk”?</b> The OBS link works, but Church Service is not open at <code>http://localhost:7777</code> on the companion PC. Open it there (not the website) and keep it open. <b>OBS shows nothing at all?</b> Open the same address in a browser on the OBS computer; if it does not load, allow the companion through Windows Firewall on private networks.</p>
 
+<h2 id="usb">Emergency copy on a USB stick</h2>
+<p>If the church PC’s browser ever loses its stored copy of Church Service (a cleaned disk, a reset browser, a new PC), a USB stick gets the service going in a minute, with no internet:</p>
+<ol>
+  <li>Copy <code>church-service-windows-x64.exe</code> (above) to a USB stick. It contains the <b>whole app</b>: Bibles, hymns, hymn music, fonts.</li>
+  <li>In Church Service, <b>Settings → Backup → Back up or move to another device → save to a file</b>, and put that file on the same stick. Plans, slides, banners and your own hymns are in the backup, not in the program.</li>
+  <li>On the day: plug in the stick, double‑click the program, and Church Service opens at <code>http://localhost:7777</code>. Restore the backup file there if you need your plans and slides.</li>
+  <li>Make a new backup on the stick every few weeks (or after big changes), and update the program when the website has a new one.</li>
+</ol>
+<p class="note">The <b>web app zip</b> (above, if listed) is the same app as plain files, for hosting on your own web server or running with <code>church-service-windows-x64.exe --app-dir FOLDER</code>. It does not open by double-clicking <code>index.html</code>: browsers do not run apps from files.</p>
+
 <h2>Raspberry Pi or Linux</h2>
 <p>Download the Linux file, then in a terminal: <code>chmod +x church-service-linux-*</code> and run it. Open <code>http://localhost:7777</code>.</p>
 

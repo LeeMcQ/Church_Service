@@ -9,7 +9,7 @@ const AIKEY = lsKey('aikey.session');
 export const DEFAULTS = {
   app: { theme: 'dark', railSide: 'left', monitors: true, lowPower: null, lastTab: 'bible', clickerKeys: true, webPart: 'web', toolsPart: 'stage', stats: false, setupDone: false, deviceRole: '', speakers: '',
     // Plan tab view. Basic: the order of service with Show buttons and big Back / Next / Blank. Advanced: the plan editor.
-    planView: 'basic', listenOk: false },
+    planView: 'basic', listenOk: false, updates: 'sabbath' },
   display: {
     font: 'sans', fg: '#ffffff', bg: '#000000', accent: '#f2cf7a', shadow: true, align: 'center',
     pad: 96, minFont: 58, maxFont: 150, fade: 250, transition: 'fade', aspect: 'auto',

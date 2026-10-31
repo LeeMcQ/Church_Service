@@ -4,6 +4,7 @@ import { startInstallPrompt } from './core/installer.js';
 import { icon } from './core/icons.js';
 import { settings } from './core/settings.js';
 import { db, persistStorage } from './core/db.js';
+import { readinessBadge, autoUpdateAllowed, inServiceHold } from './core/readiness.js';
 import { link, listScreens } from './core/link.js';
 import { live, slideName } from './core/live.js';
 import { bgAudio } from './core/audio.js';
@@ -26,7 +27,7 @@ const lazyWelcome = () => import('./tabs/welcome.js');
 const openFeedback = (c, o) => import('./tabs/account.js').then((m) => m.openFeedback(c, o));
 
 export const VERSION = '1.6.0';
-export const BUILD = 'a7518ca';
+export const BUILD = 'b4ad85e';
 
 const TABS = [
   { id: 'bible', label: 'Bible', icon: 'bible', file: 'bible.js', load: () => import('./tabs/bible.js') },
@@ -629,7 +630,7 @@ refreshChurchLogo();
 settings.on('change:display', (path) => { if (path === 'display.logo' || path === '*') refreshChurchLogo(); });
 settings.on('change', (path) => { if (path === '*') refreshChurchLogo(); });
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); ctx.installPrompt = e; installBtn.hidden = false; ui.enter(installBtn, 'pop'); instNotify(); });
-window.addEventListener('appinstalled', () => { ctx.installPrompt = null; installBtn.hidden = true; ui.toast('Church Service is installed. Open it from its own icon; it works without internet.', 'ok', 6000); instNotify(); });
+window.addEventListener('appinstalled', () => { autoPersist(); ctx.installPrompt = null; installBtn.hidden = true; ui.toast('Church Service is installed. Open it from its own icon; it works without internet.', 'ok', 6000); instNotify(); });
 
 // ------------------------------------------------------------ install + offline readiness card
 const instFns = new Set();
@@ -909,13 +910,17 @@ window.addEventListener('error', (e) => { if (e.error) console.warn('Error:', e.
 // ------------------------------------------------------------ offline readiness
 // The app must always work without internet. The service worker stores every file; this checks now and
 // then that nothing is missing and fetches what is (when there is internet), and shows an "Offline" mark.
-const offMark = h('span.off-mark', { hidden: true, title: 'No internet. Church Service keeps working with everything stored on this device.' }, 'Offline');
-document.querySelector('.brand') && document.querySelector('.brand').after(offMark);
-function paintOnline() { offMark.hidden = navigator.onLine; }
-window.addEventListener('online', () => { paintOnline(); checkOffline(true); });
-window.addEventListener('offline', paintOnline);
-paintOnline();
 ctx.offlineHealth = null;
+// One badge says whether everything is stored ("✔ Ready offline"), still saving, missing files or an update is
+// waiting; tapping it opens the self-check (check & repair, storage protection, apply update, USB fallback).
+const ready = readinessBadge(ctx, {
+  ui, settings, persistStorage, checkOffline: (r) => checkOffline(r),
+  getWaiting: () => (ctx.swReg && navigator.serviceWorker.controller && ctx.swReg.waiting) || null,
+  applyUpdate: () => { const w = ctx.swReg && ctx.swReg.waiting; if (w) w.postMessage({ t: 'skip' }); },
+});
+ctx.readiness = ready;
+document.querySelector('.brand') && document.querySelector('.brand').after(ready.el);
+window.addEventListener('online', () => checkOffline(true));
 let healthWarned = false;
 function checkOffline(repair) {
   const c = navigator.serviceWorker && navigator.serviceWorker.controller;
@@ -932,6 +937,7 @@ function onHealth(hh) {
     ui.toast('Some parts of Church Service are not stored on this device yet (' + hh.missingCount + ' files). Connect to the internet once with the app open to finish; everything else works.', 'err', 9000);
   }
 }
+setTimeout(() => checkOffline(true), 3000); // fills the badge soon after start
 setTimeout(() => checkOffline(true), 15000);
 setInterval(() => { if (navigator.onLine) checkOffline(true); }, 30 * 60000);
 // Ask the browser to keep the stored app and data even when the disk gets full.
@@ -982,21 +988,31 @@ async function detectCompanion() {
 function registerSW() {
   if (!('serviceWorker' in navigator) || !window.isSecureContext) return;
   navigator.serviceWorker.register('sw.js').then((reg) => {
+    ctx.swReg = reg;
+    const updated = () => window.dispatchEvent(new Event('selah-update'));
+    // Updates: 'sabbath' (default) puts a finished update in place by itself only outside the Sabbath and with
+    // nothing on screen; 'ask' always waits for the operator; 'auto' also during the Sabbath when nothing is on screen.
+    const mode = () => settings.v.app.updates || 'sabbath';
+    const autoOK = () => autoUpdateAllowed(mode(), live);
     const ask = (w) => {
+      updated();
+      // During the Sabbath hold there is no pop-up (it could be tapped by mistake mid-service): the badge says
+      // "Update ready" and the operator applies it from there after the service.
+      if (mode() !== 'auto' && inServiceHold()) return null;
       const t = ui.toast(h('span', 'A Church Service update is ready. ', h('button.btn.sm', { type: 'button', onclick: () => { w.postMessage({ t: 'skip' }); } }, 'Update now')), 'ok', 15000);
       return t;
     };
     // An update that finished downloading earlier is put in place straight away when the app opens with
     // nothing on screen (nothing to lose); otherwise the operator is asked.
     if (reg.waiting && navigator.serviceWorker.controller) {
-      if (!live.cue && !live.staged) reg.waiting.postMessage({ t: 'skip' }); else ask(reg.waiting);
+      if (autoOK()) reg.waiting.postMessage({ t: 'skip' }); else ask(reg.waiting);
     }
     // Phones resume an installed app without reloading it, so the browser never looks for updates by itself:
     // look whenever the app comes back to the front (at most every 10 minutes), and ask again if one waits.
     let lastCheck = Date.now();
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState !== 'visible') return;
-      if (reg.waiting && navigator.serviceWorker.controller && !live.cue) { if (!live.staged) reg.waiting.postMessage({ t: 'skip' }); else ask(reg.waiting); return; }
+      if (reg.waiting && navigator.serviceWorker.controller && !live.cue) { if (autoOK()) reg.waiting.postMessage({ t: 'skip' }); else ask(reg.waiting); return; }
       if (Date.now() - lastCheck > 10 * 60000) { lastCheck = Date.now(); reg.update().catch(() => {}); }
     });
     reg.addEventListener('updatefound', () => {
@@ -1004,7 +1020,7 @@ function registerSW() {
       if (!w) return;
       w.addEventListener('statechange', () => {
         if (w.state === 'installed' && navigator.serviceWorker.controller) {
-          if (live.cue) { const off = live.on('live', (c) => { if (!c) { off(); ask(w); } }); } // never interrupt a live item
+          if (live.cue) { updated(); const off = live.on('live', (c) => { if (!c) { off(); ask(w); } }); } // never interrupt a live item
           else ask(w);
         }
       });

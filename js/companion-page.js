@@ -9,6 +9,7 @@
     'church-service-windows-x64.exe': ['Windows (64-bit)', 'win'],
     'church-service-linux-x64': ['Linux PC (64-bit)', 'linux'],
     'church-service-linux-arm64': ['Raspberry Pi 4 / 5 (64-bit)', 'pi'],
+    'church-service-web-offline.zip': ['Web app only (zip)', 'zip'],
   };
   const ua = navigator.userAgent;
   const mine = /Windows/i.test(ua) ? 'win' : /aarch64|arm64|raspbian/i.test(ua) ? 'pi' : /Linux/i.test(ua) && !/Android/i.test(ua) ? 'linux' : 'win';

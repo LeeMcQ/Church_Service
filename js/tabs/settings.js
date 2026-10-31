@@ -177,6 +177,8 @@ export default function create(ctx) {
       h('label', 'Backup'), h('div.row.wrap',
         h('button.btn.sm.primary', { type: 'button', onclick: () => { active = 'backup'; rebuild(); } }, icon('upload'), 'Back up or move to another device'),
         h('button.btn.sm', { type: 'button', onclick: importBackup, title: 'For the .json backups made by older versions' }, 'Import an old .json backup')),
+      h('label', 'Updates'), seg([['sabbath', 'Hold during the Sabbath'], ['ask', 'Always ask me'], ['auto', 'Automatic']], A.updates || 'sabbath', (v) => settings.set('app.updates', v)),
+      h('label', ''), h('p.note', 'Hold during the Sabbath (recommended): a downloaded update is never put in place from Friday midday to Saturday night, or while anything is on screen. The badge at the top says “Update ready”; apply it after the service. Always ask: it is never put in place by itself.'),
       h('label', 'Update'), h('div.row.wrap',
         h('button.btn.sm', { type: 'button', onclick: hardUpdate }, icon('reload'), 'Update now'),
         h('button.btn.sm', { type: 'button', onclick: freshCopy }, 'Download a fresh copy'),

@@ -993,6 +993,20 @@ button.se-sw[aria-pressed="true"] { outline: 2px solid var(--focus, #2f6fe0); ou
   .se-grid > span:empty { display: none; }
 }
 /* Offline mark in the top bar, and the calm panel shown if a tab cannot load */
+.ready-mark { flex: none; font: inherit; font-size: 0.6875rem; font-weight: 700; letter-spacing: .02em; padding: 2px 9px; border-radius: 999px; background: var(--raised); color: var(--muted); border: 1px solid var(--line); cursor: pointer; white-space: nowrap; }
+.ready-mark.rm-ok { color: #3fb950; border-color: color-mix(in srgb, #3fb950 45%, transparent); }
+.ready-mark.rm-saving { color: #d29922; border-color: color-mix(in srgb, #d29922 45%, transparent); }
+.ready-mark.rm-bad { color: #fff; background: #c93c37; border-color: #c93c37; }
+.ready-mark.rm-update { color: #58a6ff; border-color: color-mix(in srgb, #58a6ff 45%, transparent); }
+:root[data-theme="light"] .ready-mark.rm-ok { color: #1a7f37; }
+:root[data-theme="light"] .ready-mark.rm-saving { color: #9a6700; }
+:root[data-theme="light"] .ready-mark.rm-update { color: #0969da; }
+@media (max-width: 520px) { .ready-mark.rm-ok, .ready-mark.rm-checking { font-size: 0; padding: 0; width: 14px; height: 14px; margin: 0 2px; background: currentColor; } }
+.rm-panel { display: flex; flex-direction: column; gap: 12px; min-width: min(520px, 86vw); }
+.rm-row { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: center; }
+.rm-ic { font-weight: 800; text-align: center; }
+.rm-ic.ok { color: #3fb950; } .rm-ic.bad { color: #e5534b; } .rm-ic.wait { color: var(--muted); }
+@media (max-width: 520px) { .rm-row { grid-template-columns: 22px 1fr; } .rm-row > :last-child:not(div) { grid-column: 2; justify-self: start; } }
 .off-mark { flex: none; font-size: 0.6875rem; font-weight: 700; letter-spacing: .02em; padding: 2px 8px; border-radius: 999px; background: var(--raised); color: var(--muted); border: 1px solid var(--line); }
 .tab-error { display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow: auto; }
 .tab-error .card { max-width: 560px; padding: 20px; }
