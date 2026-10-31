@@ -164,7 +164,7 @@ export default function create(ctx) {
     if (!ctx.companion) return;
     pcBtn.hidden = false;
     try {
-      const list = await (await fetch('api/media?pin=' + encodeURIComponent(settings.v.companion.pin || ''), { cache: 'no-store' })).json();
+      const list = await (await fetch('api/media', { cache: 'no-store', headers: { 'X-Selah-Pin': settings.v.companion.pin || '' } })).json();
       items = items.filter((x) => !x.remote);
       list.forEach((m) => items.push({ id: 'pc:' + m.name, kind: 'media', name: m.name, type: m.type || '', size: m.size, added: m.mtime || 0, url: 'media/' + m.name.split('/').map(encodeURIComponent).join('/'), remote: true }));
       renderList();

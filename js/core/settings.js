@@ -58,7 +58,7 @@ export const DEFAULTS = {
   // loop goes on screen; fade: fade out when something else goes on screen.
   bannerMusic: { auto: true, fade: true, fadeSec: 3, volume: 0.7, shuffle: false, repeat: 'all' },
   // keySession: keep the API key only until this browser tab or window is closed (not saved on the device).
-  ai: { provider: 'openai', apiKey: '', model: '', imageModel: '', auto: {}, keySession: false },
+  ai: { provider: 'openai', apiKey: '', model: '', imageModel: '', auto: {}, keySession: true },
   // The church's details, used by Banners (name, town, sunset times, service countdown, giving QR code).
   church: { name: '', town: '', lat: null, lon: null, service: '09:30', givingUrl: '', givingLabel: '' },
   backup: { slides: true, videos: false, lastDrive: null, lastFile: null, remind: true, remindAt: 0 }, // remind: ask to sign in and back up once a day (js/backupnag.js)

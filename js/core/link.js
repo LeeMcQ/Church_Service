@@ -83,7 +83,13 @@ link.openMirror = async (screen) => {
 link.closeMirror = () => { if (mirrorAlive()) { try { link.mirror.close(); } catch (e) { /* */ } } link.mirror = null; link.emit('mirror'); };
 setInterval(() => { if (link.mirror && link.mirror.closed) { link.mirror = null; link.emit('mirror'); } }, 1500);
 
+// Only windows of this app (same folder on the web address) may claim to be the display. Every app on
+// leemcq.github.io shares one origin, so the origin check alone is not enough; a same-origin window's address
+// can be read, so its folder is checked as well.
+const APP_PATH = new URL('./', location.href).pathname;
+const fromThisApp = (w) => { try { return !!w && (w === window.opener || String(w.location.pathname).startsWith(APP_PATH)); } catch (e) { return false; } };
 window.addEventListener('message', (e) => {
+  if (e.origin === location.origin && e.data && (e.data.t === 'here-win' || e.data.t === 'here-mirror') && !fromThisApp(e.source)) return;
   // The second projector: its hello asks for the current picture; nothing else it says is needed.
   if (e.origin === location.origin && e.data && e.source && (e.source === link.mirror || (e.data.t === 'here-mirror' && !mirrorAlive()))) {
     if (e.data.t === 'here-mirror') { attachMirror(e.source); return; }

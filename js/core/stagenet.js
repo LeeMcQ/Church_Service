@@ -116,14 +116,38 @@ const te2 = new TextEncoder();
 const challengeBytes = (nonce) => te2.encode('church-service-stage-host:' + nonce);
 export const canVerify = () => !!(self.crypto && crypto.subtle);
 export async function fingerprint(pub) { return b64u(await crypto.subtle.digest('SHA-256', unb64u(pub))).slice(0, 22); }
-/** store: {get() -> saved|null, set(saved)}. Returns {priv, pub, fp}. */
+/** store: {get() -> saved|null, set(saved), idb?: {get(), set(v)}}. Returns {priv, pub, fp}.
+ * With idb the private key is a non-extractable CryptoKey kept in IndexedDB: no other page on the same web
+ * address can read or copy it (only use it while this app is open). A key from an older version (saved as
+ * JWK in the settings) is moved there once and removed from the settings, so the fingerprint stays the same. */
 export async function loadHostKey(store) {
+  const idb = store.idb;
+  if (idb) {
+    try {
+      const k = await idb.get();
+      if (k && k.priv && k.pub && k.priv.type === 'private') {
+        const old = store.get();
+        if (old && (old.priv || old.pub !== k.pub)) store.set({ pub: k.pub, priv: null }); // no readable copy left behind
+        return { priv: k.priv, pub: k.pub, fp: await fingerprint(k.pub) };
+      }
+    } catch (e) { /* */ }
+  }
   const saved = store.get();
   if (saved && saved.priv && saved.pub) {
     try {
       const priv = await crypto.subtle.importKey('jwk', saved.priv, ALG, false, ['sign']);
+      if (idb) { try { await idb.set({ priv, pub: saved.pub }); store.set({ pub: saved.pub, priv: null }); } catch (e) { /* keep the old copy */ } }
       return { priv, pub: saved.pub, fp: await fingerprint(saved.pub) };
     } catch (e) { /* damaged: make a new one */ }
+  }
+  if (idb) {
+    try {
+      const kp = await crypto.subtle.generateKey(ALG, false, ['sign', 'verify']);
+      const pub = b64u(await crypto.subtle.exportKey('raw', kp.publicKey));
+      await idb.set({ priv: kp.privateKey, pub });
+      store.set({ pub, priv: null });
+      return { priv: kp.privateKey, pub, fp: await fingerprint(pub) };
+    } catch (e) { /* IndexedDB unusable: the old way below */ }
   }
   const kp = await crypto.subtle.generateKey(ALG, true, ['sign', 'verify']);
   const pub = b64u(await crypto.subtle.exportKey('raw', kp.publicKey));

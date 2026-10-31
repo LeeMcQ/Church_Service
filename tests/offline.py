@@ -411,6 +411,33 @@ def main():
                     ctx.set_offline(False)
             t_deep()
 
+            @check("offline last resort: only this version's real files from other caches")
+            def t_last_resort():
+                w = watch(ctx.new_page())
+                try:
+                    w.goto(base + 'index.html'); w.wait_for_selector('#presentBtn', timeout=20000); w.wait_for_timeout(1000)
+                    # Another stored version holds a login page as Genesis and a different js/app.js; this version's
+                    # own copies of both are gone (evicted).
+                    w.evaluate("""async () => { const ks = (await caches.keys()).filter((k) => k.startsWith('selah-/')); const cur = ks[ks.length - 1];
+                      const other = await caches.open(cur.split('|')[0] + '|ffffffffffff');
+                      await other.put('data/bibles/kjv/01.json', new Response('<html>Hotel Wi-Fi login</html>', { headers: { 'content-type': 'application/json' } }));
+                      await other.put('js/tabs/plan.js', new Response('export default 1; // another version', { headers: { 'content-type': 'text/javascript' } }));
+                      const c = await caches.open(cur); await c.delete('data/bibles/kjv/01.json'); await c.delete('js/tabs/plan.js'); }""")
+                    ctx.set_offline(True)
+                    got = w.evaluate("""async () => { const out = [];
+                      for (const f of ['data/bibles/kjv/01.json', 'js/tabs/plan.js']) { try { const r = await fetch(f + '?x=' + Date.now(), { cache: 'no-store' }); out.push([r.status, (await r.text()).slice(0, 40)]); } catch (e) { out.push([0, String(e)]); } }
+                      return out; }""")
+                    ctx.set_offline(False)
+                    assert 'Hotel' not in got[0][1], 'a login page from another cache was served: %r' % got
+                    assert 'another version' not in got[1][1], "another version's file was served: %r" % got
+                    h = w.evaluate(HEALTH, True)
+                    assert h.get('missingCount') == 0, 'not repaired afterwards: %r' % h
+                finally:
+                    ctx.set_offline(False)
+                    w.evaluate("""async () => { for (const k of await caches.keys()) if (k.endsWith('|ffffffffffff')) await caches.delete(k); }""")
+                    w.close()
+            t_last_resort()
+
             @check('updates are held during the Sabbath and while on screen')
             def t_hold():
                 w = ctx.new_page(); w.goto(base + 'index.html'); w.wait_for_timeout(800)

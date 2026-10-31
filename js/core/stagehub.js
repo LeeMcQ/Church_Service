@@ -668,7 +668,9 @@ function setNet(state, error) { hub.net = { state, error: error || '', since: Da
 /** The media desk's signing key (its fingerprint goes into the QR code and the OBS addresses). */
 hub.keyReady = (async () => {
   if (!canVerify()) return null;
-  try { hub.key = await loadHostKey({ get: () => settings.v.stage.hostKey, set: (v) => settings.set('stage.hostKey', v) }); hub.emit('net', hub.net); return hub.key; }
+  try { const { db } = await import('./db.js');
+    hub.key = await loadHostKey({ get: () => settings.v.stage.hostKey, set: (v) => settings.set('stage.hostKey', v),
+      idb: { get: () => db.get('kv', 'stage.hostKey'), set: (v) => db.put('kv', 'stage.hostKey', v) } }); hub.emit('net', hub.net); return hub.key; }
   catch (e) { console.warn('stage key', e); return null; }
 })();
 hub.ensureCode = () => {

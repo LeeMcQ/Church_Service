@@ -44,10 +44,15 @@ export default function create(ctx) {
   const vStrip = h('div.vstrip', { role: 'group', 'aria-label': 'Jump to verse' });
   const chapHead = h('span', 'Chapter');
   const verseHead = h('span.grow.trunc', 'Verses');
+  // Several verses without a keyboard (touch screens, VoiceOver): tap the first verse, press Range, tap the last.
+  let rangeMode = false;
+  const setRange = (on) => { rangeMode = on; rangeBtn.setAttribute('aria-pressed', String(on)); };
+  const rangeBtn = h('button.btn.sm.ghost.range-btn', { type: 'button', 'aria-pressed': 'false', title: 'Several verses: tap the first verse, press Range, then tap the last verse',
+    onclick: () => setRange(!rangeMode) }, 'Range');
   const split = h('div.split.bible-split', { 'data-step': 'books' },
     h('div.pane.p-books', h('div.pane-h', 'Books'), h('div.scroll', bookGrid)),
     h('div.pane.p-chapters', h('div.pane-h', chapHead), h('div.scroll', chapGrid)),
-    h('div.pane.p-verses', h('div.pane-h', verseHead, h('span.faint', { style: { fontWeight: 400 } }, 'Tap · Shift+tap for a range · Double-tap to present')), vStrip, h('div.scroll', verseList)));
+    h('div.pane.p-verses', h('div.pane-h', verseHead, h('span.faint.vr-hint', { style: { fontWeight: 400 } }, 'Tap · Shift+tap or Range for several · Double-tap or Present to show'), rangeBtn), vStrip, h('div.scroll', verseList)));
 
   // ------------------------------------------------------------ search panel
   const sInput = h('input.field.grow', { type: 'search', placeholder: 'Words to find, e.g. “faith hope love”', onkeydown: (e) => { if (e.key === 'Enter') runSearch(); } });
@@ -130,7 +135,7 @@ export default function create(ctx) {
       // Enter presents the verse at once (like a double-click); Space and a click only select it.
       row.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target === row && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) { e.preventDefault(); e.stopImmediatePropagation(); presentVerse(book, chap, v.v); } });
       activatable(row);
-      row.addEventListener('click', (e) => clickVerse(v.v, e.shiftKey));
+      row.addEventListener('click', (e) => { clickVerse(v.v, e.shiftKey || rangeMode); if (rangeMode) setRange(false); });
       row.addEventListener('dblclick', () => presentVerse(book, chap, v.v));
       frag.appendChild(row);
     });
@@ -149,7 +154,7 @@ export default function create(ctx) {
     vStrip.setAttribute('aria-label', 'Jump to verse in ' + info.names[book - 1] + ' ' + chap);
     const frag = document.createDocumentFragment();
     verses.forEach((v) => frag.appendChild(h('button', { type: 'button', 'data-v': v.v, tabindex: '-1', 'aria-label': 'Verse ' + v.v, 'aria-pressed': 'false',
-      onclick: (e) => clickVerse(v.v, e.shiftKey),
+      onclick: (e) => { clickVerse(v.v, e.shiftKey || rangeMode); if (rangeMode) setRange(false); },
       ondblclick: () => presentVerse(book, chap, v.v),
       onkeydown: (e) => { if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); presentVerse(book, chap, v.v); } } }, String(v.v))));
     vStrip.appendChild(frag);

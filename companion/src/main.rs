@@ -53,6 +53,8 @@ struct State {
     etags: Mutex<HashMap<String, String>>,
     /// The operator page's last status report (what is live, black, music …), as JSON, for /api/status.
     status: Mutex<String>,
+    /// Wrong PINs per address: (count, time of the last one).
+    fails: Mutex<HashMap<std::net::IpAddr, (u32, Instant)>>,
 }
 
 struct Request {
@@ -61,6 +63,8 @@ struct Request {
     query: HashMap<String, String>,
     raw_query: String,
     headers: HashMap<String, String>,
+    /// Who sent it (for the wrong-PIN back-off).
+    peer: Option<std::net::IpAddr>,
 }
 
 // ------------------------------------------------------------------ helpers
@@ -184,10 +188,13 @@ fn find_soffice() -> Option<PathBuf> {
     which("soffice").or_else(|| which("libreoffice"))
 }
 
+/// A new 6-digit PIN from the operating system's random source (RandomState is seeded by it), not from the time.
 fn make_pin() -> String {
-    let n = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(7) as u64;
-    let x = n ^ (std::process::id() as u64).wrapping_mul(2654435761);
-    format!("{:04}", (x.wrapping_mul(0x9E3779B97F4A7C15) >> 32) % 10000)
+    use std::collections::hash_map::RandomState;
+    use std::hash::{BuildHasher, Hasher};
+    let mut h = RandomState::new().build_hasher();
+    h.write_u64(SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos() as u64).unwrap_or(7));
+    format!("{:06}", h.finish() % 1_000_000)
 }
 
 fn open_browser(url: &str) {
@@ -228,7 +235,7 @@ fn read_request<R: BufRead>(r: &mut R) -> io::Result<Option<Request>> {
         let (k, v) = pair.split_once('=').unwrap_or((pair, ""));
         query.insert(url_decode(k), url_decode(v));
     }
-    Ok(Some(Request { method, path: path_decode(&path), query, raw_query: qs, headers }))
+    Ok(Some(Request { method, path: path_decode(&path), query, raw_query: qs, headers, peer: None }))
 }
 
 // ------------------------------------------------------------------ who may do what
@@ -251,7 +258,8 @@ fn machine_name() -> String {
 /// The Host header names this machine: an IP address, localhost, the computer's name, or a local-network name
 /// (.local / .lan / .home / .internal, or a single word). A public domain name (DNS rebinding) is refused.
 fn host_ok(req: &Request) -> bool {
-    let Some(h) = req.headers.get("host") else { return true }; // HTTP/1.0 tools
+    // No Host header: only HTTP/1.0 tools on this PC itself.
+    let Some(h) = req.headers.get("host") else { return req.peer.map(|ip| ip.is_loopback()).unwrap_or(false) };
     let n = host_name(h);
     if n.is_empty() { return false; }
     if n.parse::<std::net::IpAddr>().is_ok() || n == "localhost" || n.ends_with(".localhost") { return true; }
@@ -293,9 +301,32 @@ impl State {
         }
         self.assets.get(path).map(|(b, gz)| (b.to_vec(), *gz))
     }
+    /// The PIN check. After 5 wrong PINs from one address, that address waits (2, 4, 8 … up to 300 seconds)
+    /// before a PIN is checked again, so guessing it takes far too long.
     fn pin_ok(&self, req: &Request, local: bool) -> bool {
-        local || req.query.get("pin").map(|p| p == &self.cfg.pin).unwrap_or(false)
-            || req.headers.get("x-selah-pin").map(|p| p == &self.cfg.pin).unwrap_or(false)
+        if local { return true; }
+        let given = req.headers.get("x-selah-pin").or_else(|| req.query.get("pin"));
+        let Some(given) = given else { return false };
+        let ip = req.peer;
+        if let Some(ip) = ip {
+            let f = self.fails.lock().unwrap();
+            if let Some((n, last)) = f.get(&ip) {
+                if *n >= 5 {
+                    let wait = Duration::from_secs((1u64 << (*n - 4).min(9)).min(300));
+                    if last.elapsed() < wait { return false; }
+                }
+            }
+        }
+        let ok = given.len() == self.cfg.pin.len() && given.bytes().zip(self.cfg.pin.bytes()).fold(0u8, |a, (x, y)| a | (x ^ y)) == 0;
+        if let Some(ip) = ip {
+            let mut f = self.fails.lock().unwrap();
+            if ok { f.remove(&ip); } else {
+                if f.len() > 4096 { f.clear(); }
+                let e = f.entry(ip).or_insert((0, Instant::now()));
+                e.0 = e.0.saturating_add(1); e.1 = Instant::now();
+            }
+        }
+        ok
     }
 }
 
@@ -577,14 +608,16 @@ fn drain_body(req: &Request, reader: &mut BufReader<TcpStream>) -> io::Result<()
 
 // ------------------------------------------------------------------ connection loop
 fn handle_conn(st: Arc<State>, stream: TcpStream) {
-    let from_this_pc = stream.peer_addr().map(|a| a.ip().is_loopback()).unwrap_or(false);
+    let peer = stream.peer_addr().ok().map(|a| a.ip());
+    let from_this_pc = peer.map(|ip| ip.is_loopback()).unwrap_or(false);
     let _ = stream.set_read_timeout(Some(Duration::from_secs(60)));
     let _ = stream.set_nodelay(true);
     let Ok(rs) = stream.try_clone() else { return };
     let mut reader = BufReader::with_capacity(64 * 1024, rs);
     let mut w = stream;
     loop {
-        let req = match read_request(&mut reader) { Ok(Some(r)) => r, _ => return };
+        let mut req = match read_request(&mut reader) { Ok(Some(r)) => r, _ => return };
+        req.peer = peer;
         if !host_ok(&req) { let _ = text(&mut w, "421 Misdirected Request", "Unknown host name"); return; }
         // No PIN only for the companion's own pages on this PC (see same_origin).
         let local = from_this_pc && same_origin(&req);
@@ -683,7 +716,7 @@ fn load_config() -> Config {
             "--install" => { match install() { Ok(_) => {}, Err(e) => eprintln!("Install failed: {}", e) } std::process::exit(0); }
             "--version" | "-V" => { println!("church-service-companion {}", VERSION); std::process::exit(0); }
             "--help" | "-h" => {
-                println!("Church Service companion {}\n\nUsage: church-service [options]\n  --port N        port to use (default 7777)\n  --media DIR     folder with videos/pictures to share (default ~/Videos/Church Service)\n  --pin NNNN      PIN phones must enter to control the screen\n  --no-browser    do not open the browser\n  --install       copy Church Service into your user folder and add shortcuts\n  --app-dir DIR   serve app files from DIR instead of the built-in copy\n\nSettings are kept in {}", VERSION, config_path().display());
+                println!("Church Service companion {}\n\nUsage: church-service [options]\n  --port N        port to use (default 7777)\n  --media DIR     folder with videos/pictures to share (default ~/Videos/Church Service)\n  --pin NNNNNN    PIN phones must enter to control the screen\n  --no-browser    do not open the browser\n  --install       copy Church Service into your user folder and add shortcuts\n  --app-dir DIR   serve app files from DIR instead of the built-in copy\n\nSettings are kept in {}", VERSION, config_path().display());
                 std::process::exit(0);
             }
             _ => {}
@@ -706,7 +739,7 @@ fn main() {
     }
     let Some(listener) = listener else { eprintln!("Could not open port {}. Is Church Service already running?", cfg.port); std::process::exit(1) };
     let assets: HashMap<&'static str, (&'static [u8], bool)> = ASSETS.iter().map(|(k, v, g)| (*k, (*v, *g))).collect();
-    let st = Arc::new(State { cfg: cfg.clone(), port, clients: Mutex::new(Vec::new()), next_id: AtomicU64::new(1), assets, etags: Mutex::new(HashMap::new()), status: Mutex::new(String::new()) });
+    let st = Arc::new(State { cfg: cfg.clone(), port, clients: Mutex::new(Vec::new()), next_id: AtomicU64::new(1), assets, etags: Mutex::new(HashMap::new()), status: Mutex::new(String::new()), fails: Mutex::new(HashMap::new()) });
 
     let local_url = format!("http://localhost:{}/", port);
     println!("\n  Church Service companion {}  ({} files, {:.1} MB built in)", VERSION, ASSETS.len(), ASSET_BYTES as f64 / 1048576.0);

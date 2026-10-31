@@ -53,3 +53,13 @@ If any check fails, the deploy stops and the website keeps the last version that
 - **Odd addresses:** …/stage/, …/index.html/ and deeper paths are sent to the right page instead of an unstyled one.
 - **Hard reload offline:** Ctrl+Shift+R becomes a normal reload when there is no internet.
 - `tests/offline.py` checks all of these on every deploy.
+
+## First visit in two steps (full stress test, 31 October 2026)
+
+- The first visit stores the app, the hymnbooks and the King James Bible (about 7 MB of the 25 MB) before it
+  takes over, so a phone on 3G can use it within seconds instead of minutes.
+- The rest (the other Bibles, hymn music, the PDF reader, the sound engine and streaming) downloads straight
+  after, 12 files at a time, with the church's own Bibles first. The badge shows "Saving… %" until it is done and
+  "✔ Ready offline" after. Updates still store every file before they take over.
+- With no internet, a file is only taken from another stored version when it has this version's fingerprint:
+  a newer version's file is never mixed in, and a Wi-Fi login page stored by mistake is never shown.

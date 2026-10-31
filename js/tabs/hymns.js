@@ -245,6 +245,9 @@ export default function create(ctx) {
     const hadFocus = listEl.contains(document.activeElement);
     clear(listEl);
     if (!book) { listEl.appendChild(emptyState('hymn', 'No hymnbook installed', 'Use More (…) → Import a hymnbook.')); return; }
+    // Screen readers read an Afrikaans (or other) hymnbook in its own language. The text itself is unchanged.
+    const L = book.lang && book.lang !== 'en' ? book.lang : null;
+    [listEl, grid, titleEl].forEach((el) => { if (L) el.setAttribute('lang', L); else el.removeAttribute('lang'); });
     const qq = q.value.trim();
     let list = book.hymns.filter((x) => matches(x, qq));
     if (/^\d+$/.test(qq)) list.sort((a, b) => (a.n === +qq ? -1 : b.n === +qq ? 1 : a.n - b.n));

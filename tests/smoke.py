@@ -107,6 +107,27 @@ def main():
             errs, bad = [], []
             pg = new_page(ctx, errs, bad)
             pg.goto(base + 'index.html'); pg.wait_for_timeout(1000)
+
+            @check('first-start setup is a real dialog for keyboard and screen readers')
+            def t_welcome_keys():
+                pg.wait_for_selector('.welcome', timeout=8000); pg.wait_for_timeout(500)
+                inside = "(() => !!(document.activeElement && document.activeElement.closest('.welcome')))()"
+                assert pg.evaluate(inside), 'focus is not in the setup dialog at the start'
+                assert pg.evaluate("[...document.body.children].filter(e => !e.classList.contains('welcome') && !e.classList.contains('toasts')).every(e => e.inert)"), 'the page behind is not inert'
+                assert 'Step 1' in pg.evaluate("document.querySelector('.welcome .sr').textContent"), 'the step is not announced'
+                out = 0
+                for k in range(25):
+                    pg.keyboard.press('Tab')
+                    if not pg.evaluate(inside): out += 1
+                for k in range(5):
+                    pg.keyboard.press('Shift+Tab')
+                    if not pg.evaluate(inside): out += 1
+                assert out == 0, 'Tab left the setup dialog %d times' % out
+                pg.keyboard.press('Escape'); pg.wait_for_timeout(400)
+                assert pg.locator('.welcome').count() == 0, 'Escape did not skip the setup'
+                assert not pg.evaluate("[...document.body.children].some(e => e.inert)"), 'the page stayed inert'
+            t_welcome_keys()
+
             pg.evaluate("import('./js/core/settings.js').then(m => (m.settings.set('app.setupDone', true), m.settings.set('backup', Object.assign({}, m.settings.v.backup, { remindAt: Date.now() }))))")
             pg.reload(); pg.wait_for_selector('#presentBtn'); pg.wait_for_timeout(1500)
 
@@ -130,6 +151,17 @@ def main():
                 assert title and 'John 3' in title, 'live is %r' % title
                 wait_text(pg, 'God so loved')
             t_bible()
+
+            @check('several verses without a keyboard (Range button)')
+            def t_range():
+                pg.evaluate("window.selah.showTab('bible')"); pg.wait_for_timeout(400)
+                pg.fill('.ref-in', 'John 3'); pg.keyboard.press('Enter'); pg.wait_for_timeout(900)
+                pg.click('.verse-list .vr[data-v="16"]'); pg.wait_for_timeout(200)
+                pg.click('.range-btn'); pg.click('.verse-list .vr[data-v="18"]'); pg.wait_for_timeout(400)
+                n = pg.evaluate("document.querySelectorAll('.verse-list .vr.sel').length")
+                assert n == 3, 'Range selected %d verses, not 3' % n
+                assert pg.get_attribute('.range-btn', 'aria-pressed') == 'false', 'Range stayed on'
+            t_range()
 
             @check('a hymn goes live')
             def t_hymn():
@@ -245,8 +277,11 @@ def main():
                 other = new_page(ctx, errs, bad)
                 other.goto(base + 'index.html'); other.wait_for_selector('#presentBtn'); other.wait_for_timeout(1200)
                 pg.evaluate("import('./js/core/settings.js').then(m => m.settings.set('display.font', 'serif'))")
+                pg.wait_for_timeout(150)  # two separate operators, not two writes in the same millisecond
                 other.evaluate("import('./js/core/settings.js').then(m => m.settings.set('display.pad', 50))")
+                pg.wait_for_timeout(150)  # two separate operators, not two writes in the same millisecond
                 pg.evaluate("import('./js/core/settings.js').then(m => m.settings.set('app.railSide', 'right'))")
+                pg.wait_for_timeout(150)  # two separate operators, not two writes in the same millisecond
                 other.evaluate("import('./js/core/settings.js').then(m => m.settings.set('app.theme', 'light'))")
                 pg.wait_for_timeout(500)
                 saved = pg.evaluate("import('./js/core/storens.js').then(n => { const s = JSON.parse(localStorage.getItem(n.lsKey('settings.v1'))); return [s.display.font, s.display.pad, s.app.railSide, s.app.theme]; })")

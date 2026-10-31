@@ -1,6 +1,8 @@
 // admin.html: statistics and feedback for the Church Service maintainer (people listed in public.admins).
 import { cloud } from './core/cloud.js';
 import { esc } from './core/util.js';
+// Never shown inside another website's frame (clickjacking). The app's own pages may frame each other.
+try { if (window.top !== window.self) { var sameTop = false; try { sameTop = window.top.location.origin === location.origin; } catch (e) { /* cross-origin */ } if (!sameTop) { document.documentElement.style.display = 'none'; try { window.top.location.replace(location.href); } catch (e) { /* */ } } } } catch (e) { /* */ }
 
 const $ = (s) => document.querySelector(s);
 const app = $('#app');

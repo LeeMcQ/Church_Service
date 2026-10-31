@@ -109,7 +109,9 @@ export function startBackupReminder({ ui }) {
     }, delay);
   }
   if (settings.v.app.setupDone) tryShow(2500);
-  else settings.on('change:app', (p) => { if (p === 'app.setupDone' && settings.v.app.setupDone) tryShow(2500); });
+  // The very first visit (the setup ran just now) has nothing to back up yet: the first reminder comes when the
+  // app is opened 24 hours or more later.
+  else settings.on('change:app', (p) => { if (p === 'app.setupDone' && settings.v.app.setupDone && !(+B().remindAt)) setB({ remindAt: Date.now() }); });
   // A PC left open for days: ask again when it is next looked at after 24 hours.
   document.addEventListener('visibilitychange', () => { if (!document.hidden && reminderDue()) { shown = false; tryShow(1500); } });
   return { show: () => { shown = false; show(); }, due: reminderDue };

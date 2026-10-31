@@ -35,10 +35,37 @@ export function openWelcome({ onClose, only } = {}) {
   const touchOnly = matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches;
   if (only !== 'account') steps.push('church', ...(touchOnly ? [] : ['screens']), 'sound', 'ready', ...(cloud.enabled() ? ['stats'] : []), 'done');
   let i = 0;
-  const wrap = h('div.welcome', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Set up Church Service' });
+  const returnTo = document.activeElement;
+  const live = h('div.sr', { 'aria-live': 'polite' });
+  const wrap = h('div.welcome', { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'welcome-title', 'aria-label': 'Set up Church Service' });
   const card = h('div.welcome-card');
-  wrap.append(card);
+  wrap.append(card, live);
+  // A real modal for keyboard and screen-reader users: the page behind is inert, Tab stays inside,
+  // Escape skips the rest of the setup, and focus goes back where it was afterwards.
+  const behind = Array.prototype.filter.call(document.body.children, (el) => el !== wrap && !el.inert && !el.classList.contains('toasts'));
+  behind.forEach((el) => { el.inert = true; });
   document.body.append(wrap);
+  const FOCUSABLE = 'button:not([disabled]),[href],input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+  wrap.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (e.target && e.target.closest && e.target.closest('select')) return;
+      e.preventDefault(); e.stopPropagation();
+      if (steps[i] === 'account') { if (!mustSignIn()) next(); } else close();
+      return;
+    }
+    if (e.key !== 'Tab') return;
+    const f = Array.prototype.filter.call(wrap.querySelectorAll(FOCUSABLE), (x) => x.offsetParent !== null || x === document.activeElement);
+    if (!f.length) { e.preventDefault(); return; }
+    const first = f[0], last = f[f.length - 1], at = document.activeElement;
+    if (e.shiftKey && (at === first || !wrap.contains(at) || at === wrap.querySelector('#welcome-title'))) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && (at === last || !wrap.contains(at))) { e.preventDefault(); first.focus(); }
+  });
+  // Focus the step's heading and say which step this is.
+  const focusStep = () => {
+    const t = wrap.querySelector('#welcome-title');
+    if (t) { try { t.focus({ preventScroll: false }); } catch (e) { /* */ } }
+    live.textContent = 'Step ' + (i + 1) + ' of ' + steps.length + (t ? ': ' + t.textContent : '');
+  };
   const mustSignIn = () => cloud.requireSignIn() && !cloud.user && navigator.onLine !== false;
 
   const stopTest = () => import('../core/hymnmusic.js').then((m) => { if (m.music.state && m.music.state.title === 'Sound test') m.music.stop(); }).catch(() => {});
@@ -47,18 +74,21 @@ export function openWelcome({ onClose, only } = {}) {
     if (mustSignIn()) { i = 0; paint(); toast('Please sign in first. (Without internet you can carry on and sign in later.)', 'err', 5000); return; }
     if (only !== 'account') settings.set('app.setupDone', true);
     wrap.remove();
+    behind.forEach((el) => { el.inert = false; });
+    if (returnTo && returnTo.isConnected && typeof returnTo.focus === 'function') { try { returnTo.focus({ preventScroll: true }); } catch (e) { /* */ } }
     if (onClose) onClose();
   };
   const next = () => { if (i < steps.length - 1) { i++; paint(); } else close(); };
   const back = () => { if (i > 0) { i--; paint(); } };
 
   let head, navFor;
-  function paint() {
+  function paint() { paintStep(); setTimeout(focusStep, 60); }
+  function paintStep() {
     clear(card);
     stopTest();
     const step = steps[i];
     const dots = h('div.welcome-dots', ...steps.map((s, j) => h('span' + (j === i ? '.on' : j < i ? '.done' : ''))));
-    head = (title, sub) => h('div', h('div.welcome-brand', h('img', { src: 'icons/favicon.svg', alt: '', width: 34, height: 34 }), h('span', 'Church Service')), dots, h('h2', title), sub ? h('p.note', sub) : null);
+    head = (title, sub) => h('div', h('div.welcome-brand', h('img', { src: 'icons/favicon.svg', alt: '', width: 34, height: 34 }), h('span', 'Church Service')), dots, h('h2#welcome-title', { tabindex: '-1' }, title), sub ? h('p.note', sub) : null);
     const nav = (label = 'Next', { skip = true } = {}) => h('div.welcome-nav',
       i > 0 ? h('button.btn', { type: 'button', onclick: back }, 'Back') : h('span'),
       h('div.grow'),
@@ -167,6 +197,7 @@ export function openWelcome({ onClose, only } = {}) {
         : 'For a bigger sound later, connect the PC to a sound desk with a USB audio interface or DI box. Fine-tune everything in Hymns → options → Music.'));
     applyAll();
     card.append(head('Hymn music', 'Accompaniment for the hymns, played by this device. Three questions set the best sound for your church.'), body, navFor());
+    focusStep();
   }
 
   // ------------------------------------------------------------ ready for Sabbath (offline, install, data)

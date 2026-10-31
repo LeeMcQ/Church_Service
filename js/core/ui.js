@@ -43,8 +43,18 @@ export function keepInView(el, { pad = 8 } = {}) {
 }
 
 let toastHost;
+// The toast area exists from the start, so screen readers already watch it when the first message arrives.
+const ensureToastHost = () => { if (!toastHost) { toastHost = h('div.toasts', { role: 'status', 'aria-live': 'polite' }); document.body.appendChild(toastHost); } return toastHost; };
+if (typeof document !== 'undefined') { if (document.body) ensureToastHost(); else document.addEventListener('DOMContentLoaded', ensureToastHost, { once: true }); }
+/** Say something to screen-reader users only (polite, through the toast area). */
+export function announce(text) {
+  const host = ensureToastHost();
+  const n = h('div.sr', String(text || ''));
+  host.appendChild(n);
+  setTimeout(() => n.remove(), 6000);
+}
 export function toast(msg, kind = '', ms = 3200) {
-  if (!toastHost) { toastHost = h('div.toasts', { role: 'status', 'aria-live': 'polite' }); document.body.appendChild(toastHost); }
+  ensureToastHost();
   // Same message already showing: keep one toast, just restart its timer.
   const text = typeof msg === 'string' ? msg : (msg && msg.textContent) || '';
   for (const old of Array.from(toastHost.children)) if (old.dataset.msg === text && !old.classList.contains('out')) old.remove();

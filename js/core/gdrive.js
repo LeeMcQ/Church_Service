@@ -7,6 +7,8 @@ import { lsKey } from './storens.js';
 
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const TOKEN_KEY = lsKey('gdrive.token');
+// The Drive sign-in is kept for this tab only (other pages on the same web address cannot read it).
+try { localStorage.removeItem(TOKEN_KEY); } catch (e) { /* */ }
 const FOLDER = 'Church Service backup';
 const API = 'https://www.googleapis.com/drive/v3';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
@@ -19,11 +21,11 @@ export const gdrive = {
 };
 
 function saved() {
-  try { const t = JSON.parse(localStorage.getItem(TOKEN_KEY) || 'null'); return t && t.access_token && t.exp > Date.now() + 60000 ? t : null; } catch (e) { return null; }
+  try { const t = JSON.parse(sessionStorage.getItem(TOKEN_KEY) || 'null'); return t && t.access_token && t.exp > Date.now() + 60000 ? t : null; } catch (e) { return null; }
 }
 function signOut() {
   const t = saved();
-  try { localStorage.removeItem(TOKEN_KEY); } catch (e) { /* */ }
+  try { (localStorage.removeItem(TOKEN_KEY), sessionStorage.removeItem(TOKEN_KEY)); } catch (e) { /* */ }
   if (t) fetch('https://oauth2.googleapis.com/revoke?token=' + encodeURIComponent(t.access_token), { method: 'POST' }).catch(() => {});
 }
 
@@ -54,7 +56,7 @@ function signIn() {
         const j = await r.json();
         t.email = (j.user && (j.user.emailAddress || j.user.displayName)) || '';
       } catch (e) { /* the email is only shown, not needed */ }
-      try { localStorage.setItem(TOKEN_KEY, JSON.stringify(t)); } catch (e) { /* */ }
+      try { sessionStorage.setItem(TOKEN_KEY, JSON.stringify(t)); } catch (e) { /* */ }
       resolve({ email: t.email });
     };
     // oauth.html answers by postMessage (desktop pop-up) or, when the phone opened it as a separate tab,
@@ -83,7 +85,7 @@ async function token() {
 }
 async function api(path, opts = {}) {
   const r = await fetch(API + path, Object.assign({}, opts, { headers: Object.assign({ Authorization: 'Bearer ' + (await token()) }, opts.headers || {}) }));
-  if (r.status === 401) { try { localStorage.removeItem(TOKEN_KEY); } catch (e) { /* */ } throw new Error('Google sign-in expired. Press the button again.'); }
+  if (r.status === 401) { try { (localStorage.removeItem(TOKEN_KEY), sessionStorage.removeItem(TOKEN_KEY)); } catch (e) { /* */ } throw new Error('Google sign-in expired. Press the button again.'); }
   if (!r.ok) throw new Error('Google Drive: ' + r.status + ' ' + (await r.text()).slice(0, 160));
   return r.status === 204 ? null : r.json();
 }

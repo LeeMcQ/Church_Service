@@ -72,7 +72,7 @@ export function createSlideEditor(opts) {
   let keepRatio = false;
   let savedRange = null;
   let drag = null;
-  const ov = h('div.se-ov', { tabindex: '0', role: 'group', 'aria-roledescription': 'slide canvas', 'aria-label': 'Slide canvas. Click an item to select it, double-click text to edit it.' });
+  const ov = h('div.se-ov', { tabindex: '0', role: 'group', 'aria-roledescription': 'slide canvas', 'aria-label': 'Slide canvas. Click an item to select it, double-click text to edit it. Keyboard: [ and ] select the previous or next item, arrows move it, Enter edits text, Delete removes it, Tab leaves the canvas.' });
   const guides = h('div.se-guides');
   ov.appendChild(guides);
   screen.appendChild(ov);
@@ -398,7 +398,7 @@ export function createSlideEditor(opts) {
     opts.commit({ render: false });
     list.forEach((e) => {
       const tmp = h('div', { contenteditable: 'true', style: { position: 'fixed', left: '-9999px', top: '0' } });
-      tmp.innerHTML = e.html || '';
+      tmp.innerHTML = cleanHtml(e.html || ''); // parsed inertly first: imported slide HTML never runs anything
       document.body.appendChild(tmp);
       tmp.focus();
       const r = document.createRange(); r.selectNodeContents(tmp);
@@ -424,7 +424,7 @@ export function createSlideEditor(opts) {
   /** Remove inline formatting that a whole-box setting replaces. */
   function stripInline(html, what) {
     const d = document.createElement('div');
-    d.innerHTML = html || '';
+    d.innerHTML = cleanHtml(html || '');
     const unwrap = (sel2) => d.querySelectorAll(sel2).forEach((n) => { n.replaceWith(...n.childNodes); });
     d.querySelectorAll('[style]').forEach((n) => {
       if (what === 'size') n.style.fontSize = '';
@@ -1009,7 +1009,8 @@ export function createSlideEditor(opts) {
     else if (k === 'Delete' || k === 'Backspace') remove();
     else if (k === 'Escape') { if (tool) setTool(null); else select([]); }
     else if (k === 'Enter' && sel.length === 1) { if (sel[0].startsWith('part:')) { partToEl(sel[0]).then((id) => { if (id) { select([id]); setTimeout(() => beginEdit(id), 40); } }); } else if (isText(byId(sel[0]))) beginEdit(sel[0]); }
-    else if (k === 'Tab') { const list = els(); if (list.length) { const i = list.findIndex((e) => e.id === sel[0]); const n = list[(i + (ev.shiftKey ? -1 : 1) + list.length) % list.length]; select([n.id]); } }
+    // [ and ] step through the items; Tab leaves the canvas like everywhere else (no keyboard trap).
+    else if ((k === '[' || k === ']') && !ctrl) { const list = els(); if (list.length) { const i = list.findIndex((e) => e.id === sel[0]); const n = list[(i + (k === '[' ? -1 : 1) + list.length) % list.length]; select([n.id]); } }
     else if (k.startsWith('Arrow') && sel.length) {
       const step = ev.shiftKey ? 20 : 2;
       const dx = k === 'ArrowLeft' ? -step : k === 'ArrowRight' ? step : 0, dy = k === 'ArrowUp' ? -step : k === 'ArrowDown' ? step : 0;

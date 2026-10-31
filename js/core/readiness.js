@@ -35,7 +35,10 @@ async function persisted() {
  */
 export function readinessBadge(ctx, deps) {
   const { ui } = deps;
-  const el = h('button.ready-mark', { type: 'button', 'aria-live': 'polite', title: 'Offline readiness: tap for details' });
+  // Not a live region: "Checking… → Ready offline" on every start would be read out each time. Only a problem
+  // (files missing) is announced, once, through the toast area.
+  const el = h('button.ready-mark', { type: 'button', title: 'Offline readiness: tap for details' });
+  let announced = '';
   let lastCheck = 0;
   let state = 'checking';
   // Nearly full storage explains missing files better than anything else: say so in the badge.
@@ -60,6 +63,8 @@ export function readinessBadge(ctx, deps) {
     state = c.s;
     el.className = 'ready-mark rm-' + c.s;
     el.textContent = c.t;
+    if (c.s === 'bad' && announced !== c.t) { announced = c.t; ui.announce && ui.announce('Offline readiness: ' + c.t.replace('⚠ ', '')); }
+    if (c.s !== 'bad') announced = '';
   }
 
   async function open() {

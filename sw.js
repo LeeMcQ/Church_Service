@@ -1,6 +1,6 @@
 // Church Service service worker: installs the whole app (Bibles, hymns, fonts, pdf.js) in one go
 // so it runs with no internet. VERSION is rewritten by tools/build.py on every build.
-const VERSION = '8ad730f824e5';
+const VERSION = 'd0421128834c';
 // Caches are named per address ('selah-/Church_Service/|<version>'), so two apps on the same site
 // (for example this one and an older copy under another folder) never delete each other's offline files.
 const SCOPE = new URL(self.registration.scope).pathname;
@@ -94,6 +94,32 @@ async function fromAnyCache(req, except) {
   for (const k of keys) { const r = await (await caches.open(k)).match(req, { ignoreSearch: true }); if (r) return r; }
   return null;
 }
+/** The last resort when offline: a copy from another stored version, but only one that is this version's file
+ *  (same fingerprint as in this version's file list) — never a newer version's file mixed into this one, and
+ *  never a login page stored by mistake. Files not in the list (extra data added later) only need to be real. */
+async function storedCopy(f, except) {
+  const man = await getManifest();
+  const want = man && man.hashes && man.hashes[f];
+  const keys = (await appCaches()).concat(await legacyOwn()).filter((k) => k !== except).reverse();
+  for (const k of keys) {
+    const r = await (await caches.open(k)).match(f, { ignoreSearch: true });
+    if (!r || htmlInstead(f, r)) continue;
+    if (!want) { if (!(man && man.files && man.files.includes(f))) return r; continue; }
+    if (checkedFor(r, want)) return r;
+    const ok = await verified(f, r, want).catch(() => null);
+    if (ok) return ok;
+  }
+  return null;
+}
+/** Is this a real file list (not a login page or a cut-off download)? */
+function goodManifest(m) {
+  return !!(m && Array.isArray(m.files) && m.files.length && m.files.every((f) => typeof f === 'string') && m.hashes && typeof m.hashes === 'object');
+}
+// The first visit stores the app, the indexes, the hymnbooks and one Bible before it takes over; the rest (the
+// other Bibles, hymn music, the PDF reader, the sound engine and streaming) follows straight after, in the
+// background, while the app can already be used. Updates always store everything before they take over.
+const LATER = (f) => /^data\/music\//.test(f) || /^vendor\/(pdfjs|spessasynth|hls)\//.test(f) || (/^data\/bibles\/[^/]+\//.test(f) && !/^data\/bibles\/kjv\//.test(f));
+const BATCH = 12;
 
 let manifest = null;
 async function getManifest() {
@@ -110,10 +136,13 @@ self.addEventListener('install', (event) => {
   if (first) self.skipWaiting();
   event.waitUntil((async () => {
     const manRes = await fetchRetry('asset-manifest.json?v=' + VERSION, { cache: 'no-store' });
+    // A login page or a cut-off download in place of the file list is never stored: the install stops here.
+    let man = null;
+    try { if (!htmlInstead('asset-manifest.json', manRes)) man = await manRes.clone().json(); } catch (e) { man = null; }
+    if (!goodManifest(man)) throw new Error('not the real file list');
     const cache = await caches.open(CACHE);
     // Keep the file list too: the app reads it offline (offline status, optional licensed Bibles).
     await cache.put('asset-manifest.json', manRes.clone());
-    const man = await manRes.json();
     manifest = man;
     const files = man.files;
     const hashes = man.hashes || {};
@@ -145,18 +174,20 @@ self.addEventListener('install', (event) => {
     }
     let done = 0, streak = 0;
     const missing = [];
-    const shell = files.filter(SHELL), rest = files.filter((f) => !SHELL(f));
-    // Small batches keep memory and connections low on weak devices. The app itself comes first.
+    const firstVisit = !older.length;
+    const later = firstVisit ? files.filter((f) => !SHELL(f) && LATER(f)) : [];
+    const shell = files.filter(SHELL), rest = files.filter((f) => !SHELL(f) && !later.includes(f));
+    // Batches keep memory and connections reasonable on weak devices. The app itself comes first.
     for (const [group, isShell] of [[shell, true], [rest, false]]) {
-      for (let i = 0; i < group.length; i += 6) {
-        const batch = group.slice(i, i + 6);
+      for (let i = 0; i < group.length; i += BATCH) {
+        const batch = group.slice(i, i + BATCH);
         // No answers at all for a while (no internet): stop trying the data now; the self-check fetches it later.
         if (!isShell && !older.length && streak >= 12) { batch.forEach((f) => missing.push(f)); done += batch.length; continue; }
         await Promise.all(batch.map(async (f) => {
           try { await getOne(f); streak = 0; } catch (e) { missing.push(f); streak++; }
           done++;
         }));
-        broadcast({ t: 'progress', done, total: files.length });
+        broadcast({ t: 'progress', done, total: files.length - later.length });
       }
       // Without the app itself, a first install never takes over: the next visit tries again.
       if (isShell && !older.length && missing.length) {
@@ -171,7 +202,12 @@ self.addEventListener('install', (event) => {
       throw new Error('Update incomplete: ' + missing.length + ' files');
     }
     if (missing.length) broadcast({ t: 'health', total: files.length, missing: missing.length });
-  })());
+  })().catch(async (e) => {
+    // A first install that failed leaves nothing half-done behind (an update keeps its checked files, so the
+    // next try only downloads what is still missing).
+    if (!self.registration.active) { try { await caches.delete(CACHE); } catch (er) { /* */ } }
+    throw e;
+  }));
 });
 
 self.addEventListener('activate', (event) => {
@@ -198,12 +234,12 @@ self.addEventListener('activate', (event) => {
 /** Is every app file stored, and is each one the real file? Missing files are downloaded again when there is
  *  internet. One check at a time (the first one reads every file once to check it; later ones are quick). */
 let checking = Promise.resolve();
-function checkAndRepair(repair) {
-  const run = checking.then(() => checkOnce(repair));
+function checkAndRepair(repair, first) {
+  const run = checking.then(() => checkOnce(repair, first));
   checking = run.catch(() => {});
   return run;
 }
-async function checkOnce(repair) {
+async function checkOnce(repair, first) {
   const man = await getManifest();
   if (!man) return { total: 0, have: 0, missing: [] };
   const cache = await caches.open(CACHE);
@@ -221,17 +257,27 @@ async function checkOnce(repair) {
   }
   let fixed = 0;
   if (repair && missing.length) {
-    for (const f of missing.slice()) {
+    // What the page needs first (its chosen Bible and hymnbook) comes first, then the rest, several at a time.
+    const prio = (f) => { const i = (first || []).findIndex((p) => typeof p === 'string' && p && f.startsWith(p)); return i < 0 ? 99 : i; };
+    const todo = missing.slice().sort((a, b) => prio(a) - prio(b));
+    const total = man.files.length, start = total - missing.length;
+    let fails = 0;
+    const one = async (f) => {
       try {
         const ok = await verified(f, await fetchRetry(f, { cache: 'no-cache' }, 2), hashes[f]);
         if (!ok) throw new Error('not the real file');
-        await cache.put(f, ok); fixed++; missing.splice(missing.indexOf(f), 1);
+        await cache.put(f, ok); fixed++; missing.splice(missing.indexOf(f), 1); fails = 0;
       } catch (e) {
-        const old = await fromAnyCache(f, CACHE);
-        const ok = old && (checkedFor(old, hashes[f]) ? old : await verified(f, old, hashes[f]).catch(() => null));
-        if (ok) { await cache.put(f, ok); fixed++; missing.splice(missing.indexOf(f), 1); }
+        const ok = await storedCopy(f, CACHE);
+        if (ok) { await cache.put(f, ok); fixed++; missing.splice(missing.indexOf(f), 1); } else fails++;
       }
+    };
+    for (let i = 0; i < todo.length; i += BATCH) {
+      if (fails >= 24) break; // no internet after all: the next check carries on
+      await Promise.all(todo.slice(i, i + BATCH).map(one));
+      broadcast({ t: 'progress', done: start + fixed, total });
     }
+    broadcast({ t: 'progress', done: total, total });
   }
   return { total: man.files.length, have: man.files.length - missing.length, missing: missing.slice(0, 20), missingCount: missing.length, fixed, bad, version: VERSION };
 }
@@ -241,7 +287,7 @@ self.addEventListener('message', (e) => {
   if (d.t === 'skip') self.skipWaiting();
   if (d.t === 'check') {
     const reply = (m) => { try { e.source && e.source.postMessage(m); } catch (er) { /* */ } };
-    e.waitUntil(checkAndRepair(!!d.repair).then((r) => reply(Object.assign({ t: 'health' }, r))).catch((er) => reply({ t: 'health', error: String(er) })));
+    e.waitUntil(checkAndRepair(!!d.repair, Array.isArray(d.first) ? d.first.slice(0, 6) : null).then((r) => reply(Object.assign({ t: 'health' }, r))).catch((er) => reply({ t: 'health', error: String(er) })));
   }
 });
 
@@ -298,7 +344,8 @@ self.addEventListener('fetch', (event) => {
       if (!res.ok && isPage) throw new Error('HTTP ' + res.status);
       // Keep a copy of app files that were missing, and of extra data added later (licensed Bibles) — only
       // the real file: checked against the file list, and never a login page in place of data.
-      if (res.ok && res.type === 'basic' && /\/(js|css|data|vendor|fonts|icons)\/|\.(html|webmanifest)$/.test(url.pathname) && !htmlInstead(url.pathname, res)) {
+      const jsonOK = !/\.json$/.test(url.pathname) || /json/i.test(res.headers.get('content-type') || '');
+      if (res.ok && res.type === 'basic' && !res.redirected && jsonOK && /\/(js|css|data|vendor|fonts|icons)\/|\.(html|webmanifest)$/.test(url.pathname) && !htmlInstead(url.pathname, res)) {
         const copy = res.clone();
         event.waitUntil((async () => {
           const man = await getManifest();
@@ -310,11 +357,11 @@ self.addEventListener('fetch', (event) => {
       return res;
     } catch (e) {
       // No internet: an older stored copy, then the app's start page for any page.
-      const old = await fromAnyCache(req, CACHE);
+      const old = await storedCopy(isPage && rel === '' ? 'index.html' : rel, CACHE);
       if (old) return old;
       if (isPage) {
         const page = await cache.match(/display\.html/.test(url.pathname) ? 'display.html' : isStage ? 'stage.html' : /\.html$/.test(url.pathname) ? url.pathname.split('/').pop() : 'index.html', { ignoreSearch: true })
-          || await cache.match('index.html', { ignoreSearch: true }) || await fromAnyCache('index.html', CACHE);
+          || await cache.match('index.html', { ignoreSearch: true }) || await storedCopy('index.html', CACHE);
         if (page) return page;
       }
       return new Response('Offline and not stored on this device: ' + url.pathname, { status: 503, headers: { 'Content-Type': 'text/plain' } });

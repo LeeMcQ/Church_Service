@@ -6,6 +6,8 @@ import { createDisplay } from './display/display.js';
 import { createDecoder, createEncoder } from './core/wire.js';
 import { sanitizeSlideHtml } from './core/render.js';
 import { APP_SCOPE, keepScreenOn } from './core/util.js';
+// Never shown inside another website's frame (clickjacking). The app's own pages may frame each other.
+try { if (window.top !== window.self) { var sameTop = false; try { sameTop = window.top.location.origin === location.origin; } catch (e) { /* cross-origin */ } if (!sameTop) { document.documentElement.style.display = 'none'; try { window.top.location.replace(location.href); } catch (e) { /* */ } } } } catch (e) { /* */ }
 
 // Slides that arrive over a network link (the companion on the church network, or Cast) are cleaned before
 // they are drawn: only plain formatting survives, never scripts, frames, event handlers or odd links. The
@@ -33,7 +35,12 @@ if (MIRROR) document.title = 'Church Service · projector 2';
 const disp = createDisplay(root, { post, mirror: MIRROR });
 window.SelahDisplay = disp; // direct API used by the opener window (streams, snapshots)
 
-// 1) Opener / any same-origin control window that messages us
+// 1) Opener / a control window of this app that messages us
+// Only windows of this app (same folder on the web address) may drive or claim the display. Every app on
+// leemcq.github.io shares one origin, so the origin check alone is not enough; a same-origin window's address
+// can be read, so its folder is checked as well.
+const APP_PATH = new URL('./', location.href).pathname;
+const fromThisApp = (w) => { try { return !!w && (w === window.opener || String(w.location.pathname).startsWith(APP_PATH)); } catch (e) { return false; } };
 const winOuts = new Map();
 function addWin(w) {
   if (!w || w === window || winOuts.has(w)) return;
@@ -41,7 +48,7 @@ function addWin(w) {
   winOuts.set(w, f); outs.add(f);
 }
 window.addEventListener('message', (e) => {
-  if (e.origin !== location.origin || !e.data || !e.data.t) return;
+  if (e.origin !== location.origin || !e.data || !e.data.t || !fromThisApp(e.source)) return;
   addWin(e.source);
   if (e.data.t === 'fullscreen') { if (!isFull()) goFull(); reportFull(); return; }
   if (e.data.t === 'keepfull') { keepFull = e.data.on !== false; reportFull(); return; }
