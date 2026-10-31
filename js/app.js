@@ -19,14 +19,13 @@ import { hub as stageHub, timerValue } from './core/stagehub.js';
 import { cloud } from './core/cloud.js';
 import { currentLayout } from './core/screens.js';
 import { remote, startRemote, sendStatus } from './core/remotectl.js';
-import { createModes } from './modes.js';
 import { createListener } from './listen.js';
 // Loaded when first needed, to keep start-up quick: OBS control, the first-start setup and the feedback form.
 const lazyWelcome = () => import('./tabs/welcome.js');
 const openFeedback = (c, o) => import('./tabs/account.js').then((m) => m.openFeedback(c, o));
 
 export const VERSION = '1.6.0';
-export const BUILD = '526aad3';
+export const BUILD = '27fd3fd';
 
 const TABS = [
   { id: 'bible', label: 'Bible', icon: 'bible', file: 'bible.js', load: () => import('./tabs/bible.js') },
@@ -75,7 +74,7 @@ window.selah = ctx; // handy for debugging from the console (name kept for exist
 
 // Old names still work (saved plans, links, the last tab used): PC view is now part of Web & PC.
 // Parts that live inside another tab: Web & PC (screen), Tools (stage, stream).
-const ALIAS = { screen: 'web', stage: 'tools', stream: 'tools' };
+const ALIAS = { screen: 'web', stage: 'tools', stream: 'tools', listen: 'tools' };
 async function getTab(id) {
   if (ALIAS[id]) { const api = await getTab(ALIAS[id]); if (api.show) { const sub = api.show(id); if (sub && sub.el) return sub; } return api; }
   if (tabs.has(id)) return tabs.get(id);
@@ -147,7 +146,7 @@ async function showTab(id) {
   moreBtn.setAttribute('aria-label', MORE_TABS.includes(id) ? 'More tabs (' + TABS.find((t) => t && t.id === id).label + ' open)' : 'More tabs');
   if (api.onShow) api.onShow();
   live.stage(stagedBy.get(id) || null);
-  if (id !== 'settings' && !document.documentElement.classList.contains('basic')) settings.set('app.lastTab', id); // Basic always opens on the plan
+  if (id !== 'settings') settings.set('app.lastTab', id);
   return api;
 }
 
@@ -163,8 +162,7 @@ TABS.forEach((t, i) => {
   rail.appendChild(b);
 });
 const moreBtn = h('button.rail-more', { type: 'button', 'aria-label': 'More tabs', 'aria-haspopup': 'menu', onclick: () => ui.menu(moreBtn,
-  MORE_MENU.map((id) => { const t = TABS.find((x) => x && x.id === id); return { label: t.label, icon: t.icon, hint: current === id ? 'Open' : '', onclick: () => showTab(id) }; })
-    .concat(ctx.listener && ctx.listener.supported ? ['-', { label: ctx.listener.on ? 'Stop listening' : 'Listen for verses & hymns…', icon: 'mic', onclick: () => ctx.listener.toggle() }] : [])) },
+  MORE_MENU.map((id) => { const t = TABS.find((x) => x && x.id === id); return { label: t.label, icon: t.icon, hint: current === id ? 'Open' : '', onclick: () => showTab(id) }; })) },
 icon('grid'), h('span', 'More'));
 rail.parentNode.appendChild(moreBtn);
 live.on('live', (cue) => {
@@ -783,7 +781,6 @@ function handleKey(e, remote) {
   if (!remote && t !== quickInput && ((ctrl && !e.altKey && (k === 'k' || k === 'K')) || (k === '/' && !ctrl && !e.altKey && !(typing && slashTypes(t))))) { quick.focus(); return true; }
   if (typing) { if (k === 'Escape' && t && t.blur && t !== quickInput && !e.defaultPrevented) t.blur(); return false; }
   if (quiet && t && t.blur) t.blur();
-  if (e.altKey && /^[0-9]$/.test(k) && modes.isBasic()) modes.setMode('advanced'); // a tab shortcut means the full app
   if (e.altKey && /^[1-9]$/.test(k)) { const tb = TABS.filter(Boolean)[+k - 1]; if (tb) showTab(tb.id); return true; }
   if (e.altKey && k === '0') { showTab('settings'); return true; }
   if (ctrl && !e.altKey && !e.shiftKey && (k === 'z' || k === 'Z')) { live.back(); return true; }   // back to what was on screen before
@@ -855,13 +852,12 @@ live.on('remote-key', (m) => handleKey({ key: m.key, code: m.code, sig: m.sig, c
 createMonitors($('#monitors'));
 createControlBar($('#ctrlbar'), getTab);
 
-// ------------------------------------------------------------ Basic / Advanced mode and verse suggestions
-// Verse suggestions (Advanced): under Black / Logo / Clear on a PC; on phones a strip above the tabs while listening.
+// ------------------------------------------------------------ verse and hymn suggestions
+// Switched on in Tools → Listen. The cards show under Black / Logo / Clear on a PC; on phones above the tabs.
 const listener = createListener({ ctx, getTab, present: () => doPresent(), ui });
 { const mon = $('#monitors'); const acts = mon.querySelector('.mon-actions'); if (acts) acts.after(listener.el); else mon.appendChild(listener.el); }
-const modes = createModes({ appEl, work, getTab, showTab, current: () => current, present: () => doPresent(), ui, listener });
-ctx.setMode = (m) => modes.setMode(m);
 ctx.listener = listener;
+ctx.present = () => doPresent(); // the Plan tab's Basic view shows parts with the same Present as F5
 
 // ------------------------------------------------------------ keep the control screen awake during a service (phones)
 // Only while something is shown or a screen is connected: an idle control PC may sleep.
@@ -1022,7 +1018,7 @@ function registerSW() {
 
 // ------------------------------------------------------------ boot
 const qTab = new URLSearchParams(location.search).get('tab');
-const firstTab = [qTab, modes.isBasic() ? 'plan' : settings.v.app.lastTab].map((id) => ALIAS[id] || id).find((id) => TABS.some((t) => t && t.id === id)) || 'bible';
+const firstTab = [qTab, settings.v.app.lastTab].map((id) => ALIAS[id] || id).find((id) => TABS.some((t) => t && t.id === id)) || 'bible';
 showTab(firstTab).finally(() => { window.__selahBooted = true; const bg = document.getElementById('bootGuard'); if (bg) bg.remove(); });
 // UI motion starts only after the first load has settled, so nothing animates during start-up.
 const markBooted = () => setTimeout(() => document.documentElement.classList.add('booted'), 300);

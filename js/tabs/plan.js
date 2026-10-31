@@ -10,6 +10,7 @@ import { getInfo, versesFor, listTranslations, verseText } from '../core/bibleda
 import { church, nextSabbath } from '../core/church.js';
 import { music } from '../core/hymnmusic.js';
 import { collectPlan, packageBlob, openPackage, installPackage, fmtSize, EXT } from '../core/planpack.js';
+import { createPlanBasic } from './plan-basic.js';
 
 const TEMPLATES = {
   'Divine Service': [
@@ -82,8 +83,8 @@ export default function create(ctx) {
     '-',
     { label: 'Delete this plan', icon: 'trash', onclick: deletePlan, disabled: !plan },
   ]), { cls: 'sm' });
-  const nextBtn = h('button.btn.primary', { type: 'button', title: 'Put the next part of the plan on the green Next screen', onclick: () => step(1) }, icon('next'), h('span', 'Next part'));
-  const prevBtn = btn('prev', 'Previous part', () => step(-1), { cls: 'sm' });
+  const nextBtn = h('button.btn.primary.plan-edit-only', { type: 'button', title: 'Put the next part of the plan on the green Next screen', onclick: () => step(1) }, icon('next'), h('span', 'Next part'));
+  const prevBtn = btn('prev', 'Previous part', () => step(-1), { cls: 'sm plan-edit-only' });
 
   // ------------------------------------------------------------ quick add (type, then pick a suggestion)
   const addInput = h('input.field', { type: 'search', autocomplete: 'off', spellcheck: false, 'aria-label': 'Add to the plan',
@@ -93,11 +94,12 @@ export default function create(ctx) {
   const mediaBtn = h('button.btn', { type: 'button', title: 'Choose a Bible passage, hymn, slides, video, banner or web page', onclick: () => openPicker() }, icon('plus'), h('span', 'Add media…'));
 
   const listEl = h('div');
-  const el = h('section',
-    h('div.toolbar.plan-top', h('h2', 'Plan'), planSel, h('div.grow'), prevBtn, nextBtn, moreBtn),
+  const topBar = h('div.toolbar.plan-top', h('h2', 'Plan'), planSel, h('div.grow'), prevBtn, nextBtn, moreBtn);
+  const el = h('section.plan-pane',
+    topBar,
     tabBar,
     h('div.toolbar.plan-addbar', addWrap, mediaBtn),
-    h('div.scroll', { style: { flex: '1' } }, listEl));
+    h('div.scroll.plan-scroll', { style: { flex: '1' } }, listEl));
 
   // ------------------------------------------------------------ storage
   // Plans saved by older versions, imported files or a damaged database: keep only usable items.
@@ -1180,5 +1182,6 @@ export default function create(ctx) {
     open() { return null; },
   };
   const ready = loadTpls().catch(() => {}).then(load);
+  createPlanBasic({ el, toolbar: topBar, ctx, api }); // the Basic / Advanced switch and the Basic view
   return api;
 }

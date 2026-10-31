@@ -37,14 +37,13 @@ export function createListener({ ctx, getTab, present, ui }) {
   const lang = () => (settings.v.bible.primary === 'afr53' ? 'af-ZA' : 'en-ZA');
   const afr = () => lang() === 'af-ZA';
 
+  const watchers = new Set(); // Tools → Listen repaints when listening starts or stops
   function paintHead() {
     clear(head);
     box.classList.toggle('on', on);
-    if (!on) {
-      head.append(h('button.btn.ls-start', { type: 'button', title: 'Listen to the service: suggests the Bible verses and hymns that are mentioned, and follows the singing', onclick: () => start() },
-        icon('mic'), h('span', 'Listen for verses & hymns')));
-      return;
-    }
+    box.hidden = !on && !list.children.length; // switched on and off in Tools → Listen
+    watchers.forEach((fn) => { try { fn(); } catch (e) { /* */ } });
+    if (!on) return;
     head.append(
       h('span.ls-dot', { 'aria-hidden': 'true' }),
       h('span.ls-state', problem || (cards.length ? 'Listening' : 'Listening for verses and hymns…')),
@@ -127,7 +126,7 @@ export function createListener({ ctx, getTab, present, ui }) {
 
   // ------------------------------------------------------------ following the singing
   const slideLabel = (lab) => (lab === 'T' ? 'Title' : /^C/.test(lab) ? 'Chorus' : 'Verse ' + String(lab || '').replace(/a$/, ''));
-  function clearFollow() { if (follow) { follow.el.remove(); follow = null; } }
+  function clearFollow() { if (follow) { follow.el.remove(); follow = null; paintHead(); } }
   live.on('live', () => { sung = ''; clearFollow(); }); // another item on screen: start listening afresh
   live.on('go', () => { if (follow && follow.i === live.index) clearFollow(); });
 
@@ -242,6 +241,8 @@ export function createListener({ ctx, getTab, present, ui }) {
   return {
     el: box,
     get on() { return on; },
+    get problem() { return problem; },
+    onChange(fn) { watchers.add(fn); },
     supported: !!SR,
     start, stop,
     toggle() { if (on) stop(); else start(); },

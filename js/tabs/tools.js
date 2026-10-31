@@ -1,21 +1,24 @@
-// The Tools tab: the Stage and Stream parts (stage.js, stream.js).
+// The Tools tab: the Stage, Stream and Listen parts (stage.js, stream.js, listen-part.js).
 // Like every other tab, slides from here go to the green Next screen first; Present shows them.
 import { h } from '../core/util.js';
 import { icon } from '../core/icons.js';
 import createStage from './stage.js';
 import createStream from './stream.js';
+import createListen from './listen-part.js';
 
 // ------------------------------------------------------------ the Tools tab: two parts
 //   Stage   – the second screen for the platform: messages, timers, phones & laptops (stage.js)
 //   Stream  – OBS: lower thirds, presentation output, scene switching (stream.js)
+//   Listen  – verse and hymn suggestions from what is said and sung (listen-part.js, js/listen.js)
 // Each part keeps its own content; only the part that is open is shown. Stage and Stream are built the first
 // time they are opened.
 const PARTS = [
   ['stage', 'stage', 'Stage', 'Second screen for the platform: messages, timers, phones & laptops'],
   ['stream', 'live', 'Stream', 'OBS live stream: lower thirds, slides, scene switching'],
+  ['listen', 'mic', 'Listen', 'Verse and hymn suggestions from what is said and sung'],
 ];
 export default function create(ctx) {
-  const makers = { stage: createStage, stream: createStream };
+  const makers = { stage: createStage, stream: createStream, listen: createListen };
   const parts = {};
   let part = PARTS.some((p) => p[0] === ctx.settings.v.app.toolsPart) ? ctx.settings.v.app.toolsPart : 'stage';
   const seg = h('div.seg.tools-seg', { role: 'group', 'aria-label': 'Tools' });

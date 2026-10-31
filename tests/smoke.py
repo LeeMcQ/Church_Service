@@ -166,11 +166,12 @@ def main():
                 assert on and not off, 'blank %r then %r' % (on, off)
             t_black()
 
-            @check('Basic mode: order of service, Show, Next and Blank')
+            @check('Plan tab, Basic: order of service, Show, Next and Blank')
             def t_basic():
-                pg.evaluate("window.selah.setMode('basic')"); pg.wait_for_timeout(800)
+                pg.evaluate("window.selah.showTab('plan')"); pg.wait_for_timeout(800)
+                pg.click('.plan-view [data-view="basic"]'); pg.wait_for_timeout(500)
                 assert pg.locator('.basic-panel').is_visible(), 'the Basic order of service is not shown'
-                assert not pg.locator('#rail').is_visible(), 'the tabs still show in Basic'
+                assert pg.locator('#rail').is_visible(), 'the tabs must stay in Basic (it only changes the Plan tab)'
                 if not pg.locator('.bp-row').count():
                     pg.click('.bp-empty .btn.primary'); pg.wait_for_timeout(1500)
                 row = pg.locator('.bp-row:not(.empty)').filter(has=pg.locator('.bp-play')).first   # a hymn part
@@ -187,13 +188,14 @@ def main():
                 assert not errs, '; '.join(errs[:3])
             t_basic()
 
-            @check('Advanced mode: tabs, plan pictures, verse suggestions')
+            @check('Plan tab, Advanced: plan pictures; Tools: Listen')
             def t_advanced():
-                pg.click('.mode-sw [data-mode="advanced"]'); pg.wait_for_timeout(800)
-                assert pg.locator('#rail').is_visible(), 'the tabs do not come back in Advanced'
+                pg.click('.plan-view [data-view="advanced"]'); pg.wait_for_timeout(800)
                 assert not pg.locator('.basic-panel').is_visible(), 'the Basic panel still shows'
-                pg.evaluate("window.selah.showTab('plan')"); pg.wait_for_timeout(800)
+                assert pg.locator('.plan-addbar').is_visible(), 'the plan editor does not show in Advanced'
                 assert pg.locator('.plan-item .pi-slide').count() > 0, 'no slide pictures in the plan'
+                pg.evaluate("window.selah.showTab('listen')"); pg.wait_for_timeout(800)
+                assert pg.locator('.tools-part-listen .ls-toggle').is_visible(), 'Tools → Listen does not open'
                 got = pg.evaluate("""import('./js/core/spokenref.js').then(m => [
                     'as it says in John chapter three verse sixteen', 'Romans 8 28', 'first Corinthians thirteen verses four to seven',
                     'let us sing hymn number one hundred', 'Johannes drie vers sestien', 'the Lord is my shepherd'
@@ -441,7 +443,7 @@ def main():
                     p2.goto(base + 'index.html'); p2.wait_for_timeout(800)
                     p2.evaluate("import('./js/core/settings.js').then(m => m.settings.set('app.setupDone', true))")
                     p2.reload(); p2.wait_for_selector('#presentBtn'); p2.wait_for_timeout(1200)
-                    p2.evaluate("window.selah.setMode('advanced')"); p2.wait_for_timeout(300)   # the tabs (Basic is checked below)
+                    p2.evaluate("import('./js/core/settings.js').then(m => m.settings.set('app.planView', 'advanced'))"); p2.wait_for_timeout(300)   # the plan editor (Basic is checked below)
                     p2.evaluate("window.selah.showTab('plan')"); p2.wait_for_timeout(300)
                     for q in ['Closing prayer', 'hymn 135', 'John 3:16']:   # parts with buttons, so the plan rows are tested too
                         bx = p2.locator('.tabpanel:not([hidden]) input.field').first; bx.fill(q); bx.press('Enter'); p2.wait_for_timeout(300)
@@ -454,12 +456,13 @@ def main():
                         over = p2.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth')
                         present = p2.evaluate("(() => { const r = document.getElementById('presentBtn').getBoundingClientRect(); return r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1; })()")
                         if over > 1 or not present: bad_tabs.append('%dx%d %s (%dpx wider%s)' % (w, hh, t, over, '' if present else ', Present off screen'))
-                    # Basic: the same plan, the big buttons and the Present button all on the screen.
-                    p2.evaluate("window.selah.setMode('basic')"); p2.wait_for_timeout(500)
+                    # The Plan tab in Basic: the same plan, the big buttons and the Present button all on the screen.
+                    p2.evaluate("window.selah.showTab('plan')"); p2.wait_for_timeout(300)
+                    p2.evaluate("import('./js/core/settings.js').then(m => m.settings.set('app.planView', 'basic'))"); p2.wait_for_timeout(500)
                     over = p2.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth')
-                    fits = p2.evaluate("""(() => ['#presentBtn', '.bb-next', '.bb-blank', '.mode-sw'].every((q) => { const r = document.querySelector(q).getBoundingClientRect();
+                    fits = p2.evaluate("""(() => ['#presentBtn', '.bb-next', '.bb-blank', '.plan-view'].every((q) => { const r = document.querySelector(q).getBoundingClientRect();
                       return r.width > 0 && r.left >= -1 && r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1; }))()""")
-                    if over > 1 or not fits: bad_tabs.append('%dx%d Basic (%dpx wider%s)' % (w, hh, over, '' if fits else ', a button off screen'))
+                    if over > 1 or not fits: bad_tabs.append('%dx%d Plan Basic (%dpx wider%s)' % (w, hh, over, '' if fits else ', a button off screen'))
                     assert not e2, '%dx%d: %s' % (w, hh, e2[0])
                     c2.close()
                 assert not bad_tabs, '; '.join(bad_tabs[:4])

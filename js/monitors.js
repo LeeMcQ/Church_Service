@@ -71,9 +71,7 @@ export function createMonitors(host) {
     const f = frameOf(cue, idx);
     nextStage.show(f);
     setStream('next', nextScreen, cue && cue.deck.kind === 'stream' ? cue.stream : null);
-    emptyText(nextScreen, cue ? '' : document.documentElement.classList.contains('basic')
-      ? 'Tap a part of the order of service — it shows here before it goes on the screen.'
-      : 'Pick something in a tab — it shows here before you present it.');
+    emptyText(nextScreen, cue ? '' : 'Pick something in a tab — it shows here before you present it.');
   }, settings.lowPower() ? 160 : 60);
 
   function renderFrames() {
@@ -165,7 +163,6 @@ export function createMonitors(host) {
   live.on('live', renderNext);
   live.on('go', () => { inStep(() => liveStage.show(frameOf(live.cue, live.index))); renderFrames(); markSame(); renderNext(); });
   settings.on('change:display', syncLogo);
-  settings.on('change:app', (p) => { if (p === 'app.mode') setTimeout(renderNext, 0); }); // Basic and Advanced word the empty Next screen differently
   settings.on('change:church', syncLogo);
   syncLogo();
   live.on('blank', updateBlank);

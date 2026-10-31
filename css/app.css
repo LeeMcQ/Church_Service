@@ -1311,33 +1311,29 @@ a.btn { text-decoration: none; }
 @media (max-width: 760px) { .present .pn-pre { display: none; } }
 
 /* ===================================================================================================== */
-/* Basic / Advanced mode                                                                                  */
-/* Basic: the order of service on the left, Next / Live on the right (larger), big Back / Next / Blank    */
-/* underneath. No tabs, no control bar. Advanced is the full app as before.                               */
+/* Plan tab: Basic and Advanced views                                                                     */
+/* Basic: the order of service with Show buttons and big Back / Next / Blank underneath (inside the Plan  */
+/* tab only; the rest of the app is unchanged). Advanced: the plan editor.                                */
 /* ===================================================================================================== */
-.mode-sw { display: flex; flex: none; height: 38px; padding: 3px; gap: 2px; border-radius: var(--r); border: 1px solid var(--line); background: var(--panel); }
-.mode-sw button { border: 0; background: transparent; color: var(--muted); padding: 0 12px; border-radius: var(--r-sm); font-weight: 700; font-size: var(--fs-sm); white-space: nowrap; }
-.mode-sw button:hover { color: var(--text); }
-.mode-sw button[aria-checked="true"] { background: var(--brass); color: var(--brass-ink); }
-.mode-sw .ms-short { display: none; }
-
-:root { --mon-b: clamp(300px, 38vw, 600px); }
-.app.mode-basic, .app.mode-basic.rail-right, .app.mode-basic.no-monitors, .app.mode-basic.rail-right.no-monitors {
-  grid-template-columns: minmax(0, 1fr) var(--mon-b);
-  grid-template-areas: "top top" "work mon" "bar bar";
+.plan-view { display: flex; flex: none; height: 34px; padding: 2px; gap: 2px; border-radius: var(--r); border: 1px solid var(--line); background: var(--panel); }
+.plan-view button { border: 0; background: transparent; color: var(--muted); padding: 0 12px; border-radius: var(--r-sm); font-weight: 700; font-size: var(--fs-sm); white-space: nowrap; }
+.plan-view button:hover { color: var(--text); }
+.plan-view button[aria-checked="true"] { background: var(--brass); color: var(--brass-ink); }
+/* In Basic the editing rows give way to the order of service and the big buttons. */
+.plan-pane.is-basic > .plan-tabs, .plan-pane.is-basic > .plan-addbar, .plan-pane.is-basic > .plan-scroll,
+.plan-pane.is-basic .plan-top .plan-edit-only { display: none !important; }
+.plan-pane:not(.is-basic) > .basic-panel, .plan-pane:not(.is-basic) > .basic-bar { display: none; }
+/* The big buttons replace the control bar while the Plan tab is open in Basic. */
+html.plan-basic .app.tab-plan .ctrlbar { display: none !important; }
+/* Things that float above the tabs (the small corner screen, suggestions) float above the big buttons too. */
+html.plan-basic:has(.app.tab-plan) .self-display.mini.c-br,
+html.plan-basic:has(.app.tab-plan) .self-display.mini.c-bl { bottom: calc(var(--tab-h) + var(--pb-h, 0px) + 10px); }
+@media (max-width: 760px) {
+  html.plan-basic:has(.app.tab-plan) .monitors .listen-box.on { bottom: calc(var(--tab-h) + var(--pb-h, 0px) + 8px); }
 }
-.app.mode-basic .rail-nav, .app.mode-basic .ctrlbar { display: none !important; }
-.app.mode-basic #work > :not(.basic-panel) { display: none !important; }
-/* Basic always shows what is on screen, even where the monitors were switched off for Advanced. */
-html.no-mon .app.mode-basic .monitors, .app.mode-basic.no-monitors .monitors { display: flex; }
-.app.mode-basic .monitors { border-left: 1px solid var(--line); }
-.app.mode-basic .monitors .mon-actions, .app.mode-basic .listen-box { display: none; } /* Blank is in the big bar */
 
-.basic-panel { display: none; }
-.app.mode-basic .basic-panel { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
-.bp-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); min-width: 0; }
-.bp-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; flex: 1 1 auto; min-width: 0; }
-.bp-title h2 { margin: 0; font-size: var(--fs-xl); }
+.basic-panel { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.bp-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); min-width: 0; }
 .bp-name { font-weight: 700; }
 .bp-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 10px 12px 18px; }
 .bp-list { display: flex; flex-direction: column; gap: 6px; }
@@ -1359,16 +1355,13 @@ html.no-mon .app.mode-basic .monitors, .app.mode-basic.no-monitors .monitors { d
 .bp-done svg.i { width: 18px; height: 18px; }
 .bp-act { display: flex; gap: 6px; }
 .bp-act .btn { min-height: 44px; }
-.bp-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 560px; margin: 0 auto; padding: 48px 16px; text-align: center; color: var(--muted); }
-.bp-empty > svg.i { width: 40px; height: 40px; }
-.bp-empty h3 { margin: 0; color: var(--text); font-size: var(--fs-xl); }
+.bp-empty { display: flex; flex-direction: column; align-items: center; gap: 12px; max-width: 520px; margin: 0 auto; padding: 40px 16px; text-align: center; color: var(--muted); }
 .bp-empty p { margin: 0; }
-.bp-empty .row { justify-content: center; margin-top: 6px; }
+.bp-empty .row { justify-content: center; }
 
-.basic-bar { display: none; }
-.app.mode-basic .basic-bar { grid-area: bar; display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 12px; padding: 12px; background: var(--sunk); border-top: 1px solid var(--line); }
-.app.mode-basic .basic-bar:has(.bb-music:not([hidden])) { grid-template-columns: 1fr 2fr 1fr auto; }
-.bb { display: flex; align-items: center; justify-content: center; gap: 10px; min-width: 0; min-height: 68px; padding: 6px 14px; border-radius: 14px;
+.basic-bar { display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 12px; padding: 12px; background: var(--sunk); border-top: 1px solid var(--line); flex: none; }
+.basic-bar:has(.bb-music:not([hidden])) { grid-template-columns: 1fr 2fr 1fr auto; }
+.bb { display: flex; align-items: center; justify-content: center; gap: 10px; min-width: 0; min-height: 64px; padding: 6px 14px; border-radius: 14px;
   border: 2px solid var(--line); background: var(--panel); color: var(--text); font-weight: 700; font-size: var(--fs-xl); }
 .bb svg.i { width: 26px; height: 26px; stroke-width: 2.2; }
 .bb:hover:not(:disabled) { border-color: var(--muted); }
@@ -1383,44 +1376,15 @@ html.no-mon .app.mode-basic .monitors, .app.mode-basic.no-monitors .monitors { d
 .bb-music { font-size: var(--fs-md); }
 html:not(.lp) .bb:active:not(:disabled) { transform: translateY(1px); }
 
-/* Tablets and small PCs: a narrower switch. */
-@media (max-width: 1024px) and (min-width: 761px) {
-  .mode-sw button { padding: 0 9px; }
-  :root { --mon-b: clamp(280px, 40vw, 420px); }
-}
-@media (max-width: 900px) and (min-width: 761px) {
-  .mode-sw .ms-long { display: none; }
-  .mode-sw .ms-short { display: inline; }
-  .mode-sw button { padding: 0 7px; }
-  .topbar .quick { min-width: 96px; flex-basis: 96px; }
-  .topbar .disp-btn { flex: 0 1 auto; min-width: 44px; overflow: hidden; }
-}
-/* Phones: the switch takes the place of the logo; the big buttons take the place of the tabs. */
 @media (max-width: 760px) {
-  .topbar .brand { display: none; }
-  .mode-sw { height: 40px; padding: 2px; }
-  .mode-sw button { padding: 0 7px; font-size: var(--fs-xs); }
-  .mode-sw .ms-long { display: none; }
-  .present { flex: 1 1 96px; min-width: 92px; } /* room for the switch: the label shortens, the button stays */
-  .topbar .disp-btn { flex: 0 1 auto; min-width: 44px; overflow: hidden; } /* "No display" shortens before anything leaves the screen */
-  .topbar .spacer { min-width: 0; }
-  .mode-sw .ms-short { display: inline; }
-  .app.mode-basic, .app.mode-basic.rail-right, .app.mode-basic.no-monitors, .app.mode-basic.rail-right.no-monitors {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: var(--top-h) auto minmax(0, 1fr) auto;
-    grid-template-areas: "top" "mon" "work" "bar";
-  }
-  html.basic { --tab-h: var(--bbar-h, 80px); } /* things that float above the tabs float above the big buttons */
-  .app.mode-basic .monitors { border-left: 0; }
-  .app.mode-basic .basic-bar, .app.mode-basic .basic-bar:has(.bb-music:not([hidden])) {
-    grid-template-columns: 1fr 1.5fr 1fr; gap: 8px; padding: 8px 8px max(8px, env(safe-area-inset-bottom, 0px)); }
-  .app.mode-basic .bb-music:not([hidden]) { grid-column: 1 / -1; min-height: 40px; }
-  .bb { min-height: 60px; padding: 4px 6px; gap: 2px; flex-direction: column; font-size: var(--fs-md); border-radius: 12px; }
+  .plan-view button { padding: 0 9px; font-size: var(--fs-xs); }
+  .basic-bar, .basic-bar:has(.bb-music:not([hidden])) { grid-template-columns: 1fr 1.5fr 1fr; gap: 8px; padding: 8px; }
+  .bb-music:not([hidden]) { grid-column: 1 / -1; min-height: 40px; }
+  .bb { min-height: 58px; padding: 4px 6px; gap: 2px; flex-direction: column; font-size: var(--fs-md); border-radius: 12px; }
   .bb svg.i { width: 22px; height: 22px; }
   .bb-main { font-size: 1.375rem; }
   .bb-music { flex-direction: row; gap: 8px; }
-  .bp-head { padding: 10px 12px; }
-  .bp-title h2 { font-size: var(--fs-lg); }
+  .bp-head { padding: 8px 12px; }
   .bp-scroll { padding: 8px 8px 14px; }
   .bp-row { grid-template-columns: 26px minmax(0, 1fr) auto; gap: 8px; min-height: 58px; padding: 6px 8px; }
   .bp-n { width: 26px; height: 26px; font-size: var(--fs-xs); }
@@ -1430,12 +1394,10 @@ html:not(.lp) .bb:active:not(:disabled) { transform: translateY(1px); }
   .bp-play { padding: 0 8px; }
 }
 @media (max-width: 380px) {
-  .mode-sw button { padding: 0 5px; }
-  .topbar { gap: 4px; }
   .bp-show span { display: none; }
 }
 
-/* ---------- Plan (Advanced): a small picture of each part's first slide ---------- */
+/* ---------- Plan (Advanced view): a small picture of each part's first slide ---------- */
 .plan-item { grid-template-columns: 32px 96px 1fr auto; }
 .plan-item .pi-tile { width: 96px; height: 54px; border-radius: 6px; }
 .pi-slide { padding: 3px; }
@@ -1456,7 +1418,7 @@ html:not(.lp) .bb:active:not(:disabled) { transform: translateY(1px); }
   .pi-add span { display: none; }
 }
 
-/* ---------- Verse suggestions (Advanced) ---------- */
+/* ---------- Verse and hymn suggestions ---------- */
 .listen-box { display: flex; flex-direction: column; gap: 8px; }
 .ls-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .ls-start { width: 100%; justify-content: center; }
@@ -1485,3 +1447,10 @@ html:not(.lp) .listen-box.on .ls-dot { animation: ls-pulse 1.6s ease-in-out infi
 /* "Being sung now": following the singing of the hymn on screen (green, like Next). */
 .ls-card.ls-follow { border-color: var(--next); }
 .ls-card.ls-follow .ls-k { color: var(--next); }
+/* Tools → Listen */
+.ls-status { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 10px 12px; border-radius: var(--r); background: var(--sunk); }
+.ls-status .note { flex: 1 1 100%; }
+.ls-off-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--faint); flex: none; }
+.ls-toggle { min-height: 44px; }
+.ls-examples { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; }
+.ls-said { font-style: italic; }

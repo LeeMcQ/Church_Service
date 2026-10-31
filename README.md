@@ -19,22 +19,25 @@ Progressive Web App: install it once and it runs with **no internet**, on old PC
 Nothing reaches the projector until **Present** (F5 or Ctrl+Enter). Each tab keeps its own
 “next” item, shown in the green **Next** monitor; the red **Live** monitor shows the projector.
 
-## Basic and Advanced
+## Plan tab: Basic and Advanced
 
-The switch at the top left changes between two views; the choice is kept on each device.
+The Plan tab has its own switch (the choice is kept on each device); the rest of the app is the same either way.
 
-- **Basic** (the default) is for the volunteer at the media desk: the order of service on the left, what is
-  on screen (red) and what comes next (green) on the right, and three big buttons — **Back**, **Next** and
-  **Blank**. Tap a part to put it on Next, or **Show** to put it on the screen. **Next** steps through the
-  slides, then moves on to the next part of the service (a part with nothing to show puts the logo up).
-  Hymns have a ▶ button that shows the words and starts the music. **Edit** opens the plan in Advanced.
-- **Advanced** is everything below: every tab and tool. The plan shows a small picture of each part's first
-  slide, and **Listen for verses & hymns** (under Black / Logo / Clear; on phones in **More**) listens to the
-  service and offers the Bible verses and hymns that are mentioned — by number (“hymn 100”, “number 73 in
-  our hymnal”) or by name (“let us sing Great Is Thy Faithfulness”). While a hymn is on screen it follows the
-  singing and offers the stanza being sung (“Being sung now · Verse 3 · Show verse 3”). Nothing goes on
-  screen by itself. It uses the browser's online speech service (Chrome or Edge), so it needs the
-  internet while it listens, and it follows the language of your main Bible (English or Afrikaans).
+- **Basic** (the default) is for the volunteer at the media desk: the order of service with a **Show** button
+  on each part (▶ shows a hymn and starts its music), and three big buttons underneath — **Back**, **Next**
+  and **Blank**. Tap a part to put it on Next. **Next** steps through the slides, then moves on to the next part
+  of the service (a part with nothing to show puts the logo up).
+- **Advanced** is the plan editor: add and attach media, change the order, templates, sharing. Each part shows
+  a small picture of its first slide.
+
+## Tools → Listen
+
+**Listen for verses & hymns** listens to the service and offers the Bible verses and hymns that are mentioned —
+by number (“hymn 100”, “number 73 in our hymnal”) or by name (“let us sing Great Is Thy Faithfulness”) — as
+cards under Black / Logo / Clear (on phones above the tabs). While a hymn is on screen it follows the singing
+and offers the stanza being sung. Nothing goes on screen by itself. It uses the browser's online speech
+service (Chrome or Edge), so it needs the internet while it listens, and it follows the language of your main
+Bible (English or Afrikaans).
 
 ## What each tab does
 
@@ -48,6 +51,7 @@ The switch at the top left changes between two views; the choice is kept on each
 | **Plan** | Prepare the order of service at home (one-tap Divine Service, Sabbath School and Vespers templates, or **your own templates**: build a plan once, then ⋯ → Save as template, with or without its hymns and readings, and make it the default for new plans). Type in the Add box — “hymn 73”, “Amazing grace”, “John 3:16-18”, a slide deck, video or banner name — and pick a suggestion, or use **Add media…** (Bible verse ranges and whole chapters, hymns and choruses by number or words, slides, video, banners, web pages; new files can be added right there). Attach or change the media of each part while it keeps its name (“Opening Hymn — Hymn 73”), rename parts, add who leads them, drag parts into order, see progress and what is **On screen**, undo a removal, copy the order as text, export it to Word, **save or share it with its media** (⋯ → Save or share this plan: one `.sdaplan` file with the slides, pictures, banners and videos it uses; Bible passages and hymns go as references; templates can be shared the same way from ⋯ → Templates → Share, and opened on another device with ⋯ → Open a shared plan or template, as a plan or as the default template), and step through it in church with **Next part** (it becomes Next; Present shows it). |
 | **Banners & Music** | Welcome, verse, announcement, offering (with giving QR code), countdown and Sabbath-sunset banners drawn live on the display; a self-running pre-service loop; **background music** that starts with the banners and fades out when something else goes on screen; key verses for the 28 Fundamental Beliefs and sermon topics. See [Banners](docs/banners-and-ai.md#banners) and [Banner music](docs/banners-and-ai.md#banner-music). |
 | **Tools → Stage** | The **second screen for the people on the platform** (confidence monitor): the slide on screen and what comes next, the words in large type, speaker notes, the time, speaker timers, your messages and the order of service — never shown to the congregation. Open it on another monitor, cast it, or let pastors and singers **follow on their own phones and laptops** with a QR code or a short room code. See [Stage screen](docs/stage-and-obs.md#stage-screen)). |
+| **Tools → Listen** | Verse and hymn suggestions from what is said and sung (see above). |
 | **Tools → Stream** | **OBS Studio** for the live stream: lower thirds that show the **Bible verse or hymn words automatically** when they go on screen, names and titles, announcements, a scrolling ticker and the church logo; the slides as a full-screen **Presentation** source; **one-click OBS set-up**, automatic scene switching, and start/stop streaming and recording. See [Live stream (OBS)](docs/stage-and-obs.md#live-stream-obs)). |
 | **Settings** | Fonts (Atkinson Hyperlegible, serif), colours, background picture, logo, margins, text sizes, fade/cut, 4:3 projectors, light/dark theme, tabs left or right, low-power mode, backups, Bibles, church details, online AI. |
 
