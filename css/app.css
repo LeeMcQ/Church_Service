@@ -1502,3 +1502,18 @@ html:not(.lp) .listen-box.on .ls-dot { animation: ls-pulse 1.6s ease-in-out infi
 .ready-mark { position: relative; min-height: 24px; }
 @media (pointer: coarse) { .ready-mark::after { content: ''; position: absolute; inset: -10px -4px; } }
 .eq input[type=range] { width: 24px; }
+
+/* Phones: the offline badge is short ("73%", "✔", "⚠ 3") so nothing pushes the Present button off the screen. */
+@media (max-width: 760px) {
+  .ready-mark { font-size: 0; padding: 2px 8px; max-width: 64px; }
+  .ready-mark::before { content: attr(data-short); font-size: 0.6875rem; }
+}
+/* Very small phones (320 px class): Present as an icon, the saving/ready chip only when there is a problem or
+   a download running; the Next monitor below the top bar already names what Present will show. */
+@media (max-width: 359.98px) {
+  .ready-mark.rm-ok, .ready-mark.rm-checking { display: none; }
+  .present { flex: 0 0 auto; width: 46px; min-width: 0; padding: 0; grid-template-columns: 1fr; place-items: center; }
+  .present .pi { display: block; grid-row: auto; grid-column: 1; width: 24px; height: 24px; }
+  .present .pk, .present .pn { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; padding: 0; } /* Present as an icon: the words stay for screen readers */
+  .present.is-live .pk::before { display: none; }
+}

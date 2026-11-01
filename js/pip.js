@@ -6,6 +6,9 @@ import { icon } from './core/icons.js';
 import { live } from './core/live.js';
 import { toast } from './core/ui.js';
 
+// Same half-second guard as the main Present button: repeat presses must not carry the live screen on.
+let lastTake = 0;
+const pipTake = () => { const n = Date.now(); if (n - lastTake < 500) return; lastTake = n; return live.take(); };
 export const pipSupported = () => 'documentPictureInPicture' in window;
 
 let pw = null;
@@ -25,7 +28,7 @@ export async function openPip() {
   const mk = (ic, label, fn, cls) => h('button.btn' + (cls || ''), { type: 'button', title: label, onclick: fn }, icon(ic), h('span', label));
   const row = h('div.row', { style: { gap: '6px', flexWrap: 'wrap' } },
     mk('prev', 'Prev', () => live.prev()), mk('next', 'Next', () => live.next()),
-    mk('present', 'Present', () => live.take(), '.primary'), mk('black', 'Black', () => live.setBlank('black')), mk('clear', 'Clear', () => live.clear()));
+    mk('present', 'Present', () => pipTake(), '.primary'), mk('black', 'Black', () => live.setBlank('black')), mk('clear', 'Clear', () => live.clear()));
   const body = h('div', { style: { padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px', background: 'var(--bg)', color: 'var(--text)', height: '100vh', boxSizing: 'border-box', fontFamily: 'var(--font)' } }, title, next, row);
   d.body.style.margin = '0';
   d.body.appendChild(d.adoptNode(body));
@@ -37,7 +40,7 @@ export async function openPip() {
   d.addEventListener('keydown', (e) => {
     if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); live.next(); }
     else if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); live.prev(); }
-    else if (e.key === 'F5' || (e.key === 'Enter' && e.ctrlKey)) { e.preventDefault(); live.take(); }
+    else if (e.key === 'F5' || (e.key === 'Enter' && e.ctrlKey)) { e.preventDefault(); pipTake(); }
     else if (e.key === 'b' || e.key === 'B' || e.key === '.' || e.key === 'w' || e.key === 'W') live.setBlank('black');
     else if (e.key === 'Escape') live.clear();
   });

@@ -27,7 +27,7 @@ const lazyWelcome = () => import('./tabs/welcome.js');
 const openFeedback = (c, o) => import('./tabs/account.js').then((m) => m.openFeedback(c, o));
 
 export const VERSION = '1.6.0';
-export const BUILD = '197c28d';
+export const BUILD = '9aba427';
 
 const TABS = [
   { id: 'bible', label: 'Bible', icon: 'bible', file: 'bible.js', load: () => import('./tabs/bible.js') },
@@ -214,7 +214,18 @@ presentBtn.addEventListener('click', () => doPresent());
 // Ask the browser to keep the data even when the disk gets full. Chrome, Edge and Safari decide quietly; Firefox
 // shows a permission box, so there it is asked only from Settings → App → Protect data (never mid-service).
 const autoPersist = () => { if (!/Firefox|FxiOS/.test(navigator.userAgent)) persistStorage(); };
+// A nervous double-tap, a held F5 or a clicker that bounces must not carry the live screen on: every Present
+// press moves Next along, so repeats are ignored for half a second (and while one is still being carried out).
+// Only the Next arrow (or Space / → / Page Down) steps forward on purpose.
+let presentAt = 0, presenting = false;
+const PRESENT_GAP = 500;
 async function doPresent() {
+  const now = Date.now();
+  if (presenting || now - presentAt < PRESENT_GAP) return;
+  presentAt = now; presenting = true;
+  try { await presentNow(); } finally { presenting = false; }
+}
+async function presentNow() {
   autoPersist();
   const a = document.activeElement;
   if (a && (a.tagName === 'INPUT' || a.tagName === 'SELECT') && a !== document.body) a.blur();

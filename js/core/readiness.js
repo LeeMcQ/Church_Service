@@ -51,18 +51,21 @@ export function readinessBadge(ctx, deps) {
     const prog = ctx.cacheProgress;
     const hh = ctx.offlineHealth;
     const waiting = deps.getWaiting();
-    if (prog && prog.total > 1 && prog.done < prog.total) return { s: 'saving', t: 'Saving… ' + Math.floor(prog.done / prog.total * 100) + ' %' };
-    if (hh && hh.missingCount > 0) return { s: 'bad', t: '⚠ ' + hh.missingCount + ' files missing' + (lowStorage ? ' · device full' : '') };
-    if (waiting) return { s: 'update', t: 'Update ready' };
-    if (hh && hh.total) return { s: 'ok', t: navigator.onLine ? '✔ Ready offline' : '✔ Offline · all stored' };
-    if (!('serviceWorker' in navigator) || !window.isSecureContext) return { s: 'bad', t: 'Not stored offline' };
-    return { s: 'checking', t: navigator.onLine ? 'Checking…' : 'Offline' };
+    if (prog && prog.total > 1 && prog.done < prog.total) return { s: 'saving', t: 'Saving… ' + Math.floor(prog.done / prog.total * 100) + ' %', short: Math.floor(prog.done / prog.total * 100) + '%' };
+    if (hh && hh.missingCount > 0) return { s: 'bad', t: '⚠ ' + hh.missingCount + ' files missing' + (lowStorage ? ' · device full' : ''), short: '⚠ ' + hh.missingCount };
+    if (waiting) return { s: 'update', t: 'Update ready', short: 'Update' };
+    if (hh && hh.total) return { s: 'ok', t: navigator.onLine ? '✔ Ready offline' : '✔ Offline · all stored', short: '✔' };
+    if (!('serviceWorker' in navigator) || !window.isSecureContext) return { s: 'bad', t: 'Not stored offline', short: '⚠' };
+    return { s: 'checking', t: navigator.onLine ? 'Checking…' : 'Offline', short: '…' };
   }
   function paint() {
     const c = compute();
     state = c.s;
     el.className = 'ready-mark rm-' + c.s;
     el.textContent = c.t;
+    // Phones show the short form (CSS); the full text stays the accessible name.
+    el.dataset.short = c.short || c.t;
+    el.setAttribute('aria-label', 'Offline readiness: ' + c.t.replace('⚠ ', ''));
     if (c.s === 'bad' && announced !== c.t) { announced = c.t; ui.announce && ui.announce('Offline readiness: ' + c.t.replace('⚠ ', '')); }
     if (c.s !== 'bad') announced = '';
   }

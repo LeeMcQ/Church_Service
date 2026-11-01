@@ -152,6 +152,38 @@ def main():
                 wait_text(pg, 'God so loved')
             t_bible()
 
+            @check('rapid Present taps and F5 repeats do not carry the live screen on')
+            def t_rapid_present():
+                present('John 3:16')
+                pg.wait_for_timeout(700)
+                # Count how many times something really went live: 40 taps in 0.4 s, then 3 F5 presses, are one each.
+                pg.evaluate("import('./js/core/live.js').then((m) => { window.__takes = 0; m.live.on('live', () => { window.__takes++; }); })")
+                pg.wait_for_timeout(100)
+                pg.evaluate("async () => { const b = document.getElementById('presentBtn'); for (let i = 0; i < 40; i++) { b.click(); await new Promise((r) => setTimeout(r, 10)); } }")
+                pg.wait_for_timeout(1000)
+                taps = pg.evaluate('window.__takes')
+                pg.evaluate('window.__takes = 0')
+                pg.keyboard.press('F5'); pg.keyboard.press('F5'); pg.keyboard.press('F5'); pg.wait_for_timeout(1000)
+                keys = pg.evaluate('window.__takes')
+                assert taps == 1, '40 quick taps on Present put %d items live (should be 1)' % taps
+                assert keys == 1, '3 quick F5 presses put %d items live (should be 1)' % keys
+            t_rapid_present()
+
+            @check('phone header: Present stays on screen at 320 px while the offline copy is saving')
+            def t_present_320():
+                c = b.new_context(viewport={'width': 320, 'height': 640}, has_touch=True, is_mobile=True)
+                p3 = c.new_page()
+                p3.goto(base + 'index.html'); p3.wait_for_timeout(800)
+                p3.evaluate("import('./js/core/settings.js').then(m => (m.settings.set('app.setupDone', true), m.settings.set('backup', Object.assign({}, m.settings.v.backup, { remindAt: Date.now() }))))")
+                p3.reload(); p3.wait_for_selector('#presentBtn'); p3.wait_for_timeout(1200)
+                p3.evaluate("() => { window.selah.cacheProgress = { t: 'progress', done: 73, total: 100 }; window.dispatchEvent(new CustomEvent('selah-cache', { detail: { done: 73, total: 100 } })); }")
+                p3.wait_for_timeout(400)
+                r = p3.evaluate("() => { const p = document.getElementById('presentBtn').getBoundingClientRect(); return [Math.round(p.right), innerWidth, Math.round(p.width)]; }")
+                c.close()
+                assert r[0] <= r[1], 'Present runs %d px past the right edge (width %d)' % (r[0] - r[1], r[2])
+                assert r[2] <= 60, 'Present is not an icon at 320 px (width %d)' % r[2]
+            t_present_320()
+
             @check('several verses without a keyboard (Range button)')
             def t_range():
                 pg.evaluate("window.selah.showTab('bible')"); pg.wait_for_timeout(400)
