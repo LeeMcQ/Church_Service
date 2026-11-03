@@ -1,6 +1,7 @@
 // The Plan tab's Basic view: for the volunteer at the media desk during the service.
 // The order of service as a simple list (tap = Next, Show = on the screen now, ▶ = a hymn with its music) and
-// three big buttons underneath: Back, Next (slides, then the next part of the service) and Blank.
+// three big buttons underneath: Back and Next (the previous / next part of the service, whatever it is: a reading, a
+// hymn, a banner, a video …) and Blank. A slim row above them steps through the slides of what is on screen.
 // Advanced is the plan editor. The switch sits in the Plan tab's own toolbar; the choice is kept on this device.
 import { h, clear } from '../core/util.js';
 import { icon } from '../core/icons.js';
@@ -29,13 +30,18 @@ export function createPlanBasic({ el, toolbar, ctx, api }) {
 
   // ------------------------------------------------------------ Back / Next / Blank
   const nextSub = h('span.bb-sub', '');
-  const backBtn = h('button.bb.bb-back', { type: 'button', title: 'Previous slide (←)', onclick: () => live.prev() }, icon('prev'), h('span.bb-l', 'Back'));
-  const nextBtn = h('button.bb.bb-next', { type: 'button', title: 'Next slide, then the next part of the service', onclick: () => basicNext() },
+  const backBtn = h('button.bb.bb-back', { type: 'button', title: 'The previous part of the service', onclick: () => basicBack() }, icon('prev'), h('span.bb-l', 'Back'));
+  const nextBtn = h('button.bb.bb-next', { type: 'button', title: 'The next part of the service (the next reading, hymn, banner …)', onclick: () => basicNext() },
     h('span.bb-main', h('span.bb-l', 'Next'), icon('next')), nextSub);
   const blankLbl = h('span.bb-l', 'Blank');
   const blankBtn = h('button.bb.bb-blank', { type: 'button', title: 'Black screen; press again to show it again (B)', onclick: () => live.setBlank('black') }, icon('black'), blankLbl);
   const musicBtn = h('button.bb.bb-music', { type: 'button', hidden: true, title: 'Stop the hymn music', onclick: () => music && music.stop() }, icon('stop'), h('span.bb-l', 'Music'));
-  const bar = h('div.basic-bar', { 'aria-label': 'Slide controls' }, backBtn, nextBtn, blankBtn, musicBtn);
+  // The slides of what is on screen (verses, stanzas, slides): the arrow keys and a clicker do the same.
+  const slideLbl = h('span.bs-l', '');
+  const slidePrev = h('button.btn.bs-b', { type: 'button', title: 'Previous slide (←)', 'aria-label': 'Previous slide', onclick: () => live.prev() }, icon('prev'));
+  const slideNext = h('button.btn.bs-b', { type: 'button', title: 'Next slide (→)', 'aria-label': 'Next slide', onclick: () => live.next() }, icon('next'));
+  const slideRow = h('div.bb-slides', { hidden: true, role: 'group', 'aria-label': 'Slides of what is on screen' }, slidePrev, slideLbl, slideNext);
+  const bar = h('div.basic-bar', { 'aria-label': 'Order of service controls' }, slideRow, backBtn, nextBtn, blankBtn, musicBtn);
   el.append(panel, bar);
   // Its height, so the small corner screen on phones sits above the big buttons instead of on them.
   if (window.ResizeObserver) new ResizeObserver(() => document.documentElement.style.setProperty('--pb-h', bar.offsetHeight + 'px')).observe(bar);
@@ -43,41 +49,55 @@ export function createPlanBasic({ el, toolbar, ctx, api }) {
   let music = null;
   import('../core/hymnmusic.js').then((m) => { music = m.music; music.on('state', paintBar); }).catch(() => {});
 
-  const atEnd = () => {
-    const c = live.cue;
-    return !c || (c.deck.kind !== 'video' && live.index >= live.count() - 1 && !c.extend && !c.autoLoop);
-  };
   /** The part that follows the current one (also a part without media), or -1. */
   const followIndex = (s) => (s && s.cur + 1 < s.items.length ? s.cur + 1 : -1);
 
-  async function basicNext() {
-    if (live.cue && !atEnd()) { live.next(); return; }
-    // Something chosen by hand waits on Next: show it.
-    if (live.staged && !live.sameAsLive()) { await present(); return; }
-    const s = api.snapshot();
-    const i = followIndex(s);
-    if (i < 0) { ui.toast(s ? 'End of the order of service.' : 'Start the order of service first.', '', 3000); return; }
+  /** The part marked Next (tapped in the list), or the one after the current part. */
+  function nextPart(s) {
+    if (!s) return -1;
+    const marked = s.items.find((x) => x.next);
+    return marked ? marked.i : followIndex(s);
+  }
+  /** Put part i on the screen; a part with nothing to show (a prayer, the sermon) shows the logo. */
+  async function showPart(s, i) {
     const c = await api.select(i);
     if (c) { await present(); return; }
-    // A part with nothing to show (a prayer, the sermon): the logo goes up while it happens.
     if (live.blank !== 'logo') live.setBlank('logo');
     ui.toast(s.items[i].title + ': nothing to show, so the logo is on screen.', '', 3200);
   }
+  // Next and Back always move to another part of the service, whatever is on screen (a reading with more verses,
+  // a hymn with more stanzas …). The slides themselves are stepped with the row above, the arrow keys or a clicker.
+  async function basicNext() {
+    const s = api.snapshot();
+    const i = nextPart(s);
+    if (i < 0) { ui.toast(s ? 'End of the order of service.' : 'Start the order of service first.', '', 3000); return; }
+    await showPart(s, i);
+  }
+  async function basicBack() {
+    const s = api.snapshot();
+    if (!s || !(s.cur > 0)) { ui.toast(s ? 'This is the first part of the service.' : 'Start the order of service first.', '', 3000); return; }
+    await showPart(s, s.cur - 1);
+  }
 
   function nextLabel() {
-    const c = live.cue;
-    if (c && !atEnd()) return slideName(c, live.index + 1) || 'Next slide';
-    if (live.staged && !live.sameAsLive()) return 'Show: ' + live.staged.title;
     const s = api.snapshot();
-    const i = followIndex(s);
-    if (i >= 0) return (s.items[i].empty ? 'Logo · ' : 'Show: ') + s.items[i].title;
-    return '';
+    const i = nextPart(s);
+    if (i >= 0) return (s.items[i].empty ? 'Logo · ' : '') + s.items[i].title;
+    return s ? 'End of the service' : '';
   }
 
   function paintBar() {
     if (!isBasic()) return;
-    backBtn.disabled = !live.cue || live.index <= 0;
+    const s = api.snapshot();
+    backBtn.disabled = !s || !(s.cur > 0);
     nextSub.textContent = nextLabel();
+    const c = live.cue, n = c ? live.count() : 0;
+    slideRow.hidden = !c || n <= 1 || c.deck.kind === 'video';
+    if (!slideRow.hidden) {
+      slideLbl.textContent = (slideName(c, live.index) || 'Slide ' + (live.index + 1)) + '  ·  ' + (live.index + 1) + ' of ' + n;
+      slidePrev.disabled = live.index <= 0;
+      slideNext.disabled = live.index >= n - 1 && !c.extend;
+    }
     const black = live.blank === 'black';
     blankBtn.classList.toggle('on', black);
     blankLbl.textContent = black ? 'Show again' : 'Blank';

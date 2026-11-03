@@ -305,9 +305,18 @@ def main():
                 row.locator('.bp-show').click(); pg.wait_for_timeout(1500)
                 i0 = pg.evaluate("import('./js/core/live.js').then(m => m.live.cue ? m.live.index : -1)")
                 assert i0 >= 0, 'Show put nothing on screen'
-                pg.click('.bb-next'); pg.wait_for_timeout(600)
+                # The slim row steps the slides of what is on screen.
+                pg.click('.bb-slides .bs-b[aria-label="Next slide"]'); pg.wait_for_timeout(600)
                 i1 = pg.evaluate("import('./js/core/live.js').then(m => m.live.index)")
-                assert i1 == i0 + 1, 'Next: slide %s -> %s' % (i0, i1)
+                assert i1 == i0 + 1, 'slide row: slide %s -> %s' % (i0, i1)
+                # The big Next goes to the next part of the service, even with more stanzas left.
+                cur = "window.selah.showTab('plan').then((t) => t.snapshot().cur)"
+                part0 = pg.evaluate(cur)
+                pg.click('.bb-next'); pg.wait_for_timeout(1200)
+                part1 = pg.evaluate(cur)
+                assert part1 == part0 + 1, 'Next did not move to the next part (%s -> %s)' % (part0, part1)
+                pg.click('.bb-back'); pg.wait_for_timeout(1200)
+                assert pg.evaluate(cur) == part0, 'Back did not return to the part before'
                 pg.click('.bb-blank'); pg.wait_for_timeout(300)
                 assert pg.evaluate("import('./js/core/live.js').then(m => m.live.blank)") == 'black', 'Blank did not black out'
                 pg.click('.bb-blank'); pg.wait_for_timeout(300)

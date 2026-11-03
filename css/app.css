@@ -1517,3 +1517,18 @@ html:not(.lp) .listen-box.on .ls-dot { animation: ls-pulse 1.6s ease-in-out infi
   .present .pk, .present .pn { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; padding: 0; } /* Present as an icon: the words stay for screen readers */
   .present.is-live .pk::before { display: none; }
 }
+
+/* Plan → Basic: the slim row that steps through the slides of what is on screen (above Back / Next / Blank). */
+.bb-slides { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; min-width: 0; margin-bottom: -2px; }
+.bb-slides[hidden] { display: none; }
+.bb-slides .bs-b { flex: none; min-width: 52px; min-height: 40px; justify-content: center; }
+.bs-l { flex: 1; min-width: 0; text-align: center; font-weight: 600; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Go to results: a width of their own (the search box itself shrinks on busy top bars and with larger text), so
+   a hymn title reads on one or two lines instead of one word per line; quick.js keeps the list inside the window. */
+.quick-pop { right: auto; width: max(100%, min(30rem, calc(100vw - 24px))); }
+.quick-pop button { align-items: center; }
+.quick-pop .k, .quick-pop .faint { flex: none; white-space: nowrap; }
+.quick-pop .grow { min-width: 0; line-height: 1.3; }
+.quick-pop .faint { font-size: 0.75rem; padding: 1px 6px; border: 1px solid var(--line); border-radius: 999px; }
+@media (max-width: 760px) { .quick-pop { width: auto; right: 0; } }

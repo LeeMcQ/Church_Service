@@ -25,8 +25,9 @@ The Plan tab has its own switch (the choice is kept on each device); the rest of
 
 - **Basic** (the default) is for the volunteer at the media desk: the order of service with a **Show** button
   on each part (▶ shows a hymn and starts its music), and three big buttons underneath — **Back**, **Next**
-  and **Blank**. Tap a part to put it on Next. **Next** steps through the slides, then moves on to the next part
-  of the service (a part with nothing to show puts the logo up).
+  and **Blank**. Tap a part to put it on Next. **Next** and **Back** move to the next or previous part of the
+  service, whatever is on screen (a part with nothing to show puts the logo up). The slim row above them (‹ ›)
+  steps through the verses, stanzas or slides of what is on screen, like the arrow keys and a clicker.
 - **Advanced** is the plan editor: add and attach media, change the order, templates, sharing. Each part shows
   a small picture of its first slide.
 

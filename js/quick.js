@@ -41,13 +41,21 @@ export function createQuick({ input, pop, wrap, getTab }) {
     if (!items.length) {
       pop.appendChild(h('div.note', { style: { padding: '8px 10px' } }, 'Try “John 3:16”, “Ps 23”, “Joh 3:16” or a hymn number like “73”.'));
       pop.appendChild(hint());
-      pop.hidden = false; return;
+      pop.hidden = false; keepInside(); return;
     }
     items.forEach((it, i) => pop.appendChild(h('button', { type: 'button', role: 'option', 'aria-selected': String(i === sel),
       onmousedown: (e) => { e.preventDefault(); choose(i, e.ctrlKey || e.metaKey); } },
     h('span.k', it.kind), h('span.grow', it.label), it.sub ? h('span.faint', it.sub) : null)));
     pop.appendChild(hint());
     pop.hidden = false;
+    keepInside();
+  }
+  /** The list is wider than a narrow search box: move it left when it would run off the right edge. */
+  function keepInside() {
+    pop.style.left = '';
+    if (matchMedia('(max-width: 760px)').matches) return;
+    const r = pop.getBoundingClientRect();
+    if (r.right > innerWidth - 8) pop.style.left = Math.round(innerWidth - 8 - r.right) + 'px';
   }
 
   async function choose(i, present) {
