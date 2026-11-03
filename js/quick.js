@@ -15,6 +15,7 @@ export function createQuick({ input, pop, wrap, getTab }) {
     if (hm) {
       try {
         const hy = await getTab('hymns');
+        if (hy.whenReady) await hy.whenReady(); // the hymnbooks load shortly after start: wait for them
         hy.lookup(+hm[1]).slice(0, 4).forEach((x) => items.push({ kind: 'Hymn', label: x.n + '  ' + x.t, sub: x.book, run: () => hy.open({ n: x.n, book: x.bookId }) }));
       } catch (e) { /* */ }
     }
@@ -25,6 +26,7 @@ export function createQuick({ input, pop, wrap, getTab }) {
     if (!hm && q.length >= 3 && !/^\d/.test(q)) {
       try {
         const hy = await getTab('hymns');
+        if (hy.whenReady) await hy.whenReady(); // the hymnbooks load shortly after start: wait for them
         hy.search(q, 5).forEach((x) => items.push({ kind: 'Hymn', label: x.n + '  ' + x.t, sub: x.book, run: () => hy.open({ n: x.n, book: x.bookId }) }));
       } catch (e) { /* */ }
     }
@@ -69,8 +71,11 @@ export function createQuick({ input, pop, wrap, getTab }) {
     else if (e.key === 'Enter') {
       e.preventDefault(); e.stopPropagation();
       const present = e.ctrlKey || e.metaKey || e.shiftKey;
-      if (lastQ === input.value.trim() && items.length) choose(sel, present);
-      else suggest().then(() => choose(0, present));
+      const q = input.value.trim();
+      // Nothing found for a deliberate search: counted for the statistics (only number- and reference-like text).
+      const done = () => { if (!items.length && q) window.dispatchEvent(new CustomEvent('selah-search-empty', { detail: q })); };
+      if (lastQ === q && items.length) choose(sel, present);
+      else suggest().then(() => { done(); choose(0, present); });
     }
     else if (e.key === 'Escape') { input.value = ''; pop.hidden = true; input.blur(); wrap.classList.remove('open'); }
   });

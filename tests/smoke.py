@@ -184,6 +184,69 @@ def main():
                 assert r[2] <= 60, 'Present is not an icon at 320 px (width %d)' % r[2]
             t_present_320()
 
+            @check('statistics: recorded offline while signed in, delivered when back online')
+            def t_stats_offline():
+                import json as _json
+                c = b.new_context(viewport={'width': 1280, 'height': 800}, service_workers='block')
+                sent, answer = [], {'v': 'null'}
+                def cfg(route):   # this test's own (pretend) cloud project
+                    route.fulfill(status=200, content_type='text/javascript', body="export const CLOUD = { url: 'https://stats-test.supabase.co', anonKey: 'anon', google: false, requireSignIn: false, googleClientId: '' };")
+                def sb(route):
+                    u = route.request.url
+                    if '/rpc/ping' in u:
+                        sent.append(_json.loads(route.request.post_data or '{}'))
+                        route.fulfill(status=200, content_type='application/json', body=answer['v'])
+                    else:
+                        route.fulfill(status=200, content_type='application/json', body='false' if 'is_admin' in u else '{}')
+                c.route('**/js/core/cloud-config.js', cfg)
+                c.route('https://stats-test.supabase.co/**', sb)
+                q = c.new_page()
+                try:
+                    q.goto(base + 'index.html'); q.wait_for_timeout(800)
+                    q.evaluate("""() => Promise.all([import('./js/core/settings.js'), import('./js/core/storens.js')]).then(([m, n]) => {
+                      m.settings.set('app.setupDone', true); m.settings.set('app.stats', true);
+                      m.settings.set('backup', Object.assign({}, m.settings.v.backup, { remindAt: Date.now() }));
+                      m.settings.set('church', Object.assign({}, m.settings.v.church, { name: 'Test Church', town: 'Malmesbury', lat: -33.4612, lon: 18.7275 }));
+                      localStorage.setItem(n.lsKey('cloud.session'), JSON.stringify({ access_token: 't', refresh_token: 'r', expires_at: Math.floor(Date.now() / 1000) + 7200, user: { email: 'church@example.com' } })); })""")
+                    q.reload(); q.wait_for_selector('#presentBtn'); q.wait_for_timeout(1500)
+                    assert q.evaluate("window.selah.cloud.statsOn()"), 'statistics are not on for a signed-in church'
+                    # This test blocks the offline copy (service worker), so the hymnbooks are loaded before going offline.
+                    q.evaluate("window.selah.showTab('hymns').then((t) => t.whenReady && t.whenReady())"); q.wait_for_timeout(300)
+                    q.evaluate("window.selah.showTab('bible')"); q.wait_for_timeout(300)
+                    c.set_offline(True)
+                    for ref in ('hymn 73', 'John 3:16'):
+                        go = q.locator('input[placeholder^="Go to"]').first
+                        go.fill(ref); q.wait_for_timeout(700); go.press('Enter'); q.wait_for_timeout(700)
+                        q.click('#presentBtn'); q.wait_for_timeout(900)
+                    q.evaluate("window.dispatchEvent(new CustomEvent('selah-search-empty', { detail: 'hymn 9999' }))")
+                    day = q.evaluate("import('./js/core/storens.js').then((n) => Object.values(JSON.parse(localStorage.getItem(n.lsKey('cloud.pending')) || '{}'))[0] || {})")
+                    assert any(k.split('|')[1] == '73' for k in (day.get('hymns') or {})), 'hymn 73 was not recorded offline: %r' % day
+                    assert 'John 3:16' in (day.get('texts') or {}), 'John 3:16 was not recorded offline: %r' % day
+                    assert (day.get('empty') or {}).get('hymn 9999') == 1, 'the empty search was not recorded: %r' % day
+                    assert not sent, 'something was sent while offline'
+                    # Back online with an older database (answers nothing): only minutes go, the new counts wait.
+                    c.set_offline(False)
+                    q.evaluate("window.selah.cloud.ping()"); q.wait_for_timeout(1500)
+                    assert sent, 'nothing was sent after coming back online'
+                    left = q.evaluate("import('./js/core/storens.js').then((n) => Object.values(JSON.parse(localStorage.getItem(n.lsKey('cloud.pending')) || '{}'))[0] || {})")
+                    assert left.get('hymns'), 'an older database dropped the hymn counts: %r' % left
+                    # The updated database answers 2: everything is delivered and taken off the device.
+                    answer['v'] = '2'; sent.clear()
+                    q.evaluate("window.selah.cloud.ping()"); q.wait_for_timeout(1500)
+                    assert sent, 'nothing sent the second time'
+                    d0 = sent[-1]['p_days'][0]; info = sent[-1]['p_info']
+                    assert any(k.split('|')[1] == '73' for k in d0.get('hymns', {})) and 'John 3:16' in d0.get('texts', {}), 'the report lacks the hymn or passage: %r' % d0
+                    assert info.get('church') == 'Test Church' and info.get('lat') == -33.5 and info.get('lon') == 18.7, 'church or rounded place wrong: %r' % info
+                    assert isinstance(info.get('equip'), dict) and info.get('app') and 'setup' in info, 'equipment, app or setup missing: %r' % info
+                    left = q.evaluate("import('./js/core/storens.js').then((n) => JSON.parse(localStorage.getItem(n.lsKey('cloud.pending')) || '{}'))")
+                    assert not any((v.get('hymns') or v.get('texts')) for v in left.values()), 'sent counts stayed on the device: %r' % left
+                    # Signed out: nothing is recorded.
+                    q.evaluate("import('./js/core/cloud.js').then((m) => { m.cloud.user = null; })")
+                    assert not q.evaluate("window.selah.cloud.statsOn()"), 'statistics stay on after signing out'
+                finally:
+                    c.close()
+            t_stats_offline()
+
             @check('several verses without a keyboard (Range button)')
             def t_range():
                 pg.evaluate("window.selah.showTab('bible')"); pg.wait_for_timeout(400)

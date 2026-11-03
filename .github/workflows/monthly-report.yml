@@ -1,0 +1,55 @@
+# Monthly statistics email: on the 1st of every month (about 08:17 South African time) the month before is
+# summarised and emailed to the maintainer (tools/monthly_report.py). Run it by hand from the Actions tab
+# ("Run workflow") to get a report now, for any month, or as a dry run that only makes the report file.
+# Needs the secrets SUPABASE_SERVICE_KEY, SMTP_USER and SMTP_PASS (see supabase/SETUP.md, step 7); without them
+# it explains what is missing and stops without failing.
+name: Monthly statistics email
+
+on:
+  schedule:
+    - cron: '17 6 1 * *'
+  workflow_dispatch:
+    inputs:
+      month:
+        description: 'Month as YYYY-MM (empty: last month)'
+        required: false
+        default: ''
+      dry_run:
+        description: 'Only make the report (do not email it)'
+        type: boolean
+        default: false
+
+permissions: {}
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: '3.12' }
+      - name: Make and send the report
+        run: python tools/monthly_report.py
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          REPORT_TO: ${{ secrets.REPORT_TO }}
+          REPORT_MONTH: ${{ inputs.month }}
+          DRY_RUN: ${{ inputs.dry_run }}
+      - name: Keep the report with the run
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: monthly-report
+          path: |
+            report.html
+            report.txt
+          if-no-files-found: ignore
+          retention-days: 90

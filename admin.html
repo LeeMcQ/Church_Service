@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#161c28">
-<title>Statistics – Church Service</title>
+<title>Church statistics – Church Service</title>
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <style>
   :root { color-scheme: light dark; --bg:#f6f5f1; --fg:#1d2330; --muted:#5a6475; --line:#d9d6cc; --card:#fff; --accent:#2b7f3e; --bar:#1f4068; --warn:#b45309; }
@@ -17,7 +17,7 @@
   main { max-width: 1200px; margin: 0 auto; padding: 20px 16px 60px; }
   h1 { font-size: 1.6rem; margin: 0 0 4px; } h2 { font-size: 1.1rem; margin: 0 0 10px; }
   .muted { color: var(--muted); } a { color: var(--bar); }
-  .kpis { display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 16px 0; }
+  .kpis { display:grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 10px; margin: 16px 0; }
   .kpi, .card { background: var(--card); border:1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
   .kpi b { display:block; font-size: 1.7rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
   .kpi span { color: var(--muted); font-size: .85rem; }
@@ -35,7 +35,19 @@
   .tag.new { border-color: var(--warn); color: var(--warn); }
   svg text { fill: var(--muted); font-size: 10px; }
   .hbar { display:flex; align-items:center; gap: 8px; margin: 3px 0; } .hbar i { display:block; height: 10px; background: var(--bar); border-radius: 3px; }
-  .hbar span:first-child { width: 120px; flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hbar span:first-child { width: 190px; flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  nav.tabs { display:flex; gap:6px; flex-wrap:wrap; margin: 14px 0 6px; } nav.tabs button[aria-pressed="true"] { background: var(--bar); border-color: var(--bar); color: #fff; }
+  .filters { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin: 6px 0 4px; }
+  .lead { font-size: 1.05rem; margin: 10px 0 4px; } .lead li { margin: 3px 0; }
+  .kpi small { display:block; margin-top: 2px; font-size: .8rem; } .up { color: var(--accent); } .down { color: var(--warn); }
+  .hymnweek { display:flex; gap: 14px; align-items:center; } .hymnweek .num { font-size: 2.6rem; font-weight: 800; color: var(--bar); line-height: 1; }
+  .quote { border-left: 3px solid var(--accent); padding: 4px 0 4px 12px; margin: 10px 0; } .quote p { margin: 0 0 4px; white-space: pre-wrap; }
+  .map svg { width: 100%; height: auto; background: color-mix(in srgb, var(--bar) 8%, var(--card)); border-radius: 10px; }
+  .map path { fill: var(--card); stroke: var(--line); stroke-width: .6; vector-effect: non-scaling-stroke; }
+  .map circle { stroke: #fff; stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+  .legend { display:flex; gap: 14px; flex-wrap: wrap; font-size: .85rem; color: var(--muted); } .legend i { display:inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+  .pill { display:inline-block; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); font-size: .78rem; }
+  @media (max-width: 600px) { .hbar span:first-child { width: 96px; } .kpi b { font-size: 1.4rem; } }
 </style>
 </head>
 <body>

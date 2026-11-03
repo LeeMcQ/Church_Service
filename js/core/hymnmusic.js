@@ -36,7 +36,7 @@ link.on('msg', (m) => {
   else if (m.t === 'music-error') { setState({ playing: false }); music.emit('error', new Error(m.text)); }
 });
 
-function setState(s) { music.state = s; music.emit('state', s); }
+function setState(s) { music.state = s; music.emit('state', s); try { window.dispatchEvent(new CustomEvent('selah-music', { detail: !!(s && s.playing && !s.paused) })); } catch (e) { /* */ } }
 
 let extraP = null;
 const extraIndex = () => extraP || (extraP = fetch('data/music/extra.json').then((r) => (r.ok ? r.json() : null)).catch(() => null));

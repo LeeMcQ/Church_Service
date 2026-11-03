@@ -18,6 +18,7 @@ import { clicker, actionFor, sigOfKey, sigOfMouse } from './core/clicker.js';
 import { openClickerSetup, builtinAction } from './clickerui.js';
 import { hub as stageHub, timerValue } from './core/stagehub.js';
 import { cloud } from './core/cloud.js';
+import { startStats } from './core/stats.js';
 import { currentLayout } from './core/screens.js';
 import { remote, startRemote, sendStatus } from './core/remotectl.js';
 import { createListener } from './listen.js';
@@ -27,7 +28,7 @@ const lazyWelcome = () => import('./tabs/welcome.js');
 const openFeedback = (c, o) => import('./tabs/account.js').then((m) => m.openFeedback(c, o));
 
 export const VERSION = '1.6.0';
-export const BUILD = '9aba427';
+export const BUILD = 'a65cf4f';
 
 const TABS = [
   { id: 'bible', label: 'Bible', icon: 'bible', file: 'bible.js', load: () => import('./tabs/bible.js') },
@@ -1096,6 +1097,9 @@ detectCompanion();
 ctx.cloud = cloud;
 cloud.track({ presenting: () => !!link.ready || link.hasMirror(), layout: currentLayout });
 live.on('live', (c) => { if (c && c.tab) cloud.count(c.tab === 'stage' ? 'stage' : c.tab); });
+startStats(ctx); // hymns, passages, features, equipment … (js/core/stats.js; only when signed in with statistics on)
+// Once, after three services and never during one: how the church heard of the app and how it changed their services.
+setTimeout(() => import('./tabs/story.js').then((m) => m.startStoryPrompt(ctx)).catch(() => {}), 15000);
 ctx.openWelcome = (opts) => lazyWelcome().then((m) => m.openWelcome(opts));
 // The setup code (and the account screens it uses) is only downloaded when the setup is actually needed.
 cloud.ready.then(() => {

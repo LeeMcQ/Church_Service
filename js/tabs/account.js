@@ -57,7 +57,7 @@ export function signInBox({ onDone, compact = false } = {}) {
 export function statsToggle() {
   return h('div.col', { style: { gap: '6px' } },
     toggle('Help improve Church Service: send usage statistics', settings.v.app.stats === true, (v) => { settings.set('app.stats', v); if (v) cloud.ping(); }),
-    h('p.note', 'Counts only: how many minutes the app is used and presenting, how often Bible verses, hymns, slides and videos go on screen, the app version, browser and screen layout, and your church’s name and town. Never what you show. ',
+    h('p.note', 'Recorded only while you are signed in, also without internet (sent when you are online again). Switch it off here at any time. Counted: minutes the app is used and presenting (and how many without internet); which hymns (number and title) and Bible passages (the reference) go on screen; which features are used; searches for a hymn number or reference that found nothing; the equipment (system, screen size, extra screens, sound set-up); your church’s name, town and approximate place (to about 10 km); the language of your services; and when the setup was finished. Never your slides, pictures, videos, sermons or anything you type. ',
       h('a', { href: 'privacy.html', target: '_blank', rel: 'noopener' }, 'Privacy notice')));
 }
 
@@ -121,6 +121,7 @@ export function accountSection(box, ctx) {
         h('div.row.wrap',
           h('button.btn', { type: 'button', onclick: () => openFeedback(ctx) }, icon('msg'), h('span', 'Send a comment or suggestion')),
           h('button.btn', { type: 'button', onclick: myFeedback }, icon('info'), h('span', 'My messages and replies')),
+          h('button.btn', { type: 'button', onclick: () => import('./story.js').then((m) => m.openStory()) }, icon('msg'), h('span', 'Tell us your story')),
           cloud.admin ? h('a.btn.primary', { href: 'admin.html', target: '_blank', rel: 'noopener' }, icon('grid'), h('span', 'Statistics and feedback (maintainer)')) : null,
           h('button.btn', { type: 'button', onclick: async () => { await cloud.signOut(); toast('Signed out.', 'ok'); } }, icon('x'), h('span', 'Sign out')),
           h('button.btn.danger', { type: 'button', onclick: async () => {

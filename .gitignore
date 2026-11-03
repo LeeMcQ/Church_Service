@@ -17,3 +17,5 @@ __pycache__/
 
 # The lossless SoundFont is a build step; the app uses data/music/hymnal.sf3
 data/music/*.sf2
+report.html
+report.txt

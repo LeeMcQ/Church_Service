@@ -2,9 +2,13 @@
 // statistics, and feedback. Everything here is optional and best-effort: without internet (or without a cloud
 // set up) the app works as before; counts and messages wait on this device and are sent later.
 //
-// What is counted (only while "Help improve Church Service" is on): minutes the app is in use, minutes a
-// projector is connected, how often each kind of item goes on screen (Bible, hymn, slides …), the app version,
-// browser, screen layout, and the church name and town from Settings → Church. Never what is shown.
+// What is counted (only after signing in, and while "Help improve …" is on): minutes the app is in use and
+// presenting (and how many of those without internet), how often each kind of item goes on screen, which hymns
+// (number and title) and Bible passages (the reference) were shown, which features were used, searches that found
+// nothing (only when they look like a hymn number or a reference), the equipment (system, screens, sound set-up),
+// the church name, town and approximate place (rounded to about 10 km), the language of the services, and when
+// the setup was finished. Never slides, pictures, videos, sermons or anything typed. See js/core/stats.js.
+// Everything waits on this device (up to 60 days) and is sent when there is internet.
 import { CLOUD } from './cloud-config.js';
 import { emitter } from './util.js';
 import { lsKey } from './storens.js';
@@ -122,18 +126,24 @@ async function fromRedirect() {
 }
 
 // ------------------------------------------------------------ usage statistics
-cloud.statsOn = () => cloud.enabled() && settings.v.app.stats === true;
+// Recorded only for a signed-in account that has statistics on (it keeps recording offline: the session stays).
+cloud.statsOn = () => cloud.enabled() && !!cloud.user && settings.v.app.stats === true;
+cloud.APP = 'church-service';
 const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
 function pending() { try { return JSON.parse(LS(K_PENDING) || '{}') || {}; } catch (e) { return {}; } }
 function addUsage(fn) {
   if (!cloud.statsOn()) return;
   const p = pending();
   const d = today();
-  p[d] = p[d] || { minutes: 0, presenting: 0, items: {} };
+  p[d] = Object.assign({ minutes: 0, presenting: 0, items: {} }, p[d] || {});
   fn(p[d]);
   Object.keys(p).sort().slice(0, -60).forEach((k) => { delete p[k]; }); // keep at most 60 days waiting
   LS(K_PENDING, JSON.stringify(p));
 }
+/** Add to today's counts (js/core/stats.js): fn(day) changes the day's record. */
+cloud.addDay = (fn) => addUsage(fn);
+/** Extra details sent with each report (js/core/stats.js fills it: equipment, place, language, setup times). */
+cloud.extraInfo = () => ({});
 /** Something went on screen (only the kind is counted: bible, hymns, slides, video, ai, web, …). */
 cloud.count = (kind) => addUsage((day) => { if (kind) day.items[kind] = (day.items[kind] || 0) + 1; });
 
@@ -147,7 +157,8 @@ cloud.track = ({ presenting, layout } = {}) => {
   setInterval(() => {
     const pres = !!presentingFn();
     const using = pres || (document.visibilityState === 'visible' && Date.now() - lastInput < 10 * 60000);
-    if (using) addUsage((d) => { d.minutes++; if (pres) d.presenting++; });
+    if (using) addUsage((d) => { d.minutes++; if (pres) { d.presenting++; if (navigator.onLine === false) d.offline = (d.offline || 0) + 1; } });
+    if (using) cloud.emit('minute', { presenting: pres });
   }, 60000);
   setTimeout(() => cloud.ping(), 20000);
   setInterval(() => cloud.ping(), 15 * 60000);
@@ -171,19 +182,35 @@ cloud.ping = async (force, leaving) => {
   const days = Object.keys(p).map((day) => Object.assign({ day }, p[day]));
   const c = settings.v.church || {};
   const { os, br } = platform();
-  const info = cloud.statsOn() ? { church: (c.name || '').trim(), town: (c.town || '').trim(), country: (c.country || '').trim(), platform: os, browser: br,
-    version: cloud.version, layout: layoutFn() || '', lang: (navigator.language || '').slice(0, 5) } : { version: cloud.version };
+  let extra = {};
+  try { extra = cloud.statsOn() ? (cloud.extraInfo() || {}) : {}; } catch (e) { extra = {}; }
+  const info = cloud.statsOn() ? Object.assign({ church: (c.name || '').trim(), town: (c.town || '').trim(), country: (c.country || '').trim(), platform: os, browser: br,
+    version: cloud.version, layout: layoutFn() || '', lang: (navigator.language || '').slice(0, 5), app: cloud.APP }, extra) : { version: cloud.version, app: cloud.APP };
   pinging = true;
   try {
-    await cloud.rpc('ping', { p_install: cloud.installId(), p_info: info, p_days: days }, { keepalive: !!leaving, timeout: leaving ? 5000 : 15000 });
-    // Sent: take off what was sent (minutes counted meanwhile stay).
+    const ver = await cloud.rpc('ping', { p_install: cloud.installId(), p_info: info, p_days: days }, { keepalive: !!leaving, timeout: leaving ? 5000 : 15000 });
+    // An older database (before supabase/schema.sql was run again) only stores minutes and kinds of items: the other
+    // counts stay on this device until it answers 2.
+    const BASE = ['day', 'minutes', 'presenting', 'items'];
+    if (ver !== 2) days.forEach((d) => Object.keys(d).forEach((k) => { if (!BASE.includes(k)) delete d[k]; }));
+    // Sent: take off what was sent (whatever was counted meanwhile stays for the next report).
     const now = pending();
     days.forEach((d) => {
       const n = now[d.day];
       if (!n) return;
-      n.minutes = Math.max(0, n.minutes - d.minutes); n.presenting = Math.max(0, n.presenting - d.presenting);
-      Object.keys(d.items || {}).forEach((k) => { n.items[k] = Math.max(0, (n.items[k] || 0) - d.items[k]); if (!n.items[k]) delete n.items[k]; });
-      if (!n.minutes && !n.presenting && !Object.keys(n.items).length) delete now[d.day];
+      Object.keys(d).forEach((k) => {
+        if (k === 'day') return;
+        const sent = d[k], cur = n[k];
+        if (typeof sent === 'number') { n[k] = Math.max(0, (+cur || 0) - sent); if (!n[k]) delete n[k]; return; }
+        if (!sent || typeof sent !== 'object' || !cur || typeof cur !== 'object') return;
+        Object.keys(sent).forEach((x) => {
+          // "peak" holds the most screens or phones seen at once: sent once, kept only if it grew since.
+          if (k === 'peak') { if ((+cur[x] || 0) <= (+sent[x] || 0)) delete cur[x]; return; }
+          cur[x] = Math.max(0, (+cur[x] || 0) - (+sent[x] || 0)); if (!cur[x]) delete cur[x];
+        });
+        if (!Object.keys(cur).length) delete n[k];
+      });
+      if (!Object.keys(n).some((k) => (typeof n[k] === 'number' ? n[k] > 0 : n[k] && Object.keys(n[k]).length))) delete now[d.day];
     });
     LS(K_PENDING, JSON.stringify(now));
     cloud.lastPing = Date.now();
@@ -193,6 +220,7 @@ cloud.ping = async (force, leaving) => {
 // ------------------------------------------------------------ feedback
 function outbox() { try { return JSON.parse(LS(K_OUTBOX) || '[]') || []; } catch (e) { return []; } }
 async function flushOutbox() {
+  flushStories();
   const box = outbox();
   if (!box.length || !cloud.enabled() || navigator.onLine === false) return;
   const left = [];
@@ -209,6 +237,26 @@ cloud.feedback = async ({ kind, message, email, page, info }) => {
     throw e;
   }
 };
+// ------------------------------------------------------------ how they heard of the app, and their story
+const K_STORIES = lsKey('cloud.stories');
+function storyBox() { try { return JSON.parse(LS(K_STORIES) || '[]') || []; } catch (e) { return []; } }
+async function flushStories() {
+  const box = storyBox();
+  if (!box.length || !cloud.enabled() || navigator.onLine === false) return;
+  const left = [];
+  for (const m of box) { try { await cloud.rpc('send_story', m); } catch (e) { if (!/too long|Too many|not signed in/i.test(e.message)) left.push(m); } }
+  LS(K_STORIES, left.length ? JSON.stringify(left) : null);
+}
+/** How the church heard of the app and how it changed their services. Waits on this device without internet. */
+cloud.story = async ({ referral, referralOther, story, mayQuote }) => {
+  const c = settings.v.church || {};
+  const m = { p_install: cloud.installId(), p_app: cloud.APP, p_church: (c.name || '').trim(), p_town: (c.town || '').trim(), p_referral: referral || '',
+    p_referral_other: referralOther || '', p_story: story || '', p_may_quote: !!mayQuote };
+  LS(K_STORIES, JSON.stringify(storyBox().concat([m])));
+  await flushStories();
+  return storyBox().length ? 'queued' : 'sent';
+};
+
 /** The signed-in person's own messages, with the maintainer's replies. */
 cloud.myFeedback = () => call('/rest/v1/feedback?select=id,kind,message,status,reply,created_at,updated_at&order=created_at.desc&limit=50');
 

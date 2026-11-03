@@ -79,7 +79,7 @@ jobs:
       - name: Collect the web app
         run: |
           mkdir -p site
-          cp -r index.html display.html stage.html obs.html privacy.html terms.html companion.html feedback.html admin.html oauth.html manifest.webmanifest sw.js asset-manifest.json css js vendor fonts icons data site/
+          cp -r index.html display.html stage.html obs.html privacy.html terms.html companion.html feedback.html admin.html oauth.html manifest.webmanifest sw.js asset-manifest.json css js vendor fonts icons data admin site/
           touch site/.nojekyll
       - name: Offline web app zip (emergency copy)
         run: |
